@@ -22,7 +22,7 @@ std = []
 [dependencies]
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.7"
 tempfile = "3"
 
 [profile.bench]
