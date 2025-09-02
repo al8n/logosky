@@ -1,7 +1,4 @@
-use core::{
-  marker::PhantomData,
-  ops::Range,
-};
+use core::ops::Range;
 
 use chumsky::input::{ExactSizeInput, Input, ValueInput};
 
@@ -10,7 +7,7 @@ use logos::Logos;
 pub use require::Require;
 pub use source::{DisplaySource, SourceDisplay, Source, SourceExt};
 pub use span::*;
-pub use token::{TokenResult, Token};
+pub use token::{Lexed, Token};
 
 mod error;
 mod require;
@@ -69,9 +66,9 @@ where
 {
   type Span = span::Span<<T as Logos<'a>>::Extras>;
 
-  type Token = TokenResult<'a, T>;
+  type Token = Lexed<'a, T>;
 
-  type MaybeToken = TokenResult<'a, T>;
+  type MaybeToken = Lexed<'a, T>;
 
   type Cursor = usize;
 
@@ -94,9 +91,10 @@ where
   ) -> Option<Self::MaybeToken> {
     let mut lexer = logos::Lexer::<T>::with_extras(this.input, this.state);
     lexer.bump(*cursor);
-    lexer.next().inspect(|_| {
+    lexer.next().map(|res| {
       *cursor += lexer.span().len();
       this.state = lexer.extras;
+      res.into()
     })
   }
 
@@ -191,10 +189,10 @@ mod tests {
 
     let mut cursor = 0;
     let tok = unsafe { <TokenStream<'_, Tok<'_>> as ValueInput>::next(&mut lexer, &mut cursor) };
-    assert_eq!(tok, Some(Ok(Tok::Let)));
+    assert_eq!(tok, Some(Lexed::Token(Tok::Let)));
 
     let tok = unsafe { <TokenStream<'_, Tok<'_>> as ValueInput>::next(&mut lexer, &mut cursor) };
-    assert_eq!(tok, Some(Ok(Tok::Ident("x"))));
+    assert_eq!(tok, Some(Lexed::Token(Tok::Ident("x"))));
   }
 
   // #[derive(logos::Logos, Debug, Clone, Copy, PartialEq, Eq)]

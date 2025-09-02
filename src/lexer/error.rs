@@ -120,12 +120,12 @@ where
 {
   fn expected_found<E: IntoIterator<Item = L>>(
     _expected: E,
-    found: Option<MaybeRef<'a, TokenResult<'a, T>>>,
+    found: Option<MaybeRef<'a, Lexed<'a, T>>>,
     span: Span<T::Extras>,
   ) -> Self {
     match found {
-      Some(Maybe::Ref(Ok(tok))) => Simple::new(Some(Maybe::Ref(tok)), span),
-      Some(Maybe::Val(Ok(tok))) => Simple::new(Some(Maybe::Val(tok)), span),
+      Some(Maybe::Ref(Lexed::Token(tok))) => Simple::new(Some(Maybe::Ref(tok)), span),
+      Some(Maybe::Val(Lexed::Token(tok))) => Simple::new(Some(Maybe::Val(tok)), span),
       _ => Simple::new(None, span),
     }
   }
@@ -149,22 +149,21 @@ where
   }
 }
 
-
-impl<'a, T> LabelError<'a, TokenStream<'a, T>, LexerError<'a, T>> for Rich<'a, T, Span<T::Extras>> 
-where
-  T: Token<'a>,
-  T::Error: core::fmt::Display,
-  T::Extras: Copy,
-{
-  fn expected_found<E: IntoIterator<Item = LexerError<'a, T>>>(
-    expected: E,
-    found: Option<MaybeRef<'a, TokenResult<'a, T>>>,
-    span: Span<T::Extras>,
-  ) -> Self {
-    match found {
-      Some(Maybe::Ref(Ok(tok))) => Self::custom(span, tok),
-      Some(Maybe::Val(Ok(tok))) => Self::new(Some(Maybe::Val(tok)), span),
-      _ => Self::new(None, span),
-    }
-  }
-}
+// impl<'a, T> LabelError<'a, TokenStream<'a, T>, LexerError<'a, T>> for Rich<'a, T, Span<T::Extras>> 
+// where
+//   T: Token<'a>,
+//   T::Error: core::fmt::Display,
+//   T::Extras: Copy,
+// {
+//   fn expected_found<E: IntoIterator<Item = LexerError<'a, T>>>(
+//     expected: E,
+//     found: Option<MaybeRef<'a, Lexed<'a, T>>>,
+//     span: Span<T::Extras>,
+//   ) -> Self {
+//     match found {
+//       Some(Maybe::Ref(Lexed::Token(tok))) => Self::custom(span, tok),
+//       Some(Maybe::Val(Lexed::Token(tok))) => Self::new(Some(Maybe::Val(tok)), span),
+//       _ => Self::new(None, span),
+//     }
+//   }
+// }

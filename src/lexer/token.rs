@@ -1,11 +1,9 @@
 use core::num::NonZeroUsize;
 
-use chumsky::{Parser, primitive::any};
+use chumsky::{Parser, primitive::any, span};
 
 
 use crate::{lexer::Require, require_token_parser_fn};
-
-use super::Span;
 
 pub use logos::Logos;
 
@@ -13,8 +11,66 @@ pub use logos::Logos;
 pub mod kind;
 
 
-/// The type alias for a token result
-pub type TokenResult<'a, T> = Result<T, <T as Logos<'a>>::Error>;
+/// An item produced by the lexer: either a recognized token `T` or a lexing error.
+///
+/// `Lexed` lets you keep errors *in* the stream so you can continue scanning and
+/// report multiple diagnostics in one pass, or filter them out later.
+#[derive(
+  Debug,
+  Clone,
+  Copy,
+  PartialEq,
+  Eq,
+  derive_more::IsVariant,
+  derive_more::Unwrap,
+  derive_more::TryUnwrap
+)]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
+pub enum Lexed<'a, T: Token<'a>> {
+  /// A successfully recognized token.
+  Token(T),
+
+  /// A lexing error produced while scanning.
+  ///
+  /// This usually contains enough information to render a diagnostic
+  /// (e.g., span/byte range and an error kind/message).
+  Error(T::Error),
+}
+
+impl<'a, T> core::fmt::Display for Lexed<'a, T>
+where
+  T: Token<'a>,
+  T::Error: core::fmt::Display,
+{
+  #[inline]
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self {
+      Self::Token(tok) => ::core::fmt::Display::fmt(tok, f),
+      Self::Error(err) => err.fmt(f),
+    }
+  }
+}
+
+impl<'a, T: Token<'a>> From<Result<T, T::Error>> for Lexed<'a, T> {
+  #[inline(always)]
+  fn from(value: Result<T, T::Error>) -> Self {
+    match value {
+      Ok(tok) => Self::Token(tok),
+      Err(err) => Self::Error(err),
+    }
+  }
+}
+
+impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, T::Error> {
+  #[inline(always)]
+  fn from(value: Lexed<'a, T>) -> Self {
+    match value {
+      Lexed::Token(tok) => Ok(tok),
+      Lexed::Error(err) => Err(err),
+    }
+  }
+}
 
 /// The token trait.
 pub trait Token<'a>: Logos<'a> + core::fmt::Debug + core::fmt::Display + 'a {}
