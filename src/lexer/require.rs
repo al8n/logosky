@@ -1,4 +1,4 @@
-use super::{LexerError, Token};
+use super::{LexError, Token};
 
 /// A macro to create a parser fn for a specific token kind
 ///
@@ -42,9 +42,7 @@ macro_rules! require_token_parser_fn {
         <
           <$t as $crate::__private::chumsky::input::Input<$lt>>::Token as $crate::__private::Require<
             $lt,
-            <$t as $crate::__private::Tokenizer<$lt>>::Source,
             <$t as $crate::__private::chumsky::input::Input<$lt>>::Token,
-            <$t as $crate::__private::Tokenizer<$lt>>::State,
             $tk,
           >
         >::Output,
@@ -54,26 +52,19 @@ macro_rules! require_token_parser_fn {
         $t: $crate::__private::Tokenizer<$lt>,
         <$t as $crate::__private::chumsky::input::Input<$lt>>::Token: $crate::__private::Require<
           $lt,
-          <$t as $crate::__private::Tokenizer<$lt>>::Source,
           <$t as $crate::__private::chumsky::input::Input<$lt>>::Token,
-          <$t as $crate::__private::Tokenizer<$lt>>::State,
           $tk,
         >,
         <$t as $crate::__private::chumsky::input::Input<$lt>>::Token: $crate::__private::token::Token<
           $lt,
-          <$t as $crate::__private::Tokenizer<$lt>>::Source,
-          <$t as $crate::__private::Tokenizer<$lt>>::State,
         >,
         $($g: ::core::marker::Copy + 'a,)*
         $e: $crate::__private::chumsky::extra::ParserExtra<$lt, $t>,
         <$e as $crate::__private::chumsky::extra::ParserExtra<$lt, $t>>::Error:
-          ::core::convert::From<
-            $crate::__private::LexerError<
-              $lt,
-              <$t as $crate::__private::Tokenizer<$lt>>::Source,
-              <$t as $crate::__private::chumsky::input::Input<$lt>>::Token,
-              <$t as $crate::__private::Tokenizer<$lt>>::State,
-            >,
+          $crate::__private::FromLexError<
+            $lt,
+            <$t as $crate::__private::chumsky::input::Input<$lt>>::Token,
+            <$t as $crate::__private::chumsky::input::Input<$lt>>::Span,
           >,
       {
         $expr
@@ -88,7 +79,7 @@ pub trait Require<'a, T, Spec> {
   type Output;
 
   /// Requires the token to match the given specification, returning a lexer error if it does not.
-  fn require(self, spec: Spec) -> Result<Self::Output, LexerError<'a, T>>
+  fn require(self, spec: Spec) -> Result<Self::Output, LexError<'a, T>>
   where
     T: Token<'a>,
     Spec: Copy + 'a,

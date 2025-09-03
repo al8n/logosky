@@ -3,17 +3,15 @@ use core::ops::Range;
 use chumsky::input::{ExactSizeInput, Input, ValueInput};
 
 pub use error::*;
-use logos::Logos;
 pub use require::Require;
-pub use source::{DisplaySource, SourceDisplay, Source, SourceExt};
+pub use source::{DisplaySource, Source, SourceDisplay, SourceExt};
 pub use span::*;
-pub use token::{Lexed, Token};
+pub use token::{Lexed, Logos, Token};
 
 mod error;
 mod require;
 
 mod span;
-
 
 /// The token related structures and traits
 pub mod token;
@@ -44,10 +42,7 @@ impl<'a, T: Token<'a>> TokenStream<'a, T> {
   /// Creates a new lexer from the given input and state.
   #[inline(always)]
   pub const fn with_state(input: &'a T::Source, state: T::Extras) -> Self {
-    Self {
-      input,
-      state,
-    }
+    Self { input, state }
   }
 }
 
@@ -128,6 +123,17 @@ where
     Span::new(*range.start, cache.input.len(), cache.state)
   }
 }
+
+/// a
+pub trait Tokenizer<'a>: ValueInput<
+  'a,
+> {}
+
+impl<'a, T> Tokenizer<'a> for T
+where
+  T: ValueInput<'a>,
+  T::Token: Token<'a,>,
+{}
 
 
 #[cfg(test)]

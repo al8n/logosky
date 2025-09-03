@@ -16,6 +16,6 @@ mod lexer;
 
 #[doc(hidden)]
 mod __private {
-  pub use super::lexer::{LexerError, Require, token};
+  pub use super::lexer::{Tokenizer, FromLexError, Require, token};
   pub use chumsky;
 }

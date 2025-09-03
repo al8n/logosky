@@ -1,9 +1,8 @@
 use std::{borrow::Cow, string::String};
 
 use chumsky::{
-  error::{EmptyErr, Rich, RichPattern, Simple},
+  error::{EmptyErr, Cheap, Rich, RichPattern, Simple},
   label::LabelError,
-  span::SimpleSpan,
   util::{Maybe, MaybeRef},
 };
 
@@ -11,7 +10,7 @@ use super::*;
 
 /// The lexer error
 #[derive(Debug, Clone, derive_more::IsVariant)]
-pub enum LexerError<'a, T>
+pub enum LexError<'a, T>
 where
   T: Token<'a>,
 {
@@ -30,7 +29,7 @@ where
   Other(Cow<'static, str>),
 }
 
-impl<'a, T> core::fmt::Display for LexerError<'a, T>
+impl<'a, T> core::fmt::Display for LexError<'a, T>
 where
   T: Token<'a>,
   T::Error: core::fmt::Display,
@@ -48,13 +47,13 @@ where
   }
 }
 
-impl<'a, T> core::error::Error for LexerError<'a, T>
+impl<'a, T> core::error::Error for LexError<'a, T>
 where
   T: Token<'a>,
   T::Error: core::fmt::Display,
 {}
 
-impl<'a, T> LexerError<'a, T>
+impl<'a, T> LexError<'a, T>
 where
   T: Token<'a>,
 {
@@ -83,7 +82,7 @@ where
   }
 }
 
-impl<'a, T> From<&'static str> for LexerError<'a, T>
+impl<'a, T> From<&'static str> for LexError<'a, T>
 where
   T: Token<'a>,
 {
@@ -93,7 +92,7 @@ where
   }
 }
 
-impl<'a, T> From<String> for LexerError<'a, T>
+impl<'a, T> From<String> for LexError<'a, T>
 where
   T: Token<'a>,
 {
@@ -103,13 +102,37 @@ where
   }
 }
 
-impl<'a, T> From<Cow<'static, str>> for LexerError<'a, T>
+impl<'a, T> From<Cow<'static, str>> for LexError<'a, T>
 where
   T: Token<'a>,
 {
   #[inline(always)]
   fn from(e: Cow<'static, str>) -> Self {
     Self::Other(e)
+  }
+}
+
+impl<'a, T> FromLexError<'a, T, Span<T::Extras>> for EmptyErr
+where
+  T: Token<'a>,
+  T::Extras: Copy,
+{
+  #[inline]
+  fn from_lex_error(_: LexError<'a, T>, span: Span<T::Extras>) -> Self where T: Token<'a> {
+    // empty error make no sense, so create it from token stream has no problem.
+    <Self as LabelError<'_, super::TokenStream<'_, T>, &str>>::expected_found([], None, span)
+  }
+}
+
+impl<'a, T> FromLexError<'a, T, Span<T::Extras>> for Cheap<Span<T::Extras>>
+where
+  T: Token<'a>,
+  T::Extras: Copy,
+{
+  #[inline]
+  fn from_lex_error(_: LexError<'a, T>, span: Span<T::Extras>) -> Self where T: Token<'a> {
+    // cheap error only contains the span, so create it from token stream has no problem.
+    <Self as LabelError<'_, super::TokenStream<'_, T>, &str>>::expected_found([], None, span)
   }
 }
 
@@ -131,39 +154,59 @@ where
   }
 }
 
-impl<'a, T> From<LexerError<'a, T>> for RichPattern<'a, T>
+impl<'a, T, S> FromLexError<'a, T, S> for Simple<'a, LexError<'a, T>, S> 
+where
+  T: Token<'a>,
+  T::Extras: Copy,
+{
+  #[inline]
+  fn from_lex_error(value: LexError<'a, T>, span: S) -> Self where T: Token<'a> {
+    Self::new(Some(Maybe::Val(value)), span)
+  }
+}
+
+impl<'a, T> From<LexError<'a, T>> for RichPattern<'a, T>
 where
   T: Token<'a>,
   T::Error: core::fmt::Display,
 {
   #[inline(always)]
-  fn from(value: LexerError<'a, T>) -> Self {
+  fn from(value: LexError<'a, T>) -> Self {
     match value {
-      LexerError::UnexpectedToken { expected, found } => {
+      LexError::UnexpectedToken { expected, found } => {
         Self::Label(format!("unexpected token: expected {expected}, found {found}").into())
       }
-      LexerError::Token(err) => Self::Label(err.to_string().into()),
-      LexerError::EndOfInput => Self::EndOfInput,
-      LexerError::Other(cow) => Self::Label(cow),
+      LexError::Token(err) => Self::Label(err.to_string().into()),
+      LexError::EndOfInput => Self::EndOfInput,
+      LexError::Other(cow) => Self::Label(cow),
     }
   }
 }
 
-// impl<'a, T> LabelError<'a, TokenStream<'a, T>, LexerError<'a, T>> for Rich<'a, T, Span<T::Extras>> 
-// where
-//   T: Token<'a>,
-//   T::Error: core::fmt::Display,
-//   T::Extras: Copy,
-// {
-//   fn expected_found<E: IntoIterator<Item = LexerError<'a, T>>>(
-//     expected: E,
-//     found: Option<MaybeRef<'a, Lexed<'a, T>>>,
-//     span: Span<T::Extras>,
-//   ) -> Self {
-//     match found {
-//       Some(Maybe::Ref(Lexed::Token(tok))) => Self::custom(span, tok),
-//       Some(Maybe::Val(Lexed::Token(tok))) => Self::new(Some(Maybe::Val(tok)), span),
-//       _ => Self::new(None, span),
-//     }
-//   }
-// }
+impl<'a, T> FromLexError<'a, T, Span<T::Extras>> for Rich<'a, T, Span<T::Extras>>
+where
+  T: Token<'a> + PartialEq,
+  T::Error: core::fmt::Display,
+  &'a T::Source: Input<'a, Token = T, Span = Span<T::Extras>>,
+{
+  #[inline]
+  fn from_lex_error(value: LexError<'a, T>, span: Span<<T>::Extras>) -> Self where T: Token<'a> {
+    match value {
+      LexError::UnexpectedToken { expected, found } => {
+        match expected {
+          Cow::Borrowed(exp) => <Rich<'a, T, Span<T::Extras>> as LabelError<'_, &T::Source, _>>::expected_found([exp], Some(Maybe::Val(found)), span),
+          Cow::Owned(exp) => <Rich<'a, T, Span<T::Extras>> as LabelError<'_, &T::Source, _>>::expected_found([exp], Some(Maybe::Val(found)), span),
+        }
+      }
+      LexError::Token(err) => Self::custom(span, err.to_string()),
+      LexError::EndOfInput => Self::custom(span, "end of input"),
+      LexError::Other(cow) => Self::custom(span, cow),
+    }
+  }
+}
+
+/// A trait for converting a lexer error into the target error.
+pub trait FromLexError<'a, T, S> {
+  /// Converts a lexer error into the target error with the span
+  fn from_lex_error(value: LexError<'a, T>, span: S) -> Self where T: Token<'a>;
+}

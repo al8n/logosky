@@ -29,9 +29,10 @@ impl logos::Source for CustomSource<Bytes> {
   {
     // Safety:
     // The get method returns a slice, which is valid
-    self.0.get(offset..).map(|slice| unsafe {
-      <Chunk as logos::source::Chunk<'a>>::from_ptr(slice.as_ptr())
-    })
+    self
+      .0
+      .get(offset..)
+      .map(|slice| unsafe { <Chunk as logos::source::Chunk<'a>>::from_ptr(slice.as_ptr()) })
   }
 
   #[inline(always)]
