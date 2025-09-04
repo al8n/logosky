@@ -76,9 +76,9 @@ impl<'a, T> Token<'a> for T where T: Logos<'a> + core::fmt::Debug + core::fmt::D
 require_token_parser_fn! {
   /// Returns a parser which parses a token and requires the parsed token to be of a specific specification.
   pub fn require_token<'a, I, E, Spec>(spec: Spec) -> Spec {
-    any().try_map(move |tok: I::Token, sp| {
-      tok.require(spec)
-        .map_err(|val| FromLexError::from_lex_error(val, sp))
+    any().try_map_with(move |tok: I::Token, exa| {
+      tok.require(exa.slice(), exa.span(), spec)
+        .map_err(|err| FromLexError::from_lex_error(err, exa.span()))
     })
   }
 

@@ -1,4 +1,4 @@
-use super::{LexError, Token};
+use super::Token;
 
 /// A macro to create a parser fn for a specific token kind
 ///
@@ -42,7 +42,6 @@ macro_rules! require_token_parser_fn {
         <
           <$t as $crate::__private::chumsky::input::Input<$lt>>::Token as $crate::__private::Require<
             $lt,
-            <$t as $crate::__private::chumsky::input::Input<$lt>>::Token,
             $tk,
           >
         >::Output,
@@ -52,8 +51,9 @@ macro_rules! require_token_parser_fn {
         $t: $crate::__private::Tokenizer<$lt>,
         <$t as $crate::__private::chumsky::input::Input<$lt>>::Token: $crate::__private::Require<
           $lt,
-          <$t as $crate::__private::chumsky::input::Input<$lt>>::Token,
           $tk,
+          Input = <$t as $crate::__private::chumsky::input::SliceInput<$lt>>::Slice,
+          Span = <$t as $crate::__private::chumsky::input::Input<$lt>>::Span,
         >,
         <$t as $crate::__private::chumsky::input::Input<$lt>>::Token: $crate::__private::token::Token<
           $lt,
@@ -74,14 +74,18 @@ macro_rules! require_token_parser_fn {
 }
 
 /// A requirement for a spec.
-pub trait Require<'a, T, Spec> {
+pub trait Require<'a, Spec> {
+  /// The input type of the requirement
+  type Input: 'a;
   /// The output type of the requirement.
-  type Output;
+  type Output: 'a;
+  /// The span type of the requirement.
+  type Span: 'a;
 
   /// Requires the token to match the given specification, returning a lexer error if it does not.
-  fn require(self, spec: Spec) -> Result<Self::Output, LexError<'a, T>>
+  fn require(self, src: Self::Input, span: Self::Span, spec: Spec) -> Result<Self::Output, Self::Error>
   where
-    T: Token<'a>,
+    Self: Token<'a>,
     Spec: Copy + 'a,
     Self::Output: 'a;
 }

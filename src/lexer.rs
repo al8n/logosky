@@ -1,6 +1,6 @@
 use core::ops::Range;
 
-use chumsky::input::{ExactSizeInput, Input, ValueInput};
+use chumsky::input::{ExactSizeInput, Input, SliceInput, ValueInput};
 
 pub use error::*;
 pub use require::Require;
@@ -124,17 +124,38 @@ where
   }
 }
 
-/// a
-pub trait Tokenizer<'a>: ValueInput<
-  'a,
-> {}
+impl<'a, T> SliceInput<'a> for TokenStream<'a, T>
+where
+  T: Token<'a>,
+  <T as Logos<'a>>::Extras: Copy,
+  <T::Source as logos::Source>::Slice<'a>: Clone,
+{
+  type Slice = Option<<T::Source as logos::Source>::Slice<'a>>;
+
+  #[inline(always)]
+  fn full_slice(cache: &mut Self::Cache) -> Self::Slice {
+    cache.input.slice(0..cache.input.len())
+  }
+
+  #[inline(always)]
+  unsafe fn slice(cache: &mut Self::Cache, range: Range<&Self::Cursor>) -> Self::Slice {
+    <T::Source as logos::Source>::slice(cache.input, *range.start..*range.end)
+  }
+
+  #[inline(always)]
+  unsafe fn slice_from(cache: &mut Self::Cache, from: core::ops::RangeFrom<&Self::Cursor>) -> Self::Slice {
+    <T::Source as logos::Source>::slice(cache.input, *from.start..cache.input.len())
+  }
+}
+
+/// Tokenizer trait
+pub trait Tokenizer<'a>: SliceInput<'a> + ValueInput<'a> {}
 
 impl<'a, T> Tokenizer<'a> for T
 where
-  T: ValueInput<'a>,
-  T::Token: Token<'a,>,
+  T: SliceInput<'a> + ValueInput<'a>,
+  T::Token: Token<'a>,
 {}
-
 
 #[cfg(test)]
 mod tests {
@@ -153,40 +174,20 @@ mod tests {
     Ident(&'a str),
     #[regex(r"[0-9]+")]
     Number,
-    Error(()),
   }
 
   impl core::fmt::Display for Tok<'_> {
+    #[inline]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
       match self {
-        Tok::Let => write!(f, "let"),
-        Tok::Eq => write!(f, "="),
-        Tok::Semicolon => write!(f, ";"),
-        Tok::Ident(_) => write!(f, "identifier"),
-        Tok::Number => write!(f, "number"),
-        Tok::Error(_) => write!(f, "error"),
+        Self::Let => write!(f, "let"),
+        Self::Eq => write!(f, "="),
+        Self::Semicolon => write!(f, ";"),
+        Self::Ident(_) => write!(f, "identifier"),
+        Self::Number => write!(f, "number"),
       }
     }
   }
-
-  impl From<()> for Tok<'_> {
-    fn from(value: ()) -> Self {
-      Tok::Error(value)
-    }
-  }
-
-  // impl<'a> super::Token<'a> for Tok {
-  //   fn with_state_error(self, _err: <Self::Extras as State>::Error) -> Self
-  //   where
-  //     Self::Extras: State,
-  //   {
-  //     self
-  //   }
-
-  //   fn check(self) -> Result<Self, <Self as logos::Logos<'a>>::Error> {
-  //     Ok(self)
-  //   }
-  // }
 
   #[test]
   fn test_lexer() {
@@ -228,12 +229,6 @@ mod tests {
   //       Self::Number => write!(f, "number"),
   //       Self::Error(_) => write!(f, "error"),
   //     }
-  //   }
-  // }
-
-  // impl From<()> for TokBytes {
-  //   fn from(value: ()) -> Self {
-  //     Self::Error(value)
   //   }
   // }
 
