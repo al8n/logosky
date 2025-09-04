@@ -157,6 +157,91 @@ where
   T::Token: Token<'a>,
 {}
 
+/// A trait for checking if a token is an ASCII character.
+pub trait IsAsciiChar {
+  /// Returns `true` if self is equal to the given ASCII character.
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool;
+}
+
+impl<T> IsAsciiChar for &T
+where
+  T: IsAsciiChar,
+{
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    <T as IsAsciiChar>::is_ascii_char(*self, ch)
+  }
+}
+
+impl<T> IsAsciiChar for &mut T
+where
+  T: IsAsciiChar,
+{
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    <T as IsAsciiChar>::is_ascii_char(*self, ch)
+  }
+}
+
+impl<T> IsAsciiChar for source::CustomSource<T> 
+where
+  T: IsAsciiChar,
+{
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    self.as_ref().is_ascii_char(ch)
+  }
+}
+
+impl IsAsciiChar for char {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    if self.is_ascii() {
+      *self as u8 == ch as u8
+    } else {
+      false
+    }
+  }
+}
+
+impl IsAsciiChar for u8 {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    *self == ch as u8
+  }
+}
+
+impl IsAsciiChar for str {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    self.len() == 1 && self.as_bytes()[0] == ch as u8
+  }
+}
+
+impl IsAsciiChar for [u8] {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    self.len() == 1 && self[0] == ch as u8
+  }
+}
+
+#[cfg(feature = "bstr")]
+impl IsAsciiChar for bstr::BStr {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    <[u8] as IsAsciiChar>::is_ascii_char(self, ch)
+  }
+}
+
+#[cfg(feature = "bytes")]
+impl IsAsciiChar for bytes::Bytes {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    <[u8] as IsAsciiChar>::is_ascii_char(self, ch)
+  }
+}
+
+
 #[cfg(test)]
 mod tests {
   use super::*;
