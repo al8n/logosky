@@ -8,9 +8,15 @@ pub struct PositionedChar<Char> {
 }
 
 impl<Char> PositionedChar<Char> {
-  /// Create a new positioned character.
+  /// Create a new positioned character with position 0.
   #[inline]
-  pub const fn new(char: Char, position: usize) -> Self {
+  pub const fn new(char: Char) -> Self {
+    Self::with_position(char, 0)
+  }
+
+  /// Create a new positioned character with the given position.
+  #[inline]
+  pub const fn with_position(char: Char, position: usize) -> Self {
     Self { char, position }
   }
 
