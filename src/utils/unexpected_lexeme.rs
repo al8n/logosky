@@ -71,6 +71,7 @@ impl<Char> UnexpectedLexemeKind<Char> {
 ///
 /// The hint typically implements `Display` in your error type, but it’s left
 /// unconstrained here so you can carry richer structured info.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnexpectedLexeme<Char, Hint> {
   kind: UnexpectedLexemeKind<Char>,
   hint: Hint,
