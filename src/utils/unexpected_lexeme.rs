@@ -4,15 +4,15 @@ use derive_more::{From, IsVariant, TryUnwrap, Unwrap};
 
 use super::PositionedChar;
 
-/// A compact, zero-copy description of the concrete lexeme that was unexpected.
+/// A compact, zero-copy description of a concrete lexeme in source.
 ///
-/// This enum does **not** own source text. It carries either:
+/// This enum does **not** own text. It carries either:
 /// - a single positioned character (`Char`), or
 /// - a half-open byte span into the original source (`Range<usize>`).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, IsVariant, Unwrap, TryUnwrap, From)]
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
-pub enum UnexpectedLexemeKind<Char> {
+pub enum Lexeme<Char> {
   /// A single unexpected character with its position.
   Char(PositionedChar<Char>),
 
@@ -24,16 +24,16 @@ pub enum UnexpectedLexemeKind<Char> {
   Span(Range<usize>),
 }
 
-impl<Char> UnexpectedLexemeKind<Char> {
-  /// Maps the contained character type to another type if the variant is [`Char`](UnexpectedLexemeKind::Char).
+impl<Char> Lexeme<Char> {
+  /// Maps the contained character type to another type if the variant is [`Char`](Lexeme::Char).
   #[inline]
-  pub fn map<F, NewChar>(self, f: F) -> UnexpectedLexemeKind<NewChar>
+  pub fn map<F, NewChar>(self, f: F) -> Lexeme<NewChar>
   where
     F: FnOnce(Char) -> NewChar,
   {
     match self {
-      Self::Char(pc) => UnexpectedLexemeKind::Char(pc.map(f)),
-      Self::Span(r) => UnexpectedLexemeKind::Span(r),
+      Self::Char(pc) => Lexeme::Char(pc.map(f)),
+      Self::Span(r) => Lexeme::Span(r),
     }
   }
 
@@ -73,32 +73,32 @@ impl<Char> UnexpectedLexemeKind<Char> {
 /// unconstrained here so you can carry richer structured info.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnexpectedLexeme<Char, Hint> {
-  kind: UnexpectedLexemeKind<Char>,
+  kind: Lexeme<Char>,
   hint: Hint,
 }
 
 impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// Creates a new `UnexpectedLexeme` from the given data and hint.
   #[inline(always)]
-  pub const fn new(kind: UnexpectedLexemeKind<Char>, hint: Hint) -> Self {
+  pub const fn new(kind: Lexeme<Char>, hint: Hint) -> Self {
     Self { kind, hint }
   }
 
   /// Construct from a positioned character.
   #[inline]
   pub const fn from_char(pc: PositionedChar<Char>, hint: Hint) -> Self {
-    Self::new(UnexpectedLexemeKind::Char(pc), hint)
+    Self::new(Lexeme::Char(pc), hint)
   }
 
   /// Construct from a byte span.
   #[inline]
   pub const fn from_span(span: Range<usize>, hint: Hint) -> Self {
-    Self::new(UnexpectedLexemeKind::Span(span), hint)
+    Self::new(Lexeme::Span(span), hint)
   }
 
-  /// Returns a reference to the unexpected lexeme kind.
+  /// Returns a reference to the unexpected lexeme.
   #[inline(always)]
-  pub const fn kind(&self) -> &UnexpectedLexemeKind<Char> {
+  pub const fn lexeme(&self) -> &Lexeme<Char> {
     &self.kind
   }
 
@@ -108,9 +108,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
     &self.hint
   }
 
-  /// Returns a mutable reference to the unexpected lexeme kind.
+  /// Returns a mutable reference to the unexpected lexeme.
   #[inline(always)]
-  pub const fn kind_mut(&mut self) -> &mut UnexpectedLexemeKind<Char> {
+  pub const fn lexeme_mut(&mut self) -> &mut Lexeme<Char> {
     &mut self.kind
   }
 
@@ -122,13 +122,13 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
 
   /// Consume into `(kind, hint)`.
   #[inline]
-  pub fn into_components(self) -> (UnexpectedLexemeKind<Char>, Hint) {
+  pub fn into_components(self) -> (Lexeme<Char>, Hint) {
     (self.kind, self.hint)
   }
 
-  /// Consume and return only the kind.
+  /// Consume and return only the lexeme.
   #[inline]
-  pub fn into_kind(self) -> UnexpectedLexemeKind<Char> {
+  pub fn into_lexeme(self) -> Lexeme<Char> {
     self.kind
   }
 
@@ -231,4 +231,3 @@ mod sealed {
     }
   }
 }
-
