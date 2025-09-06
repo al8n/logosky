@@ -1,5 +1,5 @@
 /// A positioned character.
-/// 
+///
 /// Which contains the character and its position in the source.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PositionedChar<Char> {

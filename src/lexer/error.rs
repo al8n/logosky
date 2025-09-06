@@ -31,7 +31,7 @@ where
 
 impl<'a, T> core::fmt::Display for LexError<'a, T>
 where
-  T: Token<'a>,
+  T: Token<'a> + core::fmt::Display,
   T::Error: core::fmt::Display,
 {
   #[inline]
@@ -49,7 +49,7 @@ where
 
 impl<'a, T> core::error::Error for LexError<'a, T>
 where
-  T: Token<'a>,
+  T: Token<'a> + core::fmt::Display,
   T::Error: core::fmt::Display,
 {
 }
@@ -178,7 +178,7 @@ where
 
 impl<'a, T> From<LexError<'a, T>> for RichPattern<'a, T>
 where
-  T: Token<'a>,
+  T: Token<'a> + core::fmt::Display,
   T::Error: core::fmt::Display,
 {
   #[inline(always)]

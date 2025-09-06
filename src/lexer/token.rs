@@ -36,7 +36,7 @@ pub enum Lexed<'a, T: Token<'a>> {
 
 impl<'a, T> core::fmt::Display for Lexed<'a, T>
 where
-  T: Token<'a>,
+  T: Token<'a> + core::fmt::Display,
   T::Error: core::fmt::Display,
 {
   #[inline]
@@ -69,9 +69,9 @@ impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, T::Error> {
 }
 
 /// The token trait.
-pub trait Token<'a>: Logos<'a> + core::fmt::Debug + core::fmt::Display + 'a {}
+pub trait Token<'a>: Logos<'a> + core::fmt::Debug + 'a {}
 
-impl<'a, T> Token<'a> for T where T: Logos<'a> + core::fmt::Debug + core::fmt::Display + 'a {}
+impl<'a, T> Token<'a> for T where T: Logos<'a> + core::fmt::Debug + 'a {}
 
 require_token_parser_fn! {
   /// Returns a parser which parses a token and requires the parsed token to be of a specific specification.

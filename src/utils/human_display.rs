@@ -75,7 +75,7 @@ impl DisplayHuman for [u8] {
   #[cfg(feature = "bstr")]
   #[inline]
   fn format(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    bstr::BStr::new(self).fmt(f) 
+    bstr::BStr::new(self).fmt(f)
   }
 }
 
