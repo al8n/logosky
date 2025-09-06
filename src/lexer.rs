@@ -4,7 +4,7 @@ use chumsky::input::{ExactSizeInput, Input, SliceInput, ValueInput};
 
 pub use error::*;
 pub use require::Require;
-pub use source::{DisplaySource, Source, SourceDisplay, SourceExt};
+pub use source::Source;
 pub use span::*;
 pub use token::{Lexed, Logos, Token};
 
@@ -143,7 +143,10 @@ where
   }
 
   #[inline(always)]
-  unsafe fn slice_from(cache: &mut Self::Cache, from: core::ops::RangeFrom<&Self::Cursor>) -> Self::Slice {
+  unsafe fn slice_from(
+    cache: &mut Self::Cache,
+    from: core::ops::RangeFrom<&Self::Cursor>,
+  ) -> Self::Slice {
     <T::Source as logos::Source>::slice(cache.input, *from.start..cache.input.len())
   }
 }
@@ -155,7 +158,8 @@ impl<'a, T> Tokenizer<'a> for T
 where
   T: SliceInput<'a> + ValueInput<'a>,
   T::Token: Token<'a>,
-{}
+{
+}
 
 /// A trait for checking if a token is an ASCII character.
 pub trait IsAsciiChar {
@@ -213,7 +217,7 @@ where
   }
 }
 
-impl<T> IsAsciiChar for source::CustomSource<T> 
+impl<T> IsAsciiChar for source::CustomSource<T>
 where
   T: IsAsciiChar + ?Sized,
 {
@@ -310,7 +314,6 @@ impl IsAsciiChar for bytes::Bytes {
     <[u8] as IsAsciiChar>::is_ascii_digit(self)
   }
 }
-
 
 #[cfg(test)]
 mod tests {

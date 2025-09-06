@@ -83,7 +83,12 @@ pub trait Require<'a, Spec> {
   type Span: 'a;
 
   /// Requires the token to match the given specification, returning a lexer error if it does not.
-  fn require(self, src: Self::Input, span: Self::Span, spec: Spec) -> Result<Self::Output, Self::Error>
+  fn require(
+    self,
+    src: Self::Input,
+    span: Self::Span,
+    spec: Spec,
+  ) -> Result<Self::Output, Self::Error>
   where
     Self: Token<'a>,
     Spec: Copy + 'a,

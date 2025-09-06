@@ -2,14 +2,7 @@ use core::ops::Range;
 
 use bytes::Bytes;
 
-use super::{CustomSource, DisplaySource};
-
-impl DisplaySource for CustomSource<Bytes> {
-  #[inline]
-  fn format(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    <[u8] as DisplaySource>::format(self.as_ref(), fmt)
-  }
-}
+use super::CustomSource;
 
 impl logos::Source for CustomSource<Bytes> {
   type Slice<'a>

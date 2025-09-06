@@ -2,19 +2,12 @@ use core::ops::Range;
 
 use bstr::BStr;
 
-use super::{CustomSource, DisplaySource};
+use super::CustomSource;
 
 impl<'a> From<&'a BStr> for &'a CustomSource<BStr> {
   #[inline(always)]
   fn from(s: &'a BStr) -> Self {
     CustomSource::from_ref(s)
-  }
-}
-
-impl DisplaySource for CustomSource<BStr> {
-  #[inline]
-  fn format(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    <[u8] as DisplaySource>::format(self.as_ref(), fmt)
   }
 }
 

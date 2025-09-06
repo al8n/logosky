@@ -1,7 +1,7 @@
 use std::{borrow::Cow, string::String};
 
 use chumsky::{
-  error::{EmptyErr, Cheap, RichPattern, Simple},
+  error::{Cheap, EmptyErr, RichPattern, Simple},
   label::LabelError,
   util::{Maybe, MaybeRef},
 };
@@ -51,7 +51,8 @@ impl<'a, T> core::error::Error for LexError<'a, T>
 where
   T: Token<'a>,
   T::Error: core::fmt::Display,
-{}
+{
+}
 
 impl<'a, T> LexError<'a, T>
 where
@@ -66,7 +67,10 @@ where
   /// Creates a unexpected token error
   #[inline]
   pub fn unexpected_token(expected: impl Into<Cow<'static, str>>, found: T) -> Self {
-    Self::UnexpectedToken { expected: expected.into(), found }
+    Self::UnexpectedToken {
+      expected: expected.into(),
+      found,
+    }
   }
 
   /// Creates a new end of input error
@@ -118,7 +122,10 @@ where
   T::Extras: Copy,
 {
   #[inline]
-  fn from_lex_error(_: T::Error, _: S) -> Self where T: Token<'a> {
+  fn from_lex_error(_: T::Error, _: S) -> Self
+  where
+    T: Token<'a>,
+  {
     EmptyErr::default()
   }
 }
@@ -129,12 +136,15 @@ where
   T::Extras: Copy,
 {
   #[inline]
-  fn from_lex_error(_: T::Error, span: S) -> Self where T: Token<'a> {
+  fn from_lex_error(_: T::Error, span: S) -> Self
+  where
+    T: Token<'a>,
+  {
     Cheap::new(span)
   }
 }
 
-impl<'a, T, L> LabelError<'a, TokenStream<'a, T>, L> for Simple<'a, T, Span<T::Extras>> 
+impl<'a, T, L> LabelError<'a, TokenStream<'a, T>, L> for Simple<'a, T, Span<T::Extras>>
 where
   T: Token<'a>,
   T::Extras: Copy,
@@ -152,13 +162,16 @@ where
   }
 }
 
-impl<'a, T, S> FromLexError<'a, T, S> for Simple<'a, T::Error, S> 
+impl<'a, T, S> FromLexError<'a, T, S> for Simple<'a, T::Error, S>
 where
   T: Token<'a>,
   T::Extras: Copy,
 {
   #[inline]
-  fn from_lex_error(value: T::Error, span: S) -> Self where T: Token<'a> {
+  fn from_lex_error(value: T::Error, span: S) -> Self
+  where
+    T: Token<'a>,
+  {
     Self::new(Some(Maybe::Val(value)), span)
   }
 }
@@ -184,5 +197,7 @@ where
 /// A trait for converting a lexer error into the target error.
 pub trait FromLexError<'a, T, S> {
   /// Converts a lexer error into the target error with the span
-  fn from_lex_error(err: T::Error, span: S) -> Self where T: Token<'a>;
+  fn from_lex_error(err: T::Error, span: S) -> Self
+  where
+    T: Token<'a>;
 }
