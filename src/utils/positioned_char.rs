@@ -32,6 +32,43 @@ impl<Char> PositionedChar<Char> {
     self.position
   }
 
+  /// Set the position, returning a new positioned character.
+  #[inline]
+  pub const fn set_position(&mut self, position: usize) -> &mut Self {
+    self.position = position;
+    self
+  }
+
+  /// Converts the positioned character to a reference.
+  #[inline]
+  pub const fn as_ref(&self) -> PositionedChar<&Char> {
+    PositionedChar {
+      char: &self.char,
+      position: self.position,
+    }
+  }
+
+  /// Converts the positioned character to a mutable reference.
+  #[inline]
+  pub const fn as_mut(&mut self) -> PositionedChar<&mut Char> {
+    PositionedChar {
+      char: &mut self.char,
+      position: self.position,
+    }
+  }
+
+  /// Maps the character to another character, returning a new positioned character.
+  #[inline]
+  pub fn map<NewChar, F>(self, f: F) -> PositionedChar<NewChar>
+  where
+    F: FnOnce(Char) -> NewChar,
+  {
+    PositionedChar {
+      char: f(self.char),
+      position: self.position,
+    }
+  }
+
   /// Consumes the positioned character, returning the character and its position.
   #[inline]
   pub fn into_components(self) -> (Char, usize) {
