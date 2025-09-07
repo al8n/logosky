@@ -10,8 +10,8 @@ extern crate alloc as std;
 #[cfg(feature = "std")]
 extern crate std;
 
-pub use logos;
 pub use chumsky;
+pub use logos;
 
 pub use lexer::*;
 

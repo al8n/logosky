@@ -1,15 +1,13 @@
-use core::ops::Range;
-
 use derive_more::{From, IsVariant, TryUnwrap, Unwrap};
 
-use super::PositionedChar;
+use super::{PositionedChar, Span};
 
 /// A compact, zero-copy description of a concrete lexeme in source.
 ///
 /// This enum does **not** own text. It carries either:
 /// - a single positioned character (`Char`), or
 /// - a half-open byte span into the original source (`Range<usize>`).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, IsVariant, Unwrap, TryUnwrap, From)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Unwrap, TryUnwrap, From)]
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
 pub enum Lexeme<Char> {
@@ -21,7 +19,7 @@ pub enum Lexeme<Char> {
   /// The range must be non-empty (`start < end`) and point into the same
   /// buffer that was tokenized. Prefer UTF-8 boundary indices if you plan to
   /// slice `&str`.
-  Span(Range<usize>),
+  Span(Span),
 }
 
 impl<Char> Lexeme<Char> {
@@ -40,25 +38,28 @@ impl<Char> Lexeme<Char> {
   /// Return the span of bytes covered by this lexeme using a caller-provided mapping
   /// for the `Char` variant.
   #[inline]
-  pub fn span_with(&self, len_of: impl FnOnce(&Char) -> usize) -> Range<usize> {
+  pub fn span_with(&self, len_of: impl FnOnce(&Char) -> usize) -> Span {
     match self {
       Self::Char(pc) => {
         let pos = pc.position();
-        pos..(pos + len_of(pc.char()))
-      },
-      Self::Span(r) => r.clone(),
+        Span::from(pos..(pos + len_of(pc.char())))
+      }
+      Self::Span(r) => *r,
     }
   }
 
   /// Return the span of bytes covered by this lexeme.
   #[inline]
-  pub fn span(&self) -> Range<usize> where Char: CharLen {
+  pub fn span(&self) -> Span
+  where
+    Char: CharLen,
+  {
     match self {
       Self::Char(pc) => {
         let pos = pc.position();
-        pos..(pos + pc.char().len())
-      },
-      Self::Span(r) => r.clone(),
+        Span::from(pos..(pos + pc.char().len()))
+      }
+      Self::Span(r) => *r,
     }
   }
 }
@@ -92,8 +93,14 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
 
   /// Construct from a byte span.
   #[inline]
-  pub const fn from_span(span: Range<usize>, hint: Hint) -> Self {
+  pub const fn from_span_const(span: Span, hint: Hint) -> Self {
     Self::new(Lexeme::Span(span), hint)
+  }
+
+  /// Construct from a byte span.
+  #[inline]
+  pub fn from_span(span: impl Into<Span>, hint: Hint) -> Self {
+    Self::new(Lexeme::Span(span.into()), hint)
   }
 
   /// Returns a reference to the unexpected lexeme.
@@ -141,13 +148,16 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// Returns the span of bytes covered by this lexeme using a caller-provided mapping
   /// for the `Char` variant.
   #[inline]
-  pub fn span_with(&self, len_of: impl FnOnce(&Char) -> usize) -> Range<usize> {
+  pub fn span_with(&self, len_of: impl FnOnce(&Char) -> usize) -> Span {
     self.kind.span_with(len_of)
   }
 
   /// Returns the span of bytes covered by this lexeme.
   #[inline]
-  pub fn span(&self) -> Range<usize> where Char: CharLen {
+  pub fn span(&self) -> Span
+  where
+    Char: CharLen,
+  {
     self.kind.span()
   }
 
@@ -188,7 +198,6 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
     }
   }
 }
-
 
 /// A trait for character-like types that can report their encoded length in bytes.
 ///
