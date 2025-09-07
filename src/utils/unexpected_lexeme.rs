@@ -80,8 +80,8 @@ pub struct UnexpectedLexeme<Char, Hint> {
 impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// Creates a new `UnexpectedLexeme` from the given data and hint.
   #[inline(always)]
-  pub const fn new(kind: Lexeme<Char>, hint: Hint) -> Self {
-    Self { kind, hint }
+  pub const fn new(lexeme: Lexeme<Char>, hint: Hint) -> Self {
+    Self { kind: lexeme, hint }
   }
 
   /// Construct from a positioned character.
