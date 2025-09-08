@@ -42,7 +42,7 @@ impl<Char> Lexeme<Char> {
     match self {
       Self::Char(pc) => {
         let pos = pc.position();
-        Span::from(pos..(pos + len_of(pc.char())))
+        Span::from(pos..(pos + len_of(pc.char_ref())))
       }
       Self::Span(r) => *r,
     }
@@ -57,7 +57,7 @@ impl<Char> Lexeme<Char> {
     match self {
       Self::Char(pc) => {
         let pos = pc.position();
-        Span::from(pos..(pos + pc.char().len()))
+        Span::from(pos..(pos + pc.char_ref().len()))
       }
       Self::Span(r) => *r,
     }

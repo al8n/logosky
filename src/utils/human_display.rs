@@ -51,7 +51,7 @@ impl DisplayHuman for char {
 impl<T: DisplayHuman> DisplayHuman for PositionedChar<T> {
   #[inline]
   fn format(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    self.char().format(f)
+    self.char_ref().format(f)
   }
 }
 

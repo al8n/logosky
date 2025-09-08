@@ -22,7 +22,13 @@ impl<Char> PositionedChar<Char> {
 
   /// Get the character.
   #[inline]
-  pub const fn char(&self) -> &Char {
+  pub const fn char(&self) -> Char where Char: Copy {
+    self.char
+  }
+
+  /// Get the reference to the character.
+  #[inline]
+  pub const fn char_ref(&self) -> &Char {
     &self.char
   }
 
