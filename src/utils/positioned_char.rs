@@ -26,16 +26,29 @@ impl<Char> PositionedChar<Char> {
     &self.char
   }
 
+  /// Get a mutable reference to the character.
+  #[inline]
+  pub const fn char_mut(&mut self) -> &mut Char {
+    &mut self.char
+  }
+
   /// Get the position.
   #[inline]
   pub const fn position(&self) -> usize {
     self.position
   }
 
-  /// Set the position, returning a new positioned character.
+  /// Set the position, returning a mutable reference of the positioned character.
   #[inline]
   pub const fn set_position(&mut self, position: usize) -> &mut Self {
     self.position = position;
+    self
+  }
+
+  /// Bump the position by `n`,  returning a mutable reference of the positioned character.
+  #[inline]
+  pub const fn bump_position(&mut self, n: usize) -> &mut Self {
+    self.position += n;
     self
   }
 

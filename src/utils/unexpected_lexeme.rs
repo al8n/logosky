@@ -62,27 +62,59 @@ impl<Char> Lexeme<Char> {
       Self::Span(r) => *r,
     }
   }
+
+  /// Bump the span by `n` or the position of the char by `n`.
+  #[inline]
+  pub const fn bump(&mut self, n: usize) -> &mut Self {
+    match self {
+      Self::Char(positioned_char) => {
+        positioned_char.bump_position(n);
+      }
+      Self::Span(span) => {
+        span.bump_span(n);
+      },
+    }
+
+    self
+  }
 }
 
 /// A zero-copy *unexpected lexeme* paired with a diagnostic hint.
 ///
 /// Instead of owning text, this stores:
-/// - the *kind* of unexpected fragment (`Char` or `Span`), and
+/// - the *lexeme* of unexpected fragment (`Char` or `Span`), and
 /// - a *hint* describing what was expected next (any type you choose).
 ///
 /// The hint typically implements `Display` in your error type, but it’s left
 /// unconstrained here so you can carry richer structured info.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct UnexpectedLexeme<Char, Hint> {
-  kind: Lexeme<Char>,
+  lexeme: Lexeme<Char>,
   hint: Hint,
 }
+
+impl<Char, Hint> core::ops::Deref for UnexpectedLexeme<Char, Hint> {
+  type Target = Lexeme<Char>;
+
+  #[inline]
+  fn deref(&self) -> &Self::Target {
+    &self.lexeme
+  }
+}
+
+impl<Char, Hint> core::ops::DerefMut for UnexpectedLexeme<Char, Hint> {
+  #[inline]
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.lexeme
+  }
+}
+
 
 impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// Creates a new `UnexpectedLexeme` from the given data and hint.
   #[inline(always)]
   pub const fn new(lexeme: Lexeme<Char>, hint: Hint) -> Self {
-    Self { kind: lexeme, hint }
+    Self { lexeme, hint }
   }
 
   /// Construct from a positioned character.
@@ -106,7 +138,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// Returns a reference to the unexpected lexeme.
   #[inline(always)]
   pub const fn lexeme(&self) -> &Lexeme<Char> {
-    &self.kind
+    &self.lexeme
   }
 
   /// Returns a reference to the hint.
@@ -118,7 +150,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// Returns a mutable reference to the unexpected lexeme.
   #[inline(always)]
   pub const fn lexeme_mut(&mut self) -> &mut Lexeme<Char> {
-    &mut self.kind
+    &mut self.lexeme
   }
 
   /// Returns a mutable reference to the hint.
@@ -127,16 +159,16 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
     &mut self.hint
   }
 
-  /// Consume into `(kind, hint)`.
+  /// Consume into `(lexeme, hint)`.
   #[inline]
   pub fn into_components(self) -> (Lexeme<Char>, Hint) {
-    (self.kind, self.hint)
+    (self.lexeme, self.hint)
   }
 
   /// Consume and return only the lexeme.
   #[inline]
   pub fn into_lexeme(self) -> Lexeme<Char> {
-    self.kind
+    self.lexeme
   }
 
   /// Consume and return only the hint.
@@ -149,7 +181,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// for the `Char` variant.
   #[inline]
   pub fn span_with(&self, len_of: impl FnOnce(&Char) -> usize) -> Span {
-    self.kind.span_with(len_of)
+    self.lexeme.span_with(len_of)
   }
 
   /// Returns the span of bytes covered by this lexeme.
@@ -158,7 +190,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   where
     Char: CharLen,
   {
-    self.kind.span()
+    self.lexeme.span()
   }
 
   /// Maps the contained character type to another type.
@@ -168,7 +200,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
     F: FnMut(Char) -> NewChar,
   {
     UnexpectedLexeme {
-      kind: self.kind.map(f),
+      lexeme: self.lexeme.map(f),
       hint: self.hint,
     }
   }
@@ -180,7 +212,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
     F: FnOnce(Hint) -> NewHint,
   {
     UnexpectedLexeme {
-      kind: self.kind,
+      lexeme: self.lexeme,
       hint: f(self.hint),
     }
   }
@@ -193,7 +225,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
     G: FnOnce(Hint) -> NewHint,
   {
     UnexpectedLexeme {
-      kind: self.kind.map(f),
+      lexeme: self.lexeme.map(f),
       hint: g(self.hint),
     }
   }
