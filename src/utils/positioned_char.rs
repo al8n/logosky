@@ -22,7 +22,10 @@ impl<Char> PositionedChar<Char> {
 
   /// Get the character.
   #[inline]
-  pub const fn char(&self) -> Char where Char: Copy {
+  pub const fn char(&self) -> Char
+  where
+    Char: Copy,
+  {
     self.char
   }
 

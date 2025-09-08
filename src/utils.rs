@@ -44,14 +44,17 @@ impl Span {
   }
 
   /// Bump the start of the span by `n`.
-  /// 
+  ///
   /// ## Panics
-  /// 
+  ///
   /// Panics if `self.start + n > self.end`.
   #[inline]
   pub const fn bump_start(&mut self, n: usize) -> &mut Self {
     self.start += n;
-    assert!(self.start <= self.end, "start must be less than or equal to end");
+    assert!(
+      self.start <= self.end,
+      "start must be less than or equal to end"
+    );
     self
   }
 

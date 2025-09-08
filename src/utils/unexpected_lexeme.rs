@@ -72,7 +72,7 @@ impl<Char> Lexeme<Char> {
       }
       Self::Span(span) => {
         span.bump_span(n);
-      },
+      }
     }
 
     self
@@ -108,7 +108,6 @@ impl<Char, Hint> core::ops::DerefMut for UnexpectedLexeme<Char, Hint> {
     &mut self.lexeme
   }
 }
-
 
 impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// Creates a new `UnexpectedLexeme` from the given data and hint.
@@ -228,6 +227,13 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
       lexeme: self.lexeme.map(f),
       hint: g(self.hint),
     }
+  }
+
+  /// Bump the span by `n` or the position of the char by `n`.
+  #[inline]
+  pub const fn bump(&mut self, n: usize) -> &mut Self {
+    self.lexeme.bump(n);
+    self
   }
 }
 
