@@ -1,4 +1,4 @@
-use super::{RecursionLimitExceeded, RecursionLimiter, TokenLimitExceeded, TokenLimiter};
+use super::{recursion_tracker::{RecursionLimitExceeded, RecursionLimiter}, token_tracker::{TokenLimitExceeded, TokenLimiter}};
 
 /// The limit exceeded error.
 #[derive(
@@ -91,28 +91,28 @@ impl Tracker {
   pub const fn recursion_mut(&mut self) -> &mut RecursionLimiter {
     &mut self.recursion_tracker
   }
-}
 
-impl super::State for Tracker {
-  type Error = LimitExceeded;
-
+  /// Increases the token count.
   #[inline(always)]
-  fn increase_token(&mut self) {
+  pub const fn increase_token(&mut self) {
     self.token_mut().increase();
   }
 
+  /// Increases the recursion depth.
   #[inline(always)]
-  fn increase_recursion(&mut self) {
+  pub const fn increase_recursion(&mut self) {
     self.recursion_mut().increase();
   }
 
+  /// Decreases the recursion depth.
   #[inline(always)]
-  fn decrease_recursion(&mut self) {
+  pub const fn decrease_recursion(&mut self) {
     self.recursion_mut().decrease();
   }
 
+  /// Checks if any of the limits have been exceeded.
   #[inline(always)]
-  fn check(&self) -> Result<(), Self::Error> {
+  pub fn check(&self) -> Result<(), LimitExceeded> {
     self
       .recursion_tracker
       .check()

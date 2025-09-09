@@ -5,6 +5,13 @@ pub use positioned_char::*;
 pub use unexpected_end::*;
 pub use unexpected_lexeme::*;
 
+/// Trackers for preventing infinite recursion in parsers.
+pub mod recursion_tracker;
+/// A token tracker for tracking tokens in a lexer.
+pub mod token_tracker;
+/// A tracker for tracking recursion depth and tokens.
+pub mod tracker;
+
 mod human_display;
 mod positioned_char;
 mod unexpected_end;

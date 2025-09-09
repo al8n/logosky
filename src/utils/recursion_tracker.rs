@@ -72,26 +72,22 @@ impl RecursionLimiter {
   pub const fn decrease(&mut self) {
     self.current = self.current.saturating_sub(1);
   }
-}
 
-impl super::State for RecursionLimiter {
-  type Error = RecursionLimitExceeded;
-
+  /// Increases the recursion depth.
   #[inline(always)]
-  fn increase_recursion(&mut self) {
+  pub const fn increase_recursion(&mut self) {
     self.increase();
   }
 
+  /// Decrease the current depth of the recursion.
   #[inline(always)]
-  fn decrease_recursion(&mut self) {
+  pub const fn decrease_recursion(&mut self) {
     self.decrease();
   }
 
+  /// Checks if the recursion limit has been exceeded.
   #[inline(always)]
-  fn increase_token(&mut self) {}
-
-  #[inline(always)]
-  fn check(&self) -> Result<(), Self::Error> {
+  pub const fn check(&self) -> Result<(), RecursionLimitExceeded> {
     if self.depth() > self.limitation() {
       Err(RecursionLimitExceeded(*self))
     } else {

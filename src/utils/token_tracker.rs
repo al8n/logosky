@@ -57,24 +57,16 @@ impl TokenLimiter {
   pub const fn limitation(&self) -> usize {
     self.max
   }
-}
 
-impl super::State for TokenLimiter {
-  type Error = TokenLimitExceeded;
-
+  /// Increases the token count.
   #[inline(always)]
-  fn increase_token(&mut self) {
+  pub const fn increase_token(&mut self) {
     self.increase();
   }
 
+  /// Checks if the token limit has been exceeded.
   #[inline(always)]
-  fn increase_recursion(&mut self) {}
-
-  #[inline(always)]
-  fn decrease_recursion(&mut self) {}
-
-  #[inline]
-  fn check(&self) -> Result<(), Self::Error> {
+  pub fn check(&self) -> Result<(), TokenLimitExceeded> {
     if self.tokens() > self.limitation() {
       Err(TokenLimitExceeded(*self))
     } else {
@@ -82,3 +74,5 @@ impl super::State for TokenLimiter {
     }
   }
 }
+
+
