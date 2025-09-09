@@ -1,4 +1,5 @@
 use chumsky::{Parser, primitive::any};
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 
 use crate::{FromLexError, lexer::Require, require_token_parser_fn};
 
@@ -17,9 +18,9 @@ pub mod kind;
   Copy,
   PartialEq,
   Eq,
-  derive_more::IsVariant,
-  derive_more::Unwrap,
-  derive_more::TryUnwrap,
+  IsVariant,
+  Unwrap,
+  TryUnwrap,
 )]
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
