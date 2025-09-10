@@ -12,16 +12,7 @@ pub mod kind;
 ///
 /// `Lexed` lets you keep errors *in* the stream so you can continue scanning and
 /// report multiple diagnostics in one pass, or filter them out later.
-#[derive(
-  Debug,
-  Clone,
-  Copy,
-  PartialEq,
-  Eq,
-  IsVariant,
-  Unwrap,
-  TryUnwrap,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, IsVariant, Unwrap, TryUnwrap)]
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
 pub enum Lexed<'a, T: Token<'a>> {
