@@ -1,6 +1,5 @@
 use core::ops::Range;
 
-pub use human_display::*;
 pub use positioned_char::*;
 pub use unexpected_end::*;
 pub use unexpected_lexeme::*;
@@ -12,7 +11,13 @@ pub mod token_tracker;
 /// A tracker for tracking recursion depth and tokens.
 pub mod tracker;
 
-mod human_display;
+/// A module for displaying in SDL.
+pub mod sdl_display;
+/// A module for displaying in a human-friendly way.
+pub mod human_display;
+/// A module for displaying in syntax trees.
+pub mod syntax_tree_display;
+
 mod positioned_char;
 mod unexpected_end;
 mod unexpected_lexeme;

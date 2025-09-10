@@ -1,7 +1,7 @@
-use chumsky::{Parser, primitive::any};
+// use chumsky::{Parser, primitive::any};
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 
-use crate::{FromLexError, lexer::Require, require_token_parser_fn};
+// use crate::{FromLexError, lexer::Require, require_token_parser_fn};
 
 pub use logos::Logos;
 
@@ -61,101 +61,104 @@ impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, T::Error> {
 }
 
 /// The token trait.
-pub trait Token<'a>: Logos<'a> + core::fmt::Debug + 'a {}
-
-impl<'a, T> Token<'a> for T where T: Logos<'a> + core::fmt::Debug + 'a {}
-
-require_token_parser_fn! {
-  /// Returns a parser which parses a token and requires the parsed token to be of a specific specification.
-  pub fn require_token<'a, I, E, Spec>(spec: Spec) -> Spec {
-    any().try_map_with(move |tok: I::Token, exa| {
-      tok.require(exa.slice(), exa.span(), spec)
-        .map_err(|err| FromLexError::from_lex_error(err, exa.span()))
-    })
-  }
-
-  /// Returns a parser which parse a whitespace token
-  pub fn whitespace<'src, I, E>() -> kind::WhiteSpace {
-    require_token(kind::WhiteSpace)
-  }
-
-  /// Returns a parser which parse a whitespaces token
-  pub fn whitespaces<'src, I, E>() -> kind::WhiteSpaces {
-    require_token(kind::WhiteSpaces)
-  }
-
-  /// Returns a parser which parse a line terminator token
-  pub fn line_terminator<'src, I, E>() -> kind::LineTerminator {
-    require_token(kind::LineTerminator)
-  }
-
-  /// Returns a parser which parse a comment token
-  pub fn comment<'src, I, E>() -> kind::Comment {
-    require_token(kind::Comment)
-  }
-
-  /// Returns a parser which parses many ignore tokens
-  pub fn ignores<'src, I, E>() -> kind::Ignores {
-    require_token(kind::Ignores)
-  }
-
-  /// Returns a parser which parse one ignore token
-  pub fn ignore<'src, I, E>() -> kind::Ignore {
-    require_token(kind::Ignore)
-  }
-
-  /// Returns a parser which parse an int token
-  pub fn int<'src, I, E>() -> kind::IntLiteral {
-    require_token(kind::IntLiteral)
-  }
-
-  /// Returns a parser which parses a float token
-  pub fn float<'src, I, E>() -> kind::FloatLiteral {
-    require_token(kind::FloatLiteral)
-  }
-
-  /// Returns a parser which parses a boolean token
-  pub fn boolean<'src, I, E>() -> kind::BooleanLiteral {
-    require_token(kind::BooleanLiteral)
-  }
-
-  /// Returns a parser which parses a null token
-  pub fn null<'src, I, E>() -> kind::NullLiteral {
-    require_token(kind::NullLiteral)
-  }
-
-  /// Returns a parser which parses an inline string token
-  pub fn inline_string<'src, I, E>() -> kind::InlineStringLiteral {
-    require_token(kind::InlineStringLiteral)
-  }
-
-  /// Returns a parser which parses a block string token
-  pub fn block_string<'src, I, E>() -> kind::BlockStringLiteral {
-    require_token(kind::BlockStringLiteral)
-  }
-
-  /// Returns a parser which parses a string token
-  pub fn string<'src, I, E>() -> kind::StringLiteral {
-    require_token(kind::StringLiteral)
-  }
-
-  /// Returns a parser which parsers an identifier token
-  pub fn ident<'src, I, E>() -> kind::Ident {
-    require_token(kind::Ident)
-  }
-
-  /// Returns a parser which parses a keyword token
-  pub fn keyword<'src, I, E>(kw: &'src str) -> kind::Keyword<'src> {
-    require_token(kind::Keyword(kw))
-  }
-
-  /// Returns a parser which parses an ASCII character token
-  pub fn ascii<'src, I, E>(ch: kind::AsciiChar) -> kind::AsciiChar {
-    require_token(ch)
-  }
-
-  /// Returns a parser which parsers a UTF-8 character token
-  pub fn char<'src, I, E>(ch: char) -> char {
-    require_token(ch)
-  }
+pub trait Token<'a>: Logos<'a> + core::fmt::Debug + 'a {
+  /// The kind type of the token.
+  type Kind;
 }
+
+// impl<'a, T> Token<'a> for T where T: Logos<'a> + core::fmt::Debug + 'a {}
+
+// require_token_parser_fn! {
+//   /// Returns a parser which parses a token and requires the parsed token to be of a specific specification.
+//   pub fn require_token<'a, I, E, Spec>(spec: Spec) -> Spec {
+//     any().try_map_with(move |tok: I::Token, exa| {
+//       tok.require(exa.slice(), exa.span(), spec)
+//         .map_err(|err| FromLexError::from_lex_error(err, exa.span()))
+//     })
+//   }
+
+//   /// Returns a parser which parse a whitespace token
+//   pub fn whitespace<'src, I, E>() -> kind::WhiteSpace {
+//     require_token(kind::WhiteSpace)
+//   }
+
+//   /// Returns a parser which parse a whitespaces token
+//   pub fn whitespaces<'src, I, E>() -> kind::WhiteSpaces {
+//     require_token(kind::WhiteSpaces)
+//   }
+
+//   /// Returns a parser which parse a line terminator token
+//   pub fn line_terminator<'src, I, E>() -> kind::LineTerminator {
+//     require_token(kind::LineTerminator)
+//   }
+
+//   /// Returns a parser which parse a comment token
+//   pub fn comment<'src, I, E>() -> kind::Comment {
+//     require_token(kind::Comment)
+//   }
+
+//   /// Returns a parser which parses many ignore tokens
+//   pub fn ignores<'src, I, E>() -> kind::Ignores {
+//     require_token(kind::Ignores)
+//   }
+
+//   /// Returns a parser which parse one ignore token
+//   pub fn ignore<'src, I, E>() -> kind::Ignore {
+//     require_token(kind::Ignore)
+//   }
+
+//   /// Returns a parser which parse an int token
+//   pub fn int<'src, I, E>() -> kind::IntLiteral {
+//     require_token(kind::IntLiteral)
+//   }
+
+//   /// Returns a parser which parses a float token
+//   pub fn float<'src, I, E>() -> kind::FloatLiteral {
+//     require_token(kind::FloatLiteral)
+//   }
+
+//   /// Returns a parser which parses a boolean token
+//   pub fn boolean<'src, I, E>() -> kind::BooleanLiteral {
+//     require_token(kind::BooleanLiteral)
+//   }
+
+//   /// Returns a parser which parses a null token
+//   pub fn null<'src, I, E>() -> kind::NullLiteral {
+//     require_token(kind::NullLiteral)
+//   }
+
+//   /// Returns a parser which parses an inline string token
+//   pub fn inline_string<'src, I, E>() -> kind::InlineStringLiteral {
+//     require_token(kind::InlineStringLiteral)
+//   }
+
+//   /// Returns a parser which parses a block string token
+//   pub fn block_string<'src, I, E>() -> kind::BlockStringLiteral {
+//     require_token(kind::BlockStringLiteral)
+//   }
+
+//   /// Returns a parser which parses a string token
+//   pub fn string<'src, I, E>() -> kind::StringLiteral {
+//     require_token(kind::StringLiteral)
+//   }
+
+//   /// Returns a parser which parsers an identifier token
+//   pub fn ident<'src, I, E>() -> kind::Ident {
+//     require_token(kind::Ident)
+//   }
+
+//   /// Returns a parser which parses a keyword token
+//   pub fn keyword<'src, I, E>(kw: &'src str) -> kind::Keyword<'src> {
+//     require_token(kind::Keyword(kw))
+//   }
+
+//   /// Returns a parser which parses an ASCII character token
+//   pub fn ascii<'src, I, E>(ch: kind::AsciiChar) -> kind::AsciiChar {
+//     require_token(ch)
+//   }
+
+//   /// Returns a parser which parsers a UTF-8 character token
+//   pub fn char<'src, I, E>(ch: char) -> char {
+//     require_token(ch)
+//   }
+// }

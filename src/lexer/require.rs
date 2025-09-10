@@ -1,5 +1,3 @@
-use super::Token;
-
 /// A macro to create a parser fn for a specific token kind
 ///
 /// ## Example
@@ -81,6 +79,8 @@ pub trait Require<'a, Spec> {
   type Output: 'a;
   /// The span type of the requirement.
   type Span: 'a;
+  /// The error type of the requirement.
+  type Error: 'a;
 
   /// Requires the token to match the given specification, returning a lexer error if it does not.
   fn require(
@@ -90,7 +90,6 @@ pub trait Require<'a, Spec> {
     spec: Spec,
   ) -> Result<Self::Output, Self::Error>
   where
-    Self: Token<'a>,
     Spec: Copy + 'a,
     Self::Output: 'a;
 }
