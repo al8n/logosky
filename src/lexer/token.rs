@@ -64,9 +64,11 @@ impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, T::Error> {
 pub trait Token<'a>: Logos<'a> + Clone + core::fmt::Debug + 'a {
   /// The character type of the token.
   type Char: Copy + core::fmt::Debug + PartialEq + Eq + core::hash::Hash;
-  /// The error type of the token.
   /// The kind type of the token.
   type Kind: Copy + core::fmt::Debug + PartialEq + Eq + core::hash::Hash;
+
+  /// Returns the kind of the token.
+  fn kind(&self) -> Self::Kind;
 }
 
 // impl<'a, T> Token<'a> for T where T: Logos<'a> + core::fmt::Debug + 'a {}

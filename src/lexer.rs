@@ -5,13 +5,12 @@ use chumsky::input::{ExactSizeInput, Input, SliceInput, ValueInput};
 pub use error::*;
 pub use require::Require;
 pub use source::Source;
-pub use span::*;
 pub use token::{Lexed, Logos, Token};
+
+use crate::utils;
 
 mod error;
 mod require;
-
-mod span;
 
 /// The token related structures and traits
 pub mod token;
@@ -59,7 +58,7 @@ where
   T: Token<'a>,
   <T as Logos<'a>>::Extras: Copy,
 {
-  type Span = span::Span<<T as Logos<'a>>::Extras>;
+  type Span = utils::Span;
 
   type Token = Lexed<'a, T>;
 
@@ -94,8 +93,8 @@ where
   }
 
   #[inline(always)]
-  unsafe fn span(this: &mut Self::Cache, range: Range<&Self::Cursor>) -> Self::Span {
-    Span::new(*range.start, *range.end, this.state)
+  unsafe fn span(_: &mut Self::Cache, range: Range<&Self::Cursor>) -> Self::Span {
+    utils::Span::new(*range.start, *range.end)
   }
 }
 
@@ -120,7 +119,7 @@ where
     cache: &mut Self::Cache,
     range: core::ops::RangeFrom<&Self::Cursor>,
   ) -> Self::Span {
-    Span::new(*range.start, cache.input.len(), cache.state)
+    utils::Span::new(*range.start, cache.input.len())
   }
 }
 

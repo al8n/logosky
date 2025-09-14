@@ -8,6 +8,8 @@ use chumsky::{
 
 use super::*;
 
+use crate::utils::Span;
+
 /// The lexer error
 #[derive(Debug, Clone, derive_more::IsVariant)]
 pub enum LexError<'a, T>
@@ -144,7 +146,7 @@ where
   }
 }
 
-impl<'a, T, L> LabelError<'a, TokenStream<'a, T>, L> for Simple<'a, T, Span<T::Extras>>
+impl<'a, T, L> LabelError<'a, TokenStream<'a, T>, L> for Simple<'a, T, Span>
 where
   T: Token<'a>,
   T::Extras: Copy,
@@ -152,7 +154,7 @@ where
   fn expected_found<E: IntoIterator<Item = L>>(
     _expected: E,
     found: Option<MaybeRef<'a, Lexed<'a, T>>>,
-    span: Span<T::Extras>,
+    span: Span,
   ) -> Self {
     match found {
       Some(Maybe::Ref(Lexed::Token(tok))) => Simple::new(Some(Maybe::Ref(tok)), span),

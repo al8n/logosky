@@ -1,11 +1,11 @@
-
 /// A trait for displaying in a SyntaxTree style.
 pub trait DisplaySyntaxTree {
   /// Formats the value in a SyntaxTree style.
-  /// 
+  ///
   /// - `level` is the current indentation level.
   /// - `indent` is the number of spaces to indent per level.
-  fn fmt(&self, level: usize, indent: usize, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result;
+  fn fmt(&self, level: usize, indent: usize, f: &mut core::fmt::Formatter<'_>)
+  -> core::fmt::Result;
 
   /// Returns a wrapper which implement `Display`.
   #[inline(always)]
@@ -20,7 +20,12 @@ pub trait DisplaySyntaxTree {
 
 impl<T: DisplaySyntaxTree + ?Sized> DisplaySyntaxTree for &T {
   #[inline]
-  fn fmt(&self, level: usize, indent: usize, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+  fn fmt(
+    &self,
+    level: usize,
+    indent: usize,
+    f: &mut core::fmt::Formatter<'_>,
+  ) -> core::fmt::Result {
     (*self).fmt(level, indent, f)
   }
 }
@@ -39,4 +44,3 @@ impl<T: DisplaySyntaxTree + ?Sized> core::fmt::Display for SyntaxTreeDisplay<'_,
     self.t.fmt(self.level, self.indent, f)
   }
 }
-

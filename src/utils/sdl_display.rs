@@ -1,4 +1,3 @@
-
 /// A trait for displaying in a SDL.
 pub trait DisplaySDL {
   /// Formats the value in a SDL.

@@ -11,10 +11,10 @@ pub mod token_tracker;
 /// A tracker for tracking recursion depth and tokens.
 pub mod tracker;
 
-/// A module for displaying in SDL.
-pub mod sdl_display;
 /// A module for displaying in a human-friendly way.
 pub mod human_display;
+/// A module for displaying in SDL.
+pub mod sdl_display;
 /// A module for displaying in syntax trees.
 pub mod syntax_tree_display;
 
@@ -29,6 +29,30 @@ mod unexpected_lexeme;
 pub struct Span {
   start: usize,
   end: usize,
+}
+
+impl chumsky::span::Span for Span {
+  type Context = ();
+
+  type Offset = usize;
+
+  #[inline(always)]
+  fn new(_: Self::Context, range: Range<Self::Offset>) -> Self {
+    Self::new(range.start, range.end)
+  }
+
+  #[inline(always)]
+  fn context(&self) -> Self::Context {}
+
+  #[inline(always)]
+  fn start(&self) -> Self::Offset {
+    self.start
+  }
+
+  #[inline(always)]
+  fn end(&self) -> Self::Offset {
+    self.end
+  }
 }
 
 impl Span {
