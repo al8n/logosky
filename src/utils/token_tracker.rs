@@ -1,3 +1,5 @@
+use crate::State;
+
 /// An error that occurs when the token limit is exceeded.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
 #[error("token limit exceeded: tokens {}, maximum {}", .0.tokens(), .0.limitation())]
@@ -73,4 +75,8 @@ impl TokenLimiter {
       Ok(())
     }
   }
+}
+
+impl State for TokenLimiter {
+  type Error = TokenLimitExceeded;
 }

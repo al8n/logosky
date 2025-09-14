@@ -1,3 +1,5 @@
+use crate::State;
+
 use super::{
   recursion_tracker::{RecursionLimitExceeded, RecursionLimiter},
   token_tracker::{TokenLimitExceeded, TokenLimiter},
@@ -123,4 +125,8 @@ impl Tracker {
     self.token_tracker.check().map_err(LimitExceeded::from)?;
     Ok(())
   }
+}
+
+impl State for Tracker {
+  type Error = LimitExceeded;
 }

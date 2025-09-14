@@ -1,3 +1,5 @@
+use crate::State;
+
 /// An error that occurs when the recursion limit is exceeded.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
 #[error("recursion limit exceeded: depth {}, maximum {}", .0.depth(), .0.limitation())]
@@ -94,4 +96,8 @@ impl RecursionLimiter {
       Ok(())
     }
   }
+}
+
+impl State for RecursionLimiter {
+  type Error = RecursionLimitExceeded;
 }

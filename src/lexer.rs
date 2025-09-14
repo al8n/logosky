@@ -161,18 +161,17 @@ impl State for () {
 }
 
 /// Tokenizer trait
-pub trait Tokenizer<'a>: SliceInput<'a> + ValueInput<'a> {
-  /// The state type of the tokenizer.
-  type State: State;
+pub trait Tokenizer<'a, T: Token<'a>>:
+  SliceInput<'a> + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>
+{
 }
 
-impl<'a, T> Tokenizer<'a> for T
+impl<'a, T, I> Tokenizer<'a, T> for I
 where
-  T: SliceInput<'a> + ValueInput<'a>,
-  T::Token: Token<'a>,
-  <T::Token as Logos<'a>>::Extras: State,
+  I: SliceInput<'a> + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>,
+  T: Token<'a>,
+  T::Extras: State,
 {
-  type State = <T::Token as Logos<'a>>::Extras;
 }
 
 /// A trait for checking if a token is an ASCII character.

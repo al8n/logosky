@@ -20,6 +20,21 @@ mod lexer;
 /// Common utilities for working with tokens and lexers.
 pub mod utils;
 
+/// A trait for types that can be parsed from a [`Tokenizer`].
+pub trait Parseable<'a, I> {
+  /// The token type produced by the tokenizer.
+  type Token: Token<'a>;
+  /// The error type for parsing.
+  type Error: 'a;
+
+  /// Returns a parser that can parse `Self` from the given tokenizer.
+  fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E>
+  where
+    Self: Sized,
+    I: Tokenizer<'a, Self::Token>,
+    E: chumsky::extra::ParserExtra<'a, I, Error = Self::Error>;
+}
+
 #[doc(hidden)]
 pub mod __private {
   pub use super::lexer::{FromLexError, Require, Tokenizer, token};
