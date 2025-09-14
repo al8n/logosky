@@ -151,14 +151,29 @@ where
   }
 }
 
+/// The state trait for lexers
+pub trait State: core::fmt::Debug + Clone {
+  /// The error type of the state.
+  type Error: core::error::Error + Clone;
+}
+
+impl State for () {
+  type Error = core::convert::Infallible;
+}
+
 /// Tokenizer trait
-pub trait Tokenizer<'a>: SliceInput<'a> + ValueInput<'a> {}
+pub trait Tokenizer<'a>: SliceInput<'a> + ValueInput<'a> {
+  /// The state type of the tokenizer.
+  type State: State;
+}
 
 impl<'a, T> Tokenizer<'a> for T
 where
   T: SliceInput<'a> + ValueInput<'a>,
   T::Token: Token<'a>,
+  <T::Token as Logos<'a>>::Extras: State,
 {
+  type State = <T::Token as Logos<'a>>::Extras;
 }
 
 /// A trait for checking if a token is an ASCII character.

@@ -2,12 +2,12 @@
 /// A trait for displaying in a SDL.
 pub trait DisplaySDL {
   /// Formats the value in a SDL.
-  fn fmt_sdl(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result;
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result;
 
   /// Formats the value in a compact SDL.
   #[inline(always)]
-  fn fmt_sdl_compact(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    self.fmt_sdl(f)
+  fn fmt_compact(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    self.fmt(f)
   }
 
   /// Returns a wrapper which implement `Display`.
@@ -19,13 +19,13 @@ pub trait DisplaySDL {
 
 impl<T: DisplaySDL + ?Sized> DisplaySDL for &T {
   #[inline]
-  fn fmt_sdl(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    (*self).fmt_sdl(f)
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    (*self).fmt(f)
   }
 
   #[inline(always)]
-  fn fmt_sdl_compact(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    (*self).fmt_sdl_compact(f)
+  fn fmt_compact(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    (*self).fmt_compact(f)
   }
 }
 
@@ -36,6 +36,6 @@ pub struct SDLDisplay<'a, T: ?Sized>(&'a T);
 impl<T: DisplaySDL + ?Sized> core::fmt::Display for SDLDisplay<'_, T> {
   #[inline]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    self.0.fmt_sdl(f)
+    self.0.fmt(f)
   }
 }
