@@ -86,7 +86,7 @@ where
     let mut lexer = logos::Lexer::<T>::with_extras(this.input, this.state);
     lexer.bump(*cursor);
     lexer.next().map(|res| {
-      *cursor += lexer.span().len();
+      *cursor = lexer.span().end;
       this.state = lexer.extras;
       res.into()
     })

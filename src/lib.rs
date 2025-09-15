@@ -21,7 +21,10 @@ mod lexer;
 pub mod utils;
 
 /// A trait for types that can be parsed from a [`Tokenizer`].
-pub trait Parseable<'a, I> {
+pub trait Parseable<'a, I>
+where
+  I: Tokenizer<'a, Self::Token>,
+{
   /// The token type produced by the tokenizer.
   type Token: Token<'a>;
   /// The error type for parsing.
@@ -31,7 +34,6 @@ pub trait Parseable<'a, I> {
   fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E>
   where
     Self: Sized,
-    I: Tokenizer<'a, Self::Token>,
     E: chumsky::extra::ParserExtra<'a, I, Error = Self::Error>;
 }
 
