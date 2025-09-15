@@ -23,7 +23,7 @@ pub mod utils;
 /// A trait for types that can be parsed from a [`Tokenizer`].
 pub trait Parseable<'a, I>
 where
-  I: Tokenizer<'a, Self::Token>,
+  I: Tokenizer<'a, Self::Token, Slice = <<Self::Token as Logos<'a>>::Source as Source>::Slice<'a>>,
 {
   /// The token type produced by the tokenizer.
   type Token: Token<'a>;

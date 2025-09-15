@@ -129,16 +129,16 @@ where
   <T as Logos<'a>>::Extras: Copy,
   <T::Source as logos::Source>::Slice<'a>: Clone,
 {
-  type Slice = Option<<T::Source as logos::Source>::Slice<'a>>;
+  type Slice = <T::Source as logos::Source>::Slice<'a>;
 
   #[inline(always)]
   fn full_slice(cache: &mut Self::Cache) -> Self::Slice {
-    cache.input.slice(0..cache.input.len())
+    unsafe { cache.input.slice_unchecked(0..cache.input.len()) }
   }
 
   #[inline(always)]
   unsafe fn slice(cache: &mut Self::Cache, range: Range<&Self::Cursor>) -> Self::Slice {
-    <T::Source as logos::Source>::slice(cache.input, *range.start..*range.end)
+    unsafe { <T::Source as logos::Source>::slice_unchecked(cache.input, *range.start..*range.end) }
   }
 
   #[inline(always)]
@@ -146,7 +146,7 @@ where
     cache: &mut Self::Cache,
     from: core::ops::RangeFrom<&Self::Cursor>,
   ) -> Self::Slice {
-    <T::Source as logos::Source>::slice(cache.input, *from.start..cache.input.len())
+    unsafe { <T::Source as logos::Source>::slice_unchecked(cache.input, *from.start..cache.input.len()) }
   }
 }
 
