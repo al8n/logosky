@@ -23,7 +23,7 @@ bytes = ["dep:bytes", "chumsky/bytes"]
 
 [dependencies]
 ascii = { version = "1", default-features = false }
-chumsky = { version = "0.10", default-features = false }
+chumsky = { version = "0.11", default-features = false }
 derive_more = { version = "2", default-features = false, features = [
   "display",
   "deref",

@@ -146,7 +146,9 @@ where
     cache: &mut Self::Cache,
     from: core::ops::RangeFrom<&Self::Cursor>,
   ) -> Self::Slice {
-    unsafe { <T::Source as logos::Source>::slice_unchecked(cache.input, *from.start..cache.input.len()) }
+    unsafe {
+      <T::Source as logos::Source>::slice_unchecked(cache.input, *from.start..cache.input.len())
+    }
   }
 }
 
