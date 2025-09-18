@@ -187,3 +187,73 @@ impl From<Span> for Range<usize> {
     span.start..span.end
   }
 }
+
+/// A spanned value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Spanned<D> {
+  span: Span,
+  data: D,
+}
+
+impl<D> core::fmt::Display for Spanned<D>
+where
+  D: core::fmt::Display,
+{
+  #[inline]
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    self.data.fmt(f)
+  }
+}
+
+impl<D> Spanned<D> {
+  /// Create a new spanned value.
+  #[inline]
+  pub(super) const fn new(span: Span, data: D) -> Self {
+    Self { span, data }
+  }
+
+  /// Get a reference to the span.
+  #[inline]
+  pub const fn span(&self) -> &Span {
+    &self.span
+  }
+
+  /// Get a mutable reference to the span.
+  #[inline]
+  pub const fn span_mut(&mut self) -> &mut Span {
+    &mut self.span
+  }
+
+  /// Get a reference to the data.
+  #[inline]
+  pub const fn data(&self) -> &D {
+    &self.data
+  }
+
+  /// Get a mutable reference to the data.
+  #[inline]
+  pub const fn data_mut(&mut self) -> &mut D {
+    &mut self.data
+  }
+
+  /// Returns a reference to the span and data.
+  #[inline]
+  pub const fn as_ref(&self) -> Spanned<&D> {
+    Spanned {
+      span: self.span,
+      data: &self.data,
+    }
+  }
+
+  /// Consume the spanned value and return the data.
+  #[inline]
+  pub fn into_data(self) -> D {
+    self.data
+  }
+
+  /// Decompose the spanned value into its span and data.
+  #[inline]
+  pub fn into_components(self) -> (Span, D) {
+    (self.span, self.data)
+  }
+}

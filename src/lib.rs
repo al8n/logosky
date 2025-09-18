@@ -34,6 +34,26 @@ where
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a;
 }
 
+impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for utils::Spanned<D>
+where
+  D: Parseable<'a, I, T, Error>,
+  I: Tokenizer<'a, T, Slice = <T::Source as Source>::Slice<'a>>,
+  T: Token<'a>,
+  Error: 'a,
+{
+  #[inline(always)]
+  fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
+  where
+    Self: Sized,
+    E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
+  {
+    use chumsky::Parser;
+
+    <D as Parseable<'a, I, T, Error>>::parser()
+      .map_with(|value, exa| utils::Spanned::new(exa.span(), value))
+  }
+}
+
 #[doc(hidden)]
 pub mod __private {
   pub use super::lexer::{FromLexError, Require, Tokenizer, token};

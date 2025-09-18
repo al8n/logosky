@@ -1,7 +1,6 @@
-// use chumsky::{Parser, primitive::any};
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 
-// use crate::{FromLexError, lexer::Require, require_token_parser_fn};
+use crate::utils::{Span, Spanned};
 
 pub use logos::Logos;
 
@@ -17,7 +16,7 @@ pub mod kind;
 #[try_unwrap(ref, ref_mut)]
 pub enum Lexed<'a, T: Token<'a>> {
   /// A successfully recognized token.
-  Token(T),
+  Token(Spanned<T>),
 
   /// A lexing error produced while scanning.
   ///
@@ -40,11 +39,11 @@ where
   }
 }
 
-impl<'a, T: Token<'a>> From<Result<T, T::Error>> for Lexed<'a, T> {
+impl<'a, T: Token<'a>> From<Result<(Span, T), T::Error>> for Lexed<'a, T> {
   #[inline(always)]
-  fn from(value: Result<T, T::Error>) -> Self {
+  fn from(value: Result<(Span, T), T::Error>) -> Self {
     match value {
-      Ok(tok) => Self::Token(tok),
+      Ok((span, tok)) => Self::Token(Spanned::new(span, tok)),
       Err(err) => Self::Error(err),
     }
   }
@@ -54,7 +53,7 @@ impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, T::Error> {
   #[inline(always)]
   fn from(value: Lexed<'a, T>) -> Self {
     match value {
-      Lexed::Token(tok) => Ok(tok),
+      Lexed::Token(tok) => Ok(tok.into_data()),
       Lexed::Error(err) => Err(err),
     }
   }

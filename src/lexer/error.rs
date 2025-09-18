@@ -157,8 +157,8 @@ where
     span: Span,
   ) -> Self {
     match found {
-      Some(Maybe::Ref(Lexed::Token(tok))) => Simple::new(Some(Maybe::Ref(tok)), span),
-      Some(Maybe::Val(Lexed::Token(tok))) => Simple::new(Some(Maybe::Val(tok)), span),
+      Some(Maybe::Ref(Lexed::Token(tok))) => Simple::new(Some(Maybe::Ref(tok.data())), span),
+      Some(Maybe::Val(Lexed::Token(tok))) => Simple::new(Some(Maybe::Val(tok.into_data())), span),
       _ => Simple::new(None, span),
     }
   }

@@ -7,7 +7,7 @@ pub use require::Require;
 pub use source::Source;
 pub use token::{Lexed, Logos, Token};
 
-use crate::utils::{self, Span};
+use crate::utils;
 
 mod error;
 mod require;
@@ -23,7 +23,6 @@ pub mod source;
 pub struct TokenStream<'a, T: Token<'a>> {
   input: &'a T::Source,
   state: T::Extras,
-  current_span: Span,
 }
 
 impl<'a, T> TokenStream<'a, T>
@@ -42,7 +41,7 @@ impl<'a, T: Token<'a>> TokenStream<'a, T> {
   /// Creates a new lexer from the given input and state.
   #[inline(always)]
   pub const fn with_state(input: &'a T::Source, state: T::Extras) -> Self {
-    Self { input, state, current_span: Span::new(0, 0) }
+    Self { input, state }
   }
 }
 
@@ -89,15 +88,14 @@ where
     lexer.next().map(|res| {
       let span = lexer.span();
       *cursor = span.end;
-      this.current_span = span.into();
       this.state = lexer.extras;
-      res.into()
+      res.map(|tok| (utils::Span::from(span), tok)).into()
     })
   }
 
   #[inline(always)]
-  unsafe fn span(cache: &mut Self::Cache, _: Range<&Self::Cursor>) -> Self::Span {
-    cache.current_span
+  unsafe fn span(_: &mut Self::Cache, range: Range<&Self::Cursor>) -> Self::Span {
+    utils::Span::new(*range.start, *range.end)
   }
 }
 
@@ -120,9 +118,9 @@ where
   #[inline(always)]
   unsafe fn span_from(
     cache: &mut Self::Cache,
-    _: core::ops::RangeFrom<&Self::Cursor>,
+    range: core::ops::RangeFrom<&Self::Cursor>,
   ) -> Self::Span {
-    utils::Span::new(cache.current_span.start(), cache.input.len())
+    utils::Span::new(*range.start, cache.input.len())
   }
 }
 
