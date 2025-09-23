@@ -18,6 +18,11 @@ pub mod sdl_display;
 /// A module for displaying in syntax trees.
 pub mod syntax_tree_display;
 
+/// A module for container types with small size optimizations.
+#[cfg(feature = "smallvec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "smallvec")))]
+pub mod container;
+
 mod positioned_char;
 mod unexpected_end;
 mod unexpected_lexeme;
@@ -191,8 +196,10 @@ impl From<Span> for Range<usize> {
 /// A spanned value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Spanned<D> {
-  span: Span,
-  data: D,
+  /// The span of the data.
+  pub span: Span,
+  /// The spanned data.
+  pub data: D,
 }
 
 impl<D> core::fmt::Display for Spanned<D>
