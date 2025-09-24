@@ -1,6 +1,13 @@
 use chumsky::container::Container;
 use derive_more::{From, Into};
 
+/// A small vector which inlines 1 element to avoid allocations.
+pub type OneOrMore<T> = SmallVec<T, 1>;
+/// A small vector which inlines up to 2 elements to avoid allocations.
+pub type TwoOrMore<T> = SmallVec<T, 2>;
+/// A small vector which inlines up to 4 elements to avoid allocations.
+pub type FourOrMore<T> = SmallVec<T, 4>;
+
 /// A small vector which inlines up to `N` elements to avoid allocations.
 /// It uses the [`smallvec`](https://docs.rs/smallvec) crate internally.
 ///

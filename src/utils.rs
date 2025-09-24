@@ -177,6 +177,12 @@ impl Span {
   pub const fn is_empty(&self) -> bool {
     self.start == self.end
   }
+
+  /// Returns a range covering the span.
+  #[inline]
+  pub const fn range(&self) -> Range<usize> {
+    self.start..self.end
+  }
 }
 
 impl From<Range<usize>> for Span {
