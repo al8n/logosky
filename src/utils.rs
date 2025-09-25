@@ -318,7 +318,7 @@ impl<D> Spanned<D> {
 }
 
 /// Enables accessing the source span of a parsed element.
-/// 
+///
 /// This trait provides a way to retrieve the span information associated with
 /// a parsed element without taking ownership of the element itself. This is
 /// useful for scenarios where you need to reference the location of the element
@@ -330,9 +330,9 @@ impl<D> Spanned<D> {
 /// - **Diagnostics**: Highlighting source locations in IDEs or tools
 /// - **Logging**: Recording where certain elements were parsed from
 /// - **Analysis**: Performing source-based analysis or transformations
-/// 
+///
 /// ## Implementation Notes
-/// 
+///
 /// Implementing types should ensure that:
 ///   - The returned span is accurate and corresponds to the element's location in the source
 ///   - The method is efficient and does not involve unnecessary allocations or computations

@@ -22,7 +22,6 @@ mod parseable;
 /// Common utilities for working with tokens and lexers.
 pub mod utils;
 
-
 #[doc(hidden)]
 pub mod __private {
   pub use super::lexer::{FromLexError, Require, Tokenizer, token};

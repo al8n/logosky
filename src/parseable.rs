@@ -1,7 +1,9 @@
 use logos::Source;
 
-use super::{Token, Tokenizer, utils::{Span, Spanned, AsSpan, IntoSpan}};
-
+use super::{
+  Token, Tokenizer,
+  utils::{AsSpan, IntoSpan, Span, Spanned},
+};
 
 /// A trait for types that can be parsed directly from a [`I: Tokenizer<'a, T>`](Tokenizer) which yields [`T: Token<'a>`](Token) and may produce an `Error`.
 pub trait Parseable<'a, I, T, Error> {
@@ -105,7 +107,6 @@ where
   }
 }
 
-
 impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for std::vec::Vec<D>
 where
   D: Parseable<'a, I, T, Error>,
@@ -119,16 +120,18 @@ where
     Self: Sized + 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
   {
-    use chumsky::{Parser, IterParser};
+    use chumsky::{IterParser, Parser};
 
-    <D as Parseable<'a, I, T, Error>>::parser().repeated().collect()
+    <D as Parseable<'a, I, T, Error>>::parser()
+      .repeated()
+      .collect()
   }
 }
 
 #[cfg(feature = "either")]
 const _: () = {
-  use either::Either;
   use crate::utils::{AsSpan, IntoSpan};
+  use either::Either;
 
   impl<'a, L, R, I, T, Error> Parseable<'a, I, T, Error> for Either<L, R>
   where
@@ -146,7 +149,9 @@ const _: () = {
     {
       use chumsky::Parser;
 
-      L::parser().map(Either::Left).or(R::parser().map(Either::Right))
+      L::parser()
+        .map(Either::Left)
+        .or(R::parser().map(Either::Right))
     }
   }
 
@@ -183,7 +188,7 @@ const _: () = {
 const _: () = {
   use among::Among;
 
-  use crate::utils::{IntoSpan, AsSpan};
+  use crate::utils::{AsSpan, IntoSpan};
 
   impl<'a, L, M, R, I, T, Error> Parseable<'a, I, T, Error> for Among<L, M, R>
   where
@@ -242,4 +247,3 @@ const _: () = {
     }
   }
 };
-
