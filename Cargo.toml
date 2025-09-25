@@ -40,8 +40,10 @@ logos = { version = "0.15", default-features = false, features = [
 ] }
 thiserror = { version = "2", default-features = false }
 
+among = { version = "0.1", default-features = false, optional = true }
 bstr = { version = "1", default-features = false, optional = true }
 bytes = { version = "1", default-features = false, optional = true }
+either = { version = "1", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, optional = true, features = ["const_new"] }
 
 [dev-dependencies]
