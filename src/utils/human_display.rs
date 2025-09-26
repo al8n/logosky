@@ -41,24 +41,27 @@ impl DisplayHuman for u8 {
   }
 }
 
-impl DisplayHuman for char {
-  #[inline]
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    fmt::Display::fmt(self, f)
-  }
+macro_rules! impl_display_human_for_primitive {
+  ($($ty:ty),+) => {
+    $(
+      impl DisplayHuman for $ty {
+        #[inline]
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+          fmt::Display::fmt(self, f)
+        }
+      }
+    )*
+  };
 }
+
+impl_display_human_for_primitive!(
+  u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64, char, str
+);
 
 impl<T: DisplayHuman> DisplayHuman for PositionedChar<T> {
   #[inline]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.char_ref().fmt(f)
-  }
-}
-
-impl DisplayHuman for str {
-  #[inline]
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    fmt::Display::fmt(self, f)
   }
 }
 
