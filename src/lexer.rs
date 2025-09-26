@@ -18,6 +18,14 @@ pub mod token;
 /// The source related structures and traits
 pub mod source;
 
+/// A trait for types that can be lexed from the input.
+pub trait Lexable<I, Error> {
+  /// Lexes `Self` from the given input.
+  fn lex(input: I) -> Result<Self, Error>
+  where
+    Self: Sized;
+}
+
 /// The logos token stream adapter for chumsky's parsers
 #[derive(Debug, Clone, Copy)]
 pub struct TokenStream<'a, T: Token<'a>> {
