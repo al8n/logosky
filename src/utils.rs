@@ -18,6 +18,10 @@ pub mod sdl_display;
 /// A module for displaying in syntax trees.
 pub mod syntax_tree_display;
 
+pub use to_equivalent::*;
+
+mod to_equivalent;
+
 /// A module for container types with small size optimizations.
 #[cfg(feature = "smallvec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "smallvec")))]

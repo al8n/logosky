@@ -19,7 +19,11 @@ default = ["std"]
 alloc = []
 std = ["thiserror/default"]
 
+either = ["dep:either"]
+among = ["dep:among"]
+hipstr = ["dep:hipstr"]
 bytes = ["dep:bytes", "chumsky/bytes"]
+bstr = ["dep:bstr"]
 smallvec = ["dep:smallvec"]
 
 [dependencies]
@@ -43,6 +47,7 @@ thiserror = { version = "2", default-features = false }
 among = { version = "0.1", default-features = false, optional = true }
 bstr = { version = "1", default-features = false, optional = true }
 bytes = { version = "1", default-features = false, optional = true }
+hipstr = { version = "0.8", default-features = false, optional = true }
 either = { version = "1", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, optional = true, features = ["const_new"] }
 
