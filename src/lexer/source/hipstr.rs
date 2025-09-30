@@ -1,6 +1,6 @@
 use core::ops::Range;
 
-use hipstr::{HipStr, HipByt};
+use hipstr::{HipByt, HipStr};
 
 use super::CustomSource;
 
@@ -55,7 +55,6 @@ impl logos::Source for CustomSource<HipStr<'_>> {
     self.0.is_boundary(index)
   }
 }
-
 
 impl logos::Source for CustomSource<HipByt<'_>> {
   type Slice<'a>

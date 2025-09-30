@@ -1,4 +1,4 @@
-use logos::Source;
+use logos::{Logos, Source};
 
 use super::{
   Token, Tokenizer,
@@ -11,7 +11,7 @@ pub trait Parseable<'a, I, T, Error> {
   fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
   where
     Self: Sized + 'a,
-    I: Tokenizer<'a, T, Slice = <T::Source as Source>::Slice<'a>>,
+    I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a;
@@ -26,7 +26,7 @@ where
   where
     Self: Sized + 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-    I: Tokenizer<'a, T, Slice = <T::Source as Source>::Slice<'a>>,
+    I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
   {
@@ -46,7 +46,7 @@ where
   where
     Self: Sized + 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-    I: Tokenizer<'a, T, Slice = <T::Source as Source>::Slice<'a>>,
+    I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
   {
@@ -62,7 +62,7 @@ macro_rules! wrapper_parser {
       impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for $ty
       where
         D: Parseable<'a, I, T, Error>,
-        I: Tokenizer<'a, T, Slice = <T::Source as Source>::Slice<'a>>,
+        I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
         T: Token<'a>,
         Error: 'a,
       {
@@ -110,7 +110,7 @@ where
 impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for std::vec::Vec<D>
 where
   D: Parseable<'a, I, T, Error>,
-  I: Tokenizer<'a, T, Slice = <T::Source as Source>::Slice<'a>>,
+  I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
   T: Token<'a>,
   Error: 'a,
 {
@@ -143,7 +143,7 @@ const _: () = {
     where
       Self: Sized + 'a,
       E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-      I: Tokenizer<'a, T, Slice = <T::Source as Source>::Slice<'a>>,
+      I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
       T: Token<'a>,
       Error: 'a,
     {
@@ -201,7 +201,7 @@ const _: () = {
     where
       Self: Sized + 'a,
       E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-      I: Tokenizer<'a, T, Slice = <T::Source as Source>::Slice<'a>>,
+      I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
       T: Token<'a>,
       Error: 'a,
     {

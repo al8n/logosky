@@ -11,7 +11,7 @@ pub mod kind;
 ///
 /// `Lexed` lets you keep errors *in* the stream so you can continue scanning and
 /// report multiple diagnostics in one pass, or filter them out later.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, IsVariant, Unwrap, TryUnwrap)]
+#[derive(Debug, Clone, PartialEq, IsVariant, Unwrap, TryUnwrap)]
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
 pub enum Lexed<'a, T: Token<'a>> {
@@ -22,13 +22,13 @@ pub enum Lexed<'a, T: Token<'a>> {
   ///
   /// This usually contains enough information to render a diagnostic
   /// (e.g., span/byte range and an error kind/message).
-  Error(T::Error),
+  Error(<T::Logos as Logos<'a>>::Error),
 }
 
-impl<'a, T> core::fmt::Display for Lexed<'a, T>
+impl<'a, T: 'a> core::fmt::Display for Lexed<'a, T>
 where
   T: Token<'a> + core::fmt::Display,
-  T::Error: core::fmt::Display,
+  <T::Logos as Logos<'a>>::Error: core::fmt::Display,
 {
   #[inline]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -39,9 +39,9 @@ where
   }
 }
 
-impl<'a, T: Token<'a>> From<Result<(Span, T), T::Error>> for Lexed<'a, T> {
+impl<'a, T: Token<'a>> From<Result<(Span, T), <T::Logos as Logos<'a>>::Error>> for Lexed<'a, T> {
   #[inline(always)]
-  fn from(value: Result<(Span, T), T::Error>) -> Self {
+  fn from(value: Result<(Span, T), <T::Logos as Logos<'a>>::Error>) -> Self {
     match value {
       Ok((span, tok)) => Self::Token(Spanned::new(span, tok)),
       Err(err) => Self::Error(err),
@@ -49,7 +49,7 @@ impl<'a, T: Token<'a>> From<Result<(Span, T), T::Error>> for Lexed<'a, T> {
   }
 }
 
-impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, T::Error> {
+impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, <T::Logos as Logos<'a>>::Error> {
   #[inline(always)]
   fn from(value: Lexed<'a, T>) -> Self {
     match value {
@@ -60,11 +60,16 @@ impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, T::Error> {
 }
 
 /// The token trait.
-pub trait Token<'a>: Logos<'a> + Clone + core::fmt::Debug + 'a {
+pub trait Token<'a>: Clone + core::fmt::Debug + 'a {
   /// The character type of the token.
   type Char: Copy + core::fmt::Debug + PartialEq + Eq + core::hash::Hash;
   /// The kind type of the token.
   type Kind: Copy + core::fmt::Debug + PartialEq + Eq + core::hash::Hash;
+  /// The logos
+  type Logos: Logos<'a> + Clone;
+
+  /// Creates a token from the logos token.
+  fn from_logos(value: Self::Logos) -> Self;
 
   /// Returns the kind of the token.
   fn kind(&self) -> Self::Kind;

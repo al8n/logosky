@@ -17,7 +17,7 @@ where
   T: Token<'a>,
 {
   /// The token error happens when trying to pull the next token.
-  Token(T::Error),
+  Token(<T::Logos as Logos<'a>>::Error),
   /// The unexpected token error
   UnexpectedToken {
     /// The expected token name
@@ -34,7 +34,7 @@ where
 impl<'a, T> core::fmt::Display for LexError<'a, T>
 where
   T: Token<'a> + core::fmt::Display,
-  T::Error: core::fmt::Display,
+  <T::Logos as Logos<'a>>::Error: core::fmt::Display,
 {
   #[inline]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -51,8 +51,9 @@ where
 
 impl<'a, T> core::error::Error for LexError<'a, T>
 where
-  T: Token<'a> + core::fmt::Display,
-  T::Error: core::fmt::Display,
+  T: Token<'a> + core::fmt::Display + core::fmt::Debug,
+  T::Logos: core::fmt::Debug,
+  <T::Logos as Logos<'a>>::Error: core::fmt::Display + core::fmt::Debug,
 {
 }
 
@@ -62,7 +63,7 @@ where
 {
   /// Creates a token error data
   #[inline]
-  pub const fn token(data: T::Error) -> Self {
+  pub const fn token(data: <T::Logos as Logos<'a>>::Error) -> Self {
     Self::Token(data)
   }
 
@@ -121,10 +122,10 @@ where
 impl<'a, T, S> FromLexError<'a, T, S> for EmptyErr
 where
   T: Token<'a>,
-  T::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Copy,
 {
   #[inline]
-  fn from_lex_error(_: T::Error, _: S) -> Self
+  fn from_lex_error(_: <T::Logos as Logos<'a>>::Error, _: S) -> Self
   where
     T: Token<'a>,
   {
@@ -135,10 +136,10 @@ where
 impl<'a, T, S> FromLexError<'a, T, S> for Cheap<S>
 where
   T: Token<'a>,
-  T::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Copy,
 {
   #[inline]
-  fn from_lex_error(_: T::Error, span: S) -> Self
+  fn from_lex_error(_: <T::Logos as Logos<'a>>::Error, span: S) -> Self
   where
     T: Token<'a>,
   {
@@ -149,7 +150,7 @@ where
 impl<'a, T, L> LabelError<'a, TokenStream<'a, T>, L> for Simple<'a, T, Span>
 where
   T: Token<'a>,
-  T::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Copy,
 {
   fn expected_found<E: IntoIterator<Item = L>>(
     _expected: E,
@@ -164,13 +165,13 @@ where
   }
 }
 
-impl<'a, T, S> FromLexError<'a, T, S> for Simple<'a, T::Error, S>
+impl<'a, T, S> FromLexError<'a, T, S> for Simple<'a, <T::Logos as Logos<'a>>::Error, S>
 where
   T: Token<'a>,
-  T::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Copy,
 {
   #[inline]
-  fn from_lex_error(value: T::Error, span: S) -> Self
+  fn from_lex_error(value: <T::Logos as Logos<'a>>::Error, span: S) -> Self
   where
     T: Token<'a>,
   {
@@ -181,7 +182,7 @@ where
 impl<'a, T> From<LexError<'a, T>> for RichPattern<'a, T>
 where
   T: Token<'a> + core::fmt::Display,
-  T::Error: core::fmt::Display,
+  <T::Logos as Logos<'a>>::Error: core::fmt::Display,
 {
   #[inline(always)]
   fn from(value: LexError<'a, T>) -> Self {
@@ -199,7 +200,7 @@ where
 /// A trait for converting a lexer error into the target error.
 pub trait FromLexError<'a, T, S> {
   /// Converts a lexer error into the target error with the span
-  fn from_lex_error(err: T::Error, span: S) -> Self
+  fn from_lex_error(err: <T::Logos as Logos<'a>>::Error, span: S) -> Self
   where
     T: Token<'a>;
 }

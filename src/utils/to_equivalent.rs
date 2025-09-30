@@ -1,5 +1,4 @@
-
-
+#![allow(single_use_lifetimes)]
 
 mod sealed {
   pub trait Sealed<T: ?Sized> {}
@@ -8,7 +7,7 @@ mod sealed {
 }
 
 /// A trait for converting to an equivalent type.
-/// 
+///
 /// e.g. `&[u8]` is equivalent to [`bytes::Bytes`](https://docs.rs/bytes/latest/bytes/struct.Bytes.html)
 pub trait ToEquivalent<T>: sealed::Sealed<T> {
   /// Converts this element to an equivalent type `T`.
@@ -25,19 +24,53 @@ where
   }
 }
 
+impl sealed::Sealed<str> for str {}
+impl<'de: 'a, 'a> sealed::Sealed<&'a str> for &'de str {}
+
+impl sealed::Sealed<[u8]> for [u8] {}
+impl<'de: 'a, 'a> sealed::Sealed<&'a [u8]> for &'de [u8] {}
+
+impl<'de: 'a, 'a> ToEquivalent<&'a str> for &'de str {
+  #[inline(always)]
+  fn to_equivalent(&self) -> &'a str {
+    self
+  }
+}
+
+impl<'de: 'a, 'a> ToEquivalent<&'a [u8]> for &'de [u8] {
+  #[inline(always)]
+  fn to_equivalent(&self) -> &'a [u8] {
+    self
+  }
+}
+
 /// A trait for converting into an equivalent type.
-/// 
+///
 /// e.g. `&[u8]` is equivalent to [`bytes::Bytes`](https://docs.rs/bytes/latest/bytes/struct.Bytes.html)
 pub trait IntoEquivalent<T>: sealed::Sealed<T> {
   /// Consumes this element and converts it into an equivalent type `T`.
   fn into_equivalent(self) -> T;
 }
 
+impl<'de: 'a, 'a> IntoEquivalent<&'a str> for &'de str {
+  #[inline(always)]
+  fn into_equivalent(self) -> &'a str {
+    self
+  }
+}
+
+impl<'de: 'a, 'a> IntoEquivalent<&'a [u8]> for &'de [u8] {
+  #[inline(always)]
+  fn into_equivalent(self) -> &'a [u8] {
+    self
+  }
+}
+
 #[cfg(feature = "bytes")]
 const _: () = {
-  use sealed::Sealed;
   use crate::source::CustomSource;
   use bytes::Bytes;
+  use sealed::Sealed;
 
   impl Sealed<Bytes> for [u8] {}
 
@@ -74,9 +107,9 @@ const _: () = {
 
 #[cfg(feature = "hipstr")]
 const _: () = {
-  use sealed::Sealed;
   use crate::source::CustomSource;
-  use hipstr::{HipStr, HipByt};
+  use hipstr::{HipByt, HipStr};
+  use sealed::Sealed;
 
   impl Sealed<HipStr<'_>> for str {}
 

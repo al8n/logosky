@@ -27,28 +27,67 @@ pub trait Lexable<I, Error> {
 }
 
 /// The logos token stream adapter for chumsky's parsers
-#[derive(Debug, Clone, Copy)]
+// #[derive(Debug)]
 pub struct TokenStream<'a, T: Token<'a>> {
-  input: &'a T::Source,
-  state: T::Extras,
+  input: &'a <T::Logos as Logos<'a>>::Source,
+  state: <T::Logos as Logos<'a>>::Extras,
+}
+
+impl<'a, T> Clone for TokenStream<'a, T>
+where
+  T: Token<'a>,
+  <T::Logos as Logos<'a>>::Extras: Clone,
+{
+  #[inline(always)]
+  fn clone(&self) -> Self {
+    Self {
+      input: self.input,
+      state: self.state.clone(),
+    }
+  }
+}
+
+impl<'a, T> Copy for TokenStream<'a, T>
+where
+  T: Token<'a>,
+  <T::Logos as Logos<'a>>::Extras: Copy,
+{
+}
+
+impl<'a, T> core::fmt::Debug for TokenStream<'a, T>
+where
+  T: Token<'a>,
+  <T::Logos as Logos<'a>>::Source: core::fmt::Debug,
+  <T::Logos as Logos<'a>>::Extras: core::fmt::Debug,
+{
+  #[inline]
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    f.debug_struct("TokenStream")
+      .field("input", &self.input)
+      .field("state", &self.state)
+      .finish()
+  }
 }
 
 impl<'a, T> TokenStream<'a, T>
 where
   T: Token<'a>,
-  T::Extras: Default,
+  <T::Logos as Logos<'a>>::Extras: Default,
 {
   /// Creates a new lexer from the given input.
   #[inline(always)]
-  pub fn new(input: &'a T::Source) -> Self {
-    Self::with_state(input, T::Extras::default())
+  pub fn new(input: &'a <T::Logos as Logos<'a>>::Source) -> Self {
+    Self::with_state(input, <T::Logos as Logos<'a>>::Extras::default())
   }
 }
 
 impl<'a, T: Token<'a>> TokenStream<'a, T> {
   /// Creates a new lexer from the given input and state.
   #[inline(always)]
-  pub const fn with_state(input: &'a T::Source, state: T::Extras) -> Self {
+  pub const fn with_state(
+    input: &'a <T::Logos as Logos<'a>>::Source,
+    state: <T::Logos as Logos<'a>>::Extras,
+  ) -> Self {
     Self { input, state }
   }
 }
@@ -56,7 +95,7 @@ impl<'a, T: Token<'a>> TokenStream<'a, T> {
 impl<'a, T: Token<'a>> TokenStream<'a, T> {
   /// Returns a reference to the input.
   #[inline(always)]
-  pub const fn input(&self) -> &T::Source {
+  pub const fn input(&self) -> &<T::Logos as Logos<'a>>::Source {
     self.input
   }
 }
@@ -64,7 +103,7 @@ impl<'a, T: Token<'a>> TokenStream<'a, T> {
 impl<'a, T> Input<'a> for TokenStream<'a, T>
 where
   T: Token<'a>,
-  <T as Logos<'a>>::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Copy,
 {
   type Span = utils::Span;
 
@@ -91,13 +130,15 @@ where
     this: &mut Self::Cache,
     cursor: &mut Self::Cursor,
   ) -> Option<Self::MaybeToken> {
-    let mut lexer = logos::Lexer::<T>::with_extras(this.input, this.state);
+    let mut lexer = logos::Lexer::<T::Logos>::with_extras(this.input, this.state);
     lexer.bump(*cursor);
     lexer.next().map(|res| {
       let span = lexer.span();
       *cursor = span.end;
       this.state = lexer.extras;
-      res.map(|tok| (utils::Span::from(span), tok)).into()
+      res
+        .map(|tok| (utils::Span::from(span), T::from_logos(tok)))
+        .into()
     })
   }
 
@@ -110,7 +151,7 @@ where
 impl<'a, T> ValueInput<'a> for TokenStream<'a, T>
 where
   T: Token<'a>,
-  <T as Logos<'a>>::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Copy,
 {
   #[inline(always)]
   unsafe fn next(cache: &mut Self::Cache, cursor: &mut Self::Cursor) -> Option<Self::Token> {
@@ -121,7 +162,7 @@ where
 impl<'a, T> ExactSizeInput<'a> for TokenStream<'a, T>
 where
   T: Token<'a>,
-  <T as Logos<'a>>::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Copy,
 {
   #[inline(always)]
   unsafe fn span_from(
@@ -135,10 +176,10 @@ where
 impl<'a, T> SliceInput<'a> for TokenStream<'a, T>
 where
   T: Token<'a>,
-  <T as Logos<'a>>::Extras: Copy,
-  <T::Source as logos::Source>::Slice<'a>: Clone,
+  <T::Logos as Logos<'a>>::Extras: Copy,
+  <<T::Logos as Logos<'a>>::Source as logos::Source>::Slice<'a>: Clone,
 {
-  type Slice = <T::Source as logos::Source>::Slice<'a>;
+  type Slice = <<T::Logos as Logos<'a>>::Source as logos::Source>::Slice<'a>;
 
   #[inline(always)]
   fn full_slice(cache: &mut Self::Cache) -> Self::Slice {
@@ -147,7 +188,12 @@ where
 
   #[inline(always)]
   unsafe fn slice(cache: &mut Self::Cache, range: Range<&Self::Cursor>) -> Self::Slice {
-    unsafe { <T::Source as logos::Source>::slice_unchecked(cache.input, *range.start..*range.end) }
+    unsafe {
+      <<T::Logos as Logos<'a>>::Source as logos::Source>::slice_unchecked(
+        cache.input,
+        *range.start..*range.end,
+      )
+    }
   }
 
   #[inline(always)]
@@ -156,7 +202,10 @@ where
     from: core::ops::RangeFrom<&Self::Cursor>,
   ) -> Self::Slice {
     unsafe {
-      <T::Source as logos::Source>::slice_unchecked(cache.input, *from.start..cache.input.len())
+      <<T::Logos as Logos<'a>>::Source as logos::Source>::slice_unchecked(
+        cache.input,
+        *from.start..cache.input.len(),
+      )
     }
   }
 }
@@ -181,7 +230,7 @@ impl<'a, T, I> Tokenizer<'a, T> for I
 where
   I: SliceInput<'a> + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>,
   T: Token<'a>,
-  T::Extras: State,
+  <T::Logos as Logos<'a>>::Extras: State,
 {
 }
 
