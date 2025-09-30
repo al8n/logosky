@@ -294,17 +294,17 @@ where
 {
   #[inline(always)]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
-    self.as_ref().is_ascii_char(ch)
+    self.as_inner().is_ascii_char(ch)
   }
 
   #[inline(always)]
   fn is_ascii_digit(&self) -> bool {
-    <T as IsAsciiChar>::is_ascii_digit(self.as_ref())
+    <T as IsAsciiChar>::is_ascii_digit(self.as_inner())
   }
 
   #[inline(always)]
   fn one_of(&self, choices: &[ascii::AsciiChar]) -> bool {
-    <T as IsAsciiChar>::one_of(self.as_ref(), choices)
+    <T as IsAsciiChar>::one_of(self.as_inner(), choices)
   }
 }
 

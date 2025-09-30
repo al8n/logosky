@@ -17,7 +17,7 @@ rust-version = "1.87"
 [features]
 default = ["std"]
 alloc = []
-std = ["thiserror/default"]
+std = ["thiserror/default", "bytes?/default", "hipstr?/default", "bstr?/default"]
 
 either = ["dep:either"]
 among = ["dep:among"]

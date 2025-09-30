@@ -26,7 +26,7 @@ impl<T: DisplayHuman + ?Sized> DisplayHuman for &T {
 impl<T: DisplayHuman + ?Sized> DisplayHuman for CustomSource<T> {
   #[inline]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    self.as_ref().fmt(f)
+    self.as_inner().fmt(f)
   }
 }
 

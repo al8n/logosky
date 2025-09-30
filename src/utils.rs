@@ -11,6 +11,8 @@ pub mod token_tracker;
 /// A tracker for tracking recursion depth and tokens.
 pub mod tracker;
 
+/// A module for custom comparing traits.
+pub mod cmp;
 /// A module for displaying in a human-friendly way.
 pub mod human_display;
 /// A module for displaying in SDL.

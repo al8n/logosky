@@ -4,9 +4,9 @@ use hipstr::{HipByt, HipStr};
 
 use super::CustomSource;
 
-impl logos::Source for CustomSource<HipStr<'_>> {
+impl<'h> logos::Source for CustomSource<HipStr<'h>> {
   type Slice<'a>
-    = HipStr<'a>
+    = HipStr<'h>
   where
     Self: 'a;
 
@@ -56,9 +56,9 @@ impl logos::Source for CustomSource<HipStr<'_>> {
   }
 }
 
-impl logos::Source for CustomSource<HipByt<'_>> {
+impl<'h> logos::Source for CustomSource<HipByt<'h>> {
   type Slice<'a>
-    = HipByt<'a>
+    = HipByt<'h>
   where
     Self: 'a;
 
