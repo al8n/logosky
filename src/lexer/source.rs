@@ -14,7 +14,7 @@ mod hipstr;
 /// A wrapper around a source type to avoid the conflicting implementation of [`logos::Source`] for types implement `Deref`.
 ///
 /// This is helpful for using [`bytes::Bytes`](https://docs.rs/bytes/latest/bytes/struct.Bytes.html) or [`bstr::BStr`](https://docs.rs/bstr/latest/bstr/struct.BStr.html).
-#[derive(Clone, Copy, PartialEq, Eq, Hash, AsRef, AsMut)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, AsRef, AsMut)]
 #[repr(transparent)]
 pub struct CustomSource<S: ?Sized>(S);
 

@@ -103,6 +103,19 @@ const _: () = {
       CustomSource::from(Bytes::copy_from_slice(self))
     }
   }
+
+  fn __assert_bytes_to_equivalent_impl() {
+    fn _assert<T: ToEquivalent<Bytes> + ?Sized>() {}
+
+    _assert::<[u8]>();
+    _assert::<&[u8]>();
+  }
+
+  fn __assert_bytes_into_equivalent_impl() {
+    fn _assert<T: IntoEquivalent<Bytes> + ?Sized>() {}
+
+    _assert::<&[u8]>();
+  }
 };
 
 #[cfg(feature = "hipstr")]

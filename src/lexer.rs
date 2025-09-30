@@ -18,6 +18,9 @@ pub mod token;
 /// The source related structures and traits
 pub mod source;
 
+/// Iterators for [`TokenStream`]
+pub mod iter;
+
 /// A trait for types that can be lexed from the input.
 pub trait Lexable<I, Error> {
   /// Lexes `Self` from the given input.
@@ -27,7 +30,6 @@ pub trait Lexable<I, Error> {
 }
 
 /// The logos token stream adapter for chumsky's parsers
-// #[derive(Debug)]
 pub struct TokenStream<'a, T: Token<'a>> {
   input: &'a <T::Logos as Logos<'a>>::Source,
   state: <T::Logos as Logos<'a>>::Extras,
@@ -132,13 +134,9 @@ where
   ) -> Option<Self::MaybeToken> {
     let mut lexer = logos::Lexer::<T::Logos>::with_extras(this.input, this.state);
     lexer.bump(*cursor);
-    lexer.next().map(|res| {
-      let span = lexer.span();
-      *cursor = span.end;
+    Lexed::lex(&mut lexer).inspect(|_| {
+      *cursor = lexer.span().end;
       this.state = lexer.extras;
-      res
-        .map(|tok| (utils::Span::from(span), T::from_logos(tok)))
-        .into()
     })
   }
 

@@ -1,4 +1,5 @@
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
+use logos::Lexer;
 
 use crate::utils::{Span, Spanned};
 
@@ -23,6 +24,19 @@ pub enum Lexed<'a, T: Token<'a>> {
   /// This usually contains enough information to render a diagnostic
   /// (e.g., span/byte range and an error kind/message).
   Error(<T::Logos as Logos<'a>>::Error),
+}
+
+impl<'a, T: Token<'a>> Lexed<'a, T> {
+  /// Lexes the next token from the given lexer, returning `None` if the input is exhausted.
+  #[inline(always)]
+  pub fn lex(lexer: &mut Lexer<'a, T::Logos>) -> Option<Self> {
+    lexer.next().map(|res| {
+      let span = lexer.span();
+      res
+        .map(|tok| (crate::utils::Span::from(span), T::from_logos(tok)))
+        .into()
+    })
+  }
 }
 
 impl<'a, T: 'a> core::fmt::Display for Lexed<'a, T>
