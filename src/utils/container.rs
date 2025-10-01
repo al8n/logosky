@@ -1,6 +1,8 @@
 use chumsky::container::Container;
 use derive_more::{From, Into};
 
+use std::vec::Vec;
+
 /// A small vector which inlines 1 element to avoid allocations.
 pub type OneOrMore<T> = SmallVec<T, 1>;
 /// A small vector which inlines up to 2 elements to avoid allocations.

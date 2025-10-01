@@ -8,6 +8,8 @@ documentation = "https://docs.rs/logosky"
 description = "A seamless integration layer between Logos lexer and Chumsky parser combinator, providing zero-copy TokenStream adapter and Parseable trait for building robust parsers"
 license = "MIT OR Apache-2.0"
 rust-version = "1.87"
+categories = ["parsing", "text-processing", "no-std"]
+keywords = ["lexer", "parser", "logos", "chumsky", "combinator"]
 
 [features]
 default = ["std"]
