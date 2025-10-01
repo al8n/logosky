@@ -28,9 +28,6 @@ English | [简体中文][zh-cn-url]
 logosky = "0.1"
 ```
 
-## Features
-- [x] Create a Rust open-source repo fast 
-
 #### License
 
 `logosky` is under the terms of both the MIT license and the
