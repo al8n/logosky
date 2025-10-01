@@ -24,7 +24,7 @@ pub mod utils;
 
 #[doc(hidden)]
 pub mod __private {
-  pub use super::lexer::{FromLexError, Require, Tokenizer, token};
+  pub use super::lexer::{FromLexError, Tokenizer, token};
   pub use chumsky;
   pub use logos;
 }

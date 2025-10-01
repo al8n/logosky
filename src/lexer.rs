@@ -3,14 +3,12 @@ use core::ops::Range;
 use chumsky::input::{ExactSizeInput, Input, SliceInput, ValueInput};
 
 pub use error::*;
-pub use require::Require;
 pub use source::Source;
 pub use token::{Lexed, Logos, Token};
 
 use crate::utils;
 
 mod error;
-mod require;
 
 /// The token related structures and traits
 pub mod token;
