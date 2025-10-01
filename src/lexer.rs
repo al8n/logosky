@@ -4,7 +4,7 @@ use chumsky::input::{ExactSizeInput, Input, SliceInput, ValueInput};
 
 pub use error::*;
 pub use source::Source;
-pub use token::{Lexed, Logos, Token};
+pub use token::{Lexed, Logos, Token, TokenExt};
 
 use crate::utils;
 
@@ -31,6 +31,7 @@ pub trait Lexable<I, Error> {
 pub struct TokenStream<'a, T: Token<'a>> {
   input: &'a <T::Logos as Logos<'a>>::Source,
   state: <T::Logos as Logos<'a>>::Extras,
+  cursor: usize,
 }
 
 impl<'a, T> Clone for TokenStream<'a, T>
@@ -43,14 +44,16 @@ where
     Self {
       input: self.input,
       state: self.state.clone(),
+      cursor: self.cursor,
     }
   }
 }
 
 impl<'a, T> Copy for TokenStream<'a, T>
 where
-  T: Token<'a>,
+  T: Token<'a> + Copy,
   <T::Logos as Logos<'a>>::Extras: Copy,
+  <T::Logos as Logos<'a>>::Error: Copy,
 {
 }
 
@@ -88,7 +91,11 @@ impl<'a, T: Token<'a>> TokenStream<'a, T> {
     input: &'a <T::Logos as Logos<'a>>::Source,
     state: <T::Logos as Logos<'a>>::Extras,
   ) -> Self {
-    Self { input, state }
+    Self {
+      input,
+      state,
+      cursor: 0,
+    }
   }
 }
 
@@ -97,6 +104,18 @@ impl<'a, T: Token<'a>> TokenStream<'a, T> {
   #[inline(always)]
   pub const fn input(&self) -> &<T::Logos as Logos<'a>>::Source {
     self.input
+  }
+
+  /// Returns an iterator over the tokens of the lexer.
+  #[inline(always)]
+  pub const fn iter(&mut self) -> iter::Iter<'a, '_, T> {
+    iter::Iter::new(self)
+  }
+
+  /// Consumes the lexer and returns an iterator over the tokens of the lexer.
+  #[inline(always)]
+  pub const fn into_iter(self) -> iter::IntoIter<'a, T> {
+    iter::IntoIter::new(self)
   }
 }
 
@@ -130,11 +149,16 @@ where
     this: &mut Self::Cache,
     cursor: &mut Self::Cursor,
   ) -> Option<Self::MaybeToken> {
+    if *cursor >= this.input.len() {
+      return None;
+    }
+
     let mut lexer = logos::Lexer::<T::Logos>::with_extras(this.input, this.state);
     lexer.bump(*cursor);
     Lexed::lex(&mut lexer).inspect(|_| {
       *cursor = lexer.span().end;
       this.state = lexer.extras;
+      this.cursor = *cursor;
     })
   }
 

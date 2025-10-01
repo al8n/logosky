@@ -5,7 +5,7 @@ edition = "2024"
 repository = "https://github.com/al8n/logosky"
 homepage = "https://github.com/al8n/logosky"
 documentation = "https://docs.rs/logosky"
-description = "A seamless integration layer between Logos lexer and Chumsky parser combinator, providing TokenStream adapter and Parseable trait for building robust parsers"
+description = "A seamless integration layer between Logos lexer and Chumsky parser combinator, providing zero-copy TokenStream adapter and Parseable trait for building robust parsers"
 license = "MIT OR Apache-2.0"
 rust-version = "1.87"
 

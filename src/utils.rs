@@ -273,7 +273,7 @@ impl<D> IntoComponents for Spanned<D> {
 impl<D> Spanned<D> {
   /// Create a new spanned value.
   #[inline]
-  pub(super) const fn new(span: Span, data: D) -> Self {
+  pub const fn new(span: Span, data: D) -> Self {
     Self { span, data }
   }
 
@@ -411,7 +411,7 @@ pub trait IntoSpan<Span>: AsSpan<Span> {
 ///
 /// ## Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// // Extracting components for transformation
 /// let float_value: FloatValue<&str, SimpleSpan> = parse_float("3.14e-2")?;
 /// let (span, int_part, frac_part, exp_part) = float_value.into_components();

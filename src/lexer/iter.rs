@@ -1,24 +1,33 @@
 use super::*;
 
-/// An iterator over the tokens produced by a [`logos::Lexer`].
+/// An iterator over the tokens produced by a [`TokenStream`].
 #[derive(derive_more::From, derive_more::Into)]
-pub struct Iter<'a, T: Token<'a>> {
-  logos: logos::Lexer<'a, T::Logos>,
+pub struct IntoIter<'a, T: Token<'a>> {
+  stream: TokenStream<'a, T>,
 }
 
-impl<'a, T: Token<'a>> Clone for Iter<'a, T>
+impl<'a, T> IntoIter<'a, T>
+where
+  T: Token<'a>,
+{
+  pub(super) const fn new(stream: TokenStream<'a, T>) -> Self {
+    Self { stream }
+  }
+}
+
+impl<'a, T: Token<'a>> Clone for IntoIter<'a, T>
 where
   <T::Logos as Logos<'a>>::Extras: Clone,
 {
   #[inline(always)]
   fn clone(&self) -> Self {
     Self {
-      logos: self.logos.clone(),
+      stream: self.stream.clone(),
     }
   }
 }
 
-impl<'a, T> core::fmt::Debug for Iter<'a, T>
+impl<'a, T> core::fmt::Debug for IntoIter<'a, T>
 where
   T: Token<'a>,
   <T::Logos as Logos<'a>>::Source: core::fmt::Debug,
@@ -26,43 +35,79 @@ where
 {
   #[inline]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    self.logos.fmt(f)
+    self.stream.fmt(f)
   }
 }
 
-impl<'a, T: Token<'a>> IntoIterator for TokenStream<'a, T> {
-  type Item = Lexed<'a, T>;
-  type IntoIter = Iter<'a, T>;
-
-  #[inline(always)]
-  fn into_iter(self) -> Self::IntoIter {
-    let logos = logos::Lexer::<T::Logos>::with_extras(self.input, self.state);
-    Iter { logos }
-  }
-}
-
-impl<'a, T: Token<'a>> IntoIterator for &'a TokenStream<'a, T>
-where
-  <T::Logos as Logos<'a>>::Extras: Clone,
-{
-  type Item = Lexed<'a, T>;
-  type IntoIter = Iter<'a, T>;
-
-  #[inline(always)]
-  fn into_iter(self) -> Self::IntoIter {
-    let logos = logos::Lexer::<T::Logos>::with_extras(self.input, self.state.clone());
-    Iter { logos }
-  }
-}
-
-impl<'a, T> Iterator for Iter<'a, T>
+impl<'a, T> IntoIterator for TokenStream<'a, T>
 where
   T: Token<'a>,
+  <T::Logos as Logos<'a>>::Extras: Copy,
+{
+  type Item = Lexed<'a, T>;
+  type IntoIter = IntoIter<'a, T>;
+
+  #[inline(always)]
+  fn into_iter(self) -> Self::IntoIter {
+    self.into_iter()
+  }
+}
+
+impl<'a, T> Iterator for IntoIter<'a, T>
+where
+  T: Token<'a>,
+  <T::Logos as Logos<'a>>::Extras: Copy,
 {
   type Item = Lexed<'a, T>;
 
   #[inline]
   fn next(&mut self) -> Option<Self::Item> {
-    Lexed::lex(&mut self.logos)
+    let mut cursor = self.stream.cursor;
+    unsafe { TokenStream::<'a, T>::next_maybe(&mut self.stream, &mut cursor) }
+  }
+}
+
+/// An iterator over the tokens produced by a [`TokenStream`].
+#[derive(derive_more::From, derive_more::Into)]
+pub struct Iter<'a, 'b, T: Token<'a>> {
+  stream: &'b mut TokenStream<'a, T>,
+}
+
+impl<'a, 'b, T> Iter<'a, 'b, T>
+where
+  T: Token<'a>,
+{
+  #[inline]
+  pub(super) const fn new(stream: &'b mut TokenStream<'a, T>) -> Self {
+    Self { stream }
+  }
+}
+
+impl<'a, 'b, T> IntoIterator for &'b mut TokenStream<'a, T>
+where
+  T: Token<'a>,
+  <T::Logos as Logos<'a>>::Extras: Copy,
+{
+  type Item = Lexed<'a, T>;
+  type IntoIter = Iter<'a, 'b, T>;
+
+  #[inline(always)]
+  fn into_iter(self) -> Self::IntoIter {
+    self.iter()
+  }
+}
+
+impl<'a, T> Iterator for Iter<'a, '_, T>
+where
+  T: Token<'a>,
+  <T::Logos as Logos<'a>>::Extras: Copy,
+{
+  type Item = Lexed<'a, T>;
+
+  #[inline]
+  fn next(&mut self) -> Option<Self::Item> {
+    let mut cursor = self.stream.cursor;
+    // SAFETY: we ensure that the cursor is always valid
+    unsafe { TokenStream::<'a, T>::next_maybe(self.stream, &mut cursor) }
   }
 }

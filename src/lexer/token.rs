@@ -1,7 +1,10 @@
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use logos::Lexer;
 
-use crate::{TokenStream, utils::{Span, Spanned}};
+use crate::{
+  TokenStream,
+  utils::{Span, Spanned},
+};
 
 pub use logos::Logos;
 
@@ -12,7 +15,7 @@ pub mod kind;
 ///
 /// `Lexed` lets you keep errors *in* the stream so you can continue scanning and
 /// report multiple diagnostics in one pass, or filter them out later.
-#[derive(Debug, Clone, PartialEq, IsVariant, Unwrap, TryUnwrap)]
+#[derive(Debug, PartialEq, IsVariant, Unwrap, TryUnwrap)]
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
 pub enum Lexed<'a, T: Token<'a>> {
@@ -24,6 +27,26 @@ pub enum Lexed<'a, T: Token<'a>> {
   /// This usually contains enough information to render a diagnostic
   /// (e.g., span/byte range and an error kind/message).
   Error(<T::Logos as Logos<'a>>::Error),
+}
+
+impl<'a, T> Clone for Lexed<'a, T>
+where
+  T: Token<'a>,
+{
+  #[inline(always)]
+  fn clone(&self) -> Self {
+    match self {
+      Self::Token(tok) => Self::Token(tok.clone()),
+      Self::Error(err) => Self::Error(err.clone()),
+    }
+  }
+}
+
+impl<'a, T> Copy for Lexed<'a, T>
+where
+  T: Token<'a> + Copy,
+  <T::Logos as Logos<'a>>::Error: Copy,
+{
 }
 
 impl<'a, T: Token<'a>> Lexed<'a, T> {

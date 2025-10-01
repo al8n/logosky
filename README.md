@@ -5,7 +5,7 @@
 </div>
 <div align="center">
 
-A seamless integration layer between **Logos** lexer and **Chumsky** parser combinator, providing `TokenStream` adapter and `Parseable` trait for building robust parsers
+A seamless integration layer between **Logos** lexer and **Chumsky** parser combinator, providing zero-copy `TokenStream` adapter and `Parseable` trait for building robust parsers
 
 [<img alt="github" src="https://img.shields.io/badge/github-al8n/logosky-8da0cb?style=for-the-badge&logo=Github" height="22">][Github-url]
 <img alt="LoC" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fal8n%2F327b2a8aef9003246e45c6e47fe63937%2Fraw%2Flogosky" height="22">

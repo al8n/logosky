@@ -122,6 +122,25 @@ impl DisplayHuman for bstr::BStr {
   }
 }
 
+#[cfg(feature = "hipstr")]
+const _: () = {
+  use hipstr::{HipByt, HipStr};
+
+  impl DisplayHuman for HipStr<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      fmt::Display::fmt(self, f)
+    }
+  }
+
+  impl DisplayHuman for HipByt<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      DisplayHuman::fmt(self.as_ref(), f)
+    }
+  }
+};
+
 /// A helper struct for displaying in a human-friendly way.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HumanDisplay<'a, T: ?Sized>(&'a T);
