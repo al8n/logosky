@@ -5,7 +5,7 @@
 </div>
 <div align="center">
 
-Bridges the `logos` and `chumsky`
+A seamless integration layer between **Logos** lexer and **Chumsky** parser combinator, providing `TokenStream` adapter and `Parseable` trait for building robust parsers
 
 [<img alt="github" src="https://img.shields.io/badge/github-al8n/logosky-8da0cb?style=for-the-badge&logo=Github" height="22">][Github-url]
 <img alt="LoC" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fal8n%2F327b2a8aef9003246e45c6e47fe63937%2Fraw%2Flogosky" height="22">
@@ -21,21 +21,80 @@ English | [简体中文][zh-cn-url]
 
 </div>
 
+## Overview
+
+**LogoSky** is a Rust library that bridges [Logos](https://github.com/maciejhirsz/logos) and [Chumsky](https://github.com/zesterer/chumsky), combining the speed of Logos' lexical analysis with the expressiveness of Chumsky's parser combinators. It provides a seamless integration layer that allows you to use Logos for tokenization and Chumsky for parsing in a unified, type-safe manner.
+
+## Features
+
+- 🚀 **High-performance tokenization** with Logos
+- 🎯 **Expressive parser combinators** with Chumsky
+- 🔗 **Seamless integration** via `TokenStream` adapter
+- 📍 **Rich span tracking** with `Span` and `Spanned` types
+- 🎨 **Flexible parseable trait** for building composable parsers
+- 🔧 **No-std support** with optional allocator
+- 🧩 **Multiple source types** support (`str`, `[u8]`, `Bytes`, `BStr`, `HipStr`)
+- ⚡ **Zero-cost abstractions** for efficient parsing
+
 ## Installation
+
+Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 logosky = "0.1"
 ```
 
-#### License
+### Feature Flags
 
-`logosky` is under the terms of both the MIT license and the
-Apache License (Version 2.0).
+- `std` (default) - Enable standard library support
+- `alloc` - Enable allocator support for no-std environments
+- `bytes` - Support for `bytes::Bytes` as token source
+- `bstr` - Support for `bstr::BStr` as token source
+- `hipstr` - Support for `hipstr::HipStr` as token source
+- `either` - Enable `Either<L, R>` parseable support
+- `among` - Enable `Among<L, M, R>` parseable support
+- `smallvec` - Enable small vector optimization utilities
 
-See [LICENSE-APACHE](LICENSE-APACHE), [LICENSE-MIT](LICENSE-MIT) for details.
+## Core Components
 
-Copyright (c) 2021 Al Liu.
+- `TokenStream<'a, T>`
+
+An adapter that bridges Logos lexer output to Chumsky parser input. Implements Chumsky's `Input`, `ValueInput`, `SliceInput`, and `ExactSizeInput` traits.
+
+- `Token<'a>` Trait
+
+  The core trait for defining tokens. Requires:
+
+  - `Char`: Character type (usually `char` or `u8`)
+  - `Kind`: Token kind discriminator
+  - `Logos`: Associated Logos token enum
+
+- `Parseable<'a, I, T, Error>` Trait
+
+  A trait for types that can be parsed from a token stream. Implement this to create composable parsers.
+
+- `Span` and `Spanned<T>`
+
+  - `Span`: Lightweight span tracking (start/end positions)
+  - `Spanned<T>`: Wraps a value with its source span
+
+- Utility Traits
+
+  - `IsAsciiChar`: ASCII character checking utilities
+  - `AsSpan` / `IntoSpan`: Span access traits
+  - `IntoComponents`: Destructure parsed elements
+
+## License
+
+`logosky` is dual-licensed under:
+
+- MIT License ([LICENSE-MIT](LICENSE-MIT))
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+
+You may choose either license for your purposes.
+
+Copyright (c) 2025 Al Liu.
 
 [Github-url]: https://github.com/al8n/logosky/
 [CI-url]: https://github.com/al8n/logosky/actions/workflows/ci.yml
