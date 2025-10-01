@@ -1,4 +1,7 @@
-use std::{borrow::Cow, string::String};
+use std::{
+  borrow::Cow,
+  string::{String, ToString},
+};
 
 use chumsky::{
   error::{Cheap, EmptyErr, RichPattern, Simple},

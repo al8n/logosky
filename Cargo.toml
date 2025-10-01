@@ -5,14 +5,9 @@ edition = "2024"
 repository = "https://github.com/al8n/logosky"
 homepage = "https://github.com/al8n/logosky"
 documentation = "https://docs.rs/logosky"
-description = "A template for creating Rust open-source repo on GitHub"
+description = "Bridge between Logos and Chumsky"
 license = "MIT OR Apache-2.0"
 rust-version = "1.87"
-
-# [[bench]]
-# path = "benches/foo.rs"
-# name = "foo"
-# harness = false
 
 [features]
 default = ["std"]
