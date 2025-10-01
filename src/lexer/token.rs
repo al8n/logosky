@@ -1,0 +1,187 @@
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
+use logos::Lexer;
+
+use crate::utils::{Span, Spanned};
+
+pub use logos::Logos;
+
+/// Common kinds of token
+pub mod kind;
+
+/// An item produced by the lexer: either a recognized token `T` or a lexing error.
+///
+/// `Lexed` lets you keep errors *in* the stream so you can continue scanning and
+/// report multiple diagnostics in one pass, or filter them out later.
+#[derive(Debug, Clone, PartialEq, IsVariant, Unwrap, TryUnwrap)]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
+pub enum Lexed<'a, T: Token<'a>> {
+  /// A successfully recognized token.
+  Token(Spanned<T>),
+
+  /// A lexing error produced while scanning.
+  ///
+  /// This usually contains enough information to render a diagnostic
+  /// (e.g., span/byte range and an error kind/message).
+  Error(<T::Logos as Logos<'a>>::Error),
+}
+
+impl<'a, T: Token<'a>> Lexed<'a, T> {
+  /// Lexes the next token from the given lexer, returning `None` if the input is exhausted.
+  #[inline(always)]
+  pub fn lex(lexer: &mut Lexer<'a, T::Logos>) -> Option<Self> {
+    lexer.next().map(|res| {
+      let span = lexer.span();
+      res
+        .map(|tok| (crate::utils::Span::from(span), T::from_logos(tok)))
+        .into()
+    })
+  }
+}
+
+impl<'a, T: 'a> core::fmt::Display for Lexed<'a, T>
+where
+  T: Token<'a> + core::fmt::Display,
+  <T::Logos as Logos<'a>>::Error: core::fmt::Display,
+{
+  #[inline]
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self {
+      Self::Token(tok) => ::core::fmt::Display::fmt(tok, f),
+      Self::Error(err) => err.fmt(f),
+    }
+  }
+}
+
+impl<'a, T: Token<'a>> From<Result<(Span, T), <T::Logos as Logos<'a>>::Error>> for Lexed<'a, T> {
+  #[inline(always)]
+  fn from(value: Result<(Span, T), <T::Logos as Logos<'a>>::Error>) -> Self {
+    match value {
+      Ok((span, tok)) => Self::Token(Spanned::new(span, tok)),
+      Err(err) => Self::Error(err),
+    }
+  }
+}
+
+impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, <T::Logos as Logos<'a>>::Error> {
+  #[inline(always)]
+  fn from(value: Lexed<'a, T>) -> Self {
+    match value {
+      Lexed::Token(tok) => Ok(tok.into_data()),
+      Lexed::Error(err) => Err(err),
+    }
+  }
+}
+
+/// The token trait.
+pub trait Token<'a>: Clone + core::fmt::Debug + 'a {
+  /// The character type of the token.
+  type Char: Copy + core::fmt::Debug + PartialEq + Eq + core::hash::Hash;
+  /// The kind type of the token.
+  type Kind: Copy + core::fmt::Debug + PartialEq + Eq + core::hash::Hash;
+  /// The logos
+  type Logos: Logos<'a> + Clone;
+
+  /// Creates a token from the logos token.
+  fn from_logos(value: Self::Logos) -> Self;
+
+  /// Returns the kind of the token.
+  fn kind(&self) -> Self::Kind;
+}
+
+// impl<'a, T> Token<'a> for T where T: Logos<'a> + core::fmt::Debug + 'a {}
+
+// require_token_parser_fn! {
+//   /// Returns a parser which parses a token and requires the parsed token to be of a specific specification.
+//   pub fn require_token<'a, I, E, Spec>(spec: Spec) -> Spec {
+//     any().try_map_with(move |tok: I::Token, exa| {
+//       tok.require(exa.slice(), exa.span(), spec)
+//         .map_err(|err| FromLexError::from_lex_error(err, exa.span()))
+//     })
+//   }
+
+//   /// Returns a parser which parse a whitespace token
+//   pub fn whitespace<'src, I, E>() -> kind::WhiteSpace {
+//     require_token(kind::WhiteSpace)
+//   }
+
+//   /// Returns a parser which parse a whitespaces token
+//   pub fn whitespaces<'src, I, E>() -> kind::WhiteSpaces {
+//     require_token(kind::WhiteSpaces)
+//   }
+
+//   /// Returns a parser which parse a line terminator token
+//   pub fn line_terminator<'src, I, E>() -> kind::LineTerminator {
+//     require_token(kind::LineTerminator)
+//   }
+
+//   /// Returns a parser which parse a comment token
+//   pub fn comment<'src, I, E>() -> kind::Comment {
+//     require_token(kind::Comment)
+//   }
+
+//   /// Returns a parser which parses many ignore tokens
+//   pub fn ignores<'src, I, E>() -> kind::Ignores {
+//     require_token(kind::Ignores)
+//   }
+
+//   /// Returns a parser which parse one ignore token
+//   pub fn ignore<'src, I, E>() -> kind::Ignore {
+//     require_token(kind::Ignore)
+//   }
+
+//   /// Returns a parser which parse an int token
+//   pub fn int<'src, I, E>() -> kind::IntLiteral {
+//     require_token(kind::IntLiteral)
+//   }
+
+//   /// Returns a parser which parses a float token
+//   pub fn float<'src, I, E>() -> kind::FloatLiteral {
+//     require_token(kind::FloatLiteral)
+//   }
+
+//   /// Returns a parser which parses a boolean token
+//   pub fn boolean<'src, I, E>() -> kind::BooleanLiteral {
+//     require_token(kind::BooleanLiteral)
+//   }
+
+//   /// Returns a parser which parses a null token
+//   pub fn null<'src, I, E>() -> kind::NullLiteral {
+//     require_token(kind::NullLiteral)
+//   }
+
+//   /// Returns a parser which parses an inline string token
+//   pub fn inline_string<'src, I, E>() -> kind::InlineStringLiteral {
+//     require_token(kind::InlineStringLiteral)
+//   }
+
+//   /// Returns a parser which parses a block string token
+//   pub fn block_string<'src, I, E>() -> kind::BlockStringLiteral {
+//     require_token(kind::BlockStringLiteral)
+//   }
+
+//   /// Returns a parser which parses a string token
+//   pub fn string<'src, I, E>() -> kind::StringLiteral {
+//     require_token(kind::StringLiteral)
+//   }
+
+//   /// Returns a parser which parsers an identifier token
+//   pub fn ident<'src, I, E>() -> kind::Ident {
+//     require_token(kind::Ident)
+//   }
+
+//   /// Returns a parser which parses a keyword token
+//   pub fn keyword<'src, I, E>(kw: &'src str) -> kind::Keyword<'src> {
+//     require_token(kind::Keyword(kw))
+//   }
+
+//   /// Returns a parser which parses an ASCII character token
+//   pub fn ascii<'src, I, E>(ch: kind::AsciiChar) -> kind::AsciiChar {
+//     require_token(ch)
+//   }
+
+//   /// Returns a parser which parsers a UTF-8 character token
+//   pub fn char<'src, I, E>(ch: char) -> char {
+//     require_token(ch)
+//   }
+// }
