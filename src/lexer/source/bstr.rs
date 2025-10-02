@@ -27,12 +27,11 @@ impl logos::Source for CustomSource<BStr> {
   where
     Chunk: logos::source::Chunk<'a>,
   {
-    // Safety:
-    // The get method returns a slice, which is valid
-    self
-      .0
-      .get(offset..)
-      .map(|slice| unsafe { <Chunk as logos::source::Chunk<'a>>::from_ptr(slice.as_ptr()) })
+    if offset + (Chunk::SIZE - 1) < self.len() {
+      Some(unsafe { Chunk::from_ptr(self.0.as_ptr().add(offset)) })
+    } else {
+      None
+    }
   }
 
   #[inline(always)]

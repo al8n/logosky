@@ -149,10 +149,6 @@ where
     this: &mut Self::Cache,
     cursor: &mut Self::Cursor,
   ) -> Option<Self::MaybeToken> {
-    if *cursor >= this.input.len() {
-      return None;
-    }
-
     let mut lexer = logos::Lexer::<T::Logos>::with_extras(this.input, this.state);
     lexer.bump(*cursor);
     Lexed::lex(&mut lexer).inspect(|_| {
