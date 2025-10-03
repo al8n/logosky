@@ -318,7 +318,7 @@ mod lexer_tests {
 
 mod is_ascii_char_tests {
   use ascii::AsciiChar;
-  use logosky::IsAsciiChar;
+  use logosky::utils::IsAsciiChar;
 
   #[test]
   fn test_char_is_ascii_char() {

@@ -464,3 +464,228 @@ pub trait IntoComponents {
   /// returned components is defined by the `Components` associated type.
   fn into_components(self) -> Self::Components;
 }
+
+/// A trait for char types that can return it length in bytes.
+pub trait CharSize {
+  /// Returns the length of the char in bytes.
+  ///
+  /// e.g.:
+  ///
+  /// - For `char`, this is between 1 - 4.
+  /// - For `u8`, this is always 1.
+  fn char_size(&self) -> usize;
+}
+
+impl<T> CharSize for &T
+where
+  T: CharSize + ?Sized,
+{
+  #[inline(always)]
+  fn char_size(&self) -> usize {
+    <T as CharSize>::char_size(*self)
+  }
+}
+
+impl<T> CharSize for &mut T
+where
+  T: CharSize + ?Sized,
+{
+  #[inline(always)]
+  fn char_size(&self) -> usize {
+    <T as CharSize>::char_size(*self)
+  }
+}
+
+impl CharSize for char {
+  #[inline(always)]
+  fn char_size(&self) -> usize {
+    self.len_utf8()
+  }
+}
+
+impl CharSize for u8 {
+  #[inline(always)]
+  fn char_size(&self) -> usize {
+    1
+  }
+}
+
+/// A trait for checking if a token is an ASCII character.
+pub trait IsAsciiChar {
+  /// Returns `true` if self is equal to the given ASCII character.
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool;
+
+  /// Checks if the value is an ASCII decimal digit:
+  /// U+0030 '0' ..= U+0039 '9'.
+  fn is_ascii_digit(&self) -> bool;
+
+  /// Returns `true` if self is one of the given ASCII characters.
+  #[inline(always)]
+  fn one_of(&self, choices: &[ascii::AsciiChar]) -> bool {
+    choices.iter().any(|&ch| self.is_ascii_char(ch))
+  }
+}
+
+impl<T> IsAsciiChar for &T
+where
+  T: IsAsciiChar + ?Sized,
+{
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    <T as IsAsciiChar>::is_ascii_char(*self, ch)
+  }
+
+  #[inline(always)]
+  fn is_ascii_digit(&self) -> bool {
+    <T as IsAsciiChar>::is_ascii_digit(*self)
+  }
+
+  #[inline(always)]
+  fn one_of(&self, choices: &[ascii::AsciiChar]) -> bool {
+    <T as IsAsciiChar>::one_of(*self, choices)
+  }
+}
+
+impl<T> IsAsciiChar for &mut T
+where
+  T: IsAsciiChar + ?Sized,
+{
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    <T as IsAsciiChar>::is_ascii_char(*self, ch)
+  }
+
+  #[inline(always)]
+  fn is_ascii_digit(&self) -> bool {
+    <T as IsAsciiChar>::is_ascii_digit(*self)
+  }
+
+  #[inline(always)]
+  fn one_of(&self, choices: &[ascii::AsciiChar]) -> bool {
+    <T as IsAsciiChar>::one_of(*self, choices)
+  }
+}
+
+impl<T> IsAsciiChar for crate::source::CustomSource<T>
+where
+  T: IsAsciiChar + ?Sized,
+{
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    self.as_inner().is_ascii_char(ch)
+  }
+
+  #[inline(always)]
+  fn is_ascii_digit(&self) -> bool {
+    <T as IsAsciiChar>::is_ascii_digit(self.as_inner())
+  }
+
+  #[inline(always)]
+  fn one_of(&self, choices: &[ascii::AsciiChar]) -> bool {
+    <T as IsAsciiChar>::one_of(self.as_inner(), choices)
+  }
+}
+
+impl IsAsciiChar for char {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    if self.is_ascii() {
+      *self as u8 == ch as u8
+    } else {
+      false
+    }
+  }
+
+  #[inline(always)]
+  fn is_ascii_digit(&self) -> bool {
+    char::is_ascii_digit(self)
+  }
+}
+
+impl IsAsciiChar for u8 {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    *self == ch as u8
+  }
+
+  #[inline(always)]
+  fn is_ascii_digit(&self) -> bool {
+    u8::is_ascii_digit(self)
+  }
+}
+
+impl IsAsciiChar for str {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    self.len() == 1 && self.as_bytes()[0] == ch as u8
+  }
+
+  #[inline(always)]
+  fn is_ascii_digit(&self) -> bool {
+    self.len() == 1 && self.as_bytes()[0].is_ascii_digit()
+  }
+}
+
+impl IsAsciiChar for [u8] {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    self.len() == 1 && self[0] == ch as u8
+  }
+
+  #[inline(always)]
+  fn is_ascii_digit(&self) -> bool {
+    self.len() == 1 && self[0].is_ascii_digit()
+  }
+}
+
+#[cfg(feature = "bstr")]
+impl IsAsciiChar for bstr::BStr {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    <[u8] as IsAsciiChar>::is_ascii_char(self, ch)
+  }
+
+  #[inline(always)]
+  fn is_ascii_digit(&self) -> bool {
+    <[u8] as IsAsciiChar>::is_ascii_digit(self)
+  }
+}
+
+#[cfg(feature = "bytes")]
+impl IsAsciiChar for bytes::Bytes {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    <[u8] as IsAsciiChar>::is_ascii_char(self, ch)
+  }
+
+  #[inline(always)]
+  fn is_ascii_digit(&self) -> bool {
+    <[u8] as IsAsciiChar>::is_ascii_digit(self)
+  }
+}
+
+#[cfg(feature = "hipstr")]
+impl IsAsciiChar for hipstr::HipByt<'_> {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    <[u8] as IsAsciiChar>::is_ascii_char(self, ch)
+  }
+
+  #[inline(always)]
+  fn is_ascii_digit(&self) -> bool {
+    <[u8] as IsAsciiChar>::is_ascii_digit(self)
+  }
+}
+
+#[cfg(feature = "hipstr")]
+impl IsAsciiChar for hipstr::HipStr<'_> {
+  #[inline(always)]
+  fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
+    <str as IsAsciiChar>::is_ascii_char(self, ch)
+  }
+
+  #[inline(always)]
+  fn is_ascii_digit(&self) -> bool {
+    <str as IsAsciiChar>::is_ascii_digit(self)
+  }
+}
