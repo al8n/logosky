@@ -83,6 +83,10 @@ logosky = "0.1"
   - `AsSpan` / `IntoSpan`: Span access traits
   - `IntoComponents`: Destructure parsed elements
 
+## Who uses `logosky`?
+
+- [`smear`](https://github.com/al8n/smear): Blazing fast, fully spec-compliant, reusable parser combinators for standard GraphQL and GraphQL-like DSLs.
+
 ## License
 
 `logosky` is dual-licensed under:
