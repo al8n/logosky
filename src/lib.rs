@@ -19,6 +19,11 @@ pub use parseable::*;
 mod lexer;
 mod parseable;
 
+/// Concrete Syntax Tree (CST) representations and utilities.
+#[cfg(feature = "rowan")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rowan")))]
+pub mod cst;
+
 /// Common utilities for working with tokens and lexers.
 pub mod utils;
 
