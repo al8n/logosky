@@ -4,16 +4,62 @@ use derive_more::{From, Into};
 use std::vec::Vec;
 
 /// A small vector which inlines 1 element to avoid allocations.
+///
+/// ## Example
+///
+/// ```rust
+/// use logosky::utils::container::OneOrMore;
+///
+/// let mut vec = OneOrMore::new();
+/// vec.push(42);
+/// vec.push(100);
+/// assert_eq!(vec.len(), 2);
+/// ```
 pub type OneOrMore<T> = SmallVec<T, 1>;
+
 /// A small vector which inlines up to 2 elements to avoid allocations.
+///
+/// ## Example
+///
+/// ```rust
+/// use logosky::utils::container::TwoOrMore;
+///
+/// let mut vec = TwoOrMore::new();
+/// vec.push(1);
+/// vec.push(2);
+/// vec.push(3);
+/// assert_eq!(vec.len(), 3);
+/// ```
 pub type TwoOrMore<T> = SmallVec<T, 2>;
+
 /// A small vector which inlines up to 4 elements to avoid allocations.
+///
+/// ## Example
+///
+/// ```rust
+/// use logosky::utils::container::FourOrMore;
+///
+/// let vec = FourOrMore::from_const([1, 2, 3, 4]);
+/// assert_eq!(vec.len(), 4);
+/// ```
 pub type FourOrMore<T> = SmallVec<T, 4>;
 
 /// A small vector which inlines up to `N` elements to avoid allocations.
 /// It uses the [`smallvec`](https://docs.rs/smallvec) crate internally.
 ///
 /// Also implements [`Container`] trait from `chumsky` crate, so it can be used as a container for `chumsky` parsers.
+///
+/// ## Example
+///
+/// ```rust
+/// use logosky::utils::SmallVec;
+///
+/// // Create a SmallVec that inlines 4 elements
+/// let mut vec = SmallVec::<i32, 4>::new();
+/// vec.push(1);
+/// vec.push(2);
+/// assert_eq!(vec.len(), 2);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into)]
 pub struct SmallVec<T, const N: usize>(smallvec::SmallVec<[T; N]>);
 
@@ -116,18 +162,49 @@ impl<T, const N: usize> From<SmallVec<T, N>> for Vec<T> {
 
 impl<T, const N: usize> SmallVec<T, N> {
   /// Creates a new empty `SmallVec`.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::SmallVec;
+  ///
+  /// let vec = SmallVec::<i32, 4>::new();
+  /// assert_eq!(vec.len(), 0);
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new() -> Self {
     Self(smallvec::SmallVec::new_const())
   }
 
   /// Creates a new `SmallVec` with the given capacity.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::SmallVec;
+  ///
+  /// let vec = SmallVec::<i32, 2>::with_capacity(10);
+  /// assert_eq!(vec.len(), 0);
+  /// assert!(vec.capacity() >= 10);
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn with_capacity(capacity: usize) -> Self {
     Self(smallvec::SmallVec::with_capacity(capacity))
   }
 
   /// The array passed as an argument is moved to be an inline version of SmallVec.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::SmallVec;
+  ///
+  /// let vec = SmallVec::from_const([1, 2, 3]);
+  /// assert_eq!(vec.len(), 3);
+  /// assert_eq!(vec[0], 1);
+  /// assert_eq!(vec[1], 2);
+  /// assert_eq!(vec[2], 3);
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_const(vec: [T; N]) -> Self {
     Self(smallvec::SmallVec::from_const(vec))

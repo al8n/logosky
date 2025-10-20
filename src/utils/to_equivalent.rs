@@ -47,8 +47,31 @@ impl<'de: 'a, 'a> ToEquivalent<&'a [u8]> for &'de [u8] {
 /// A trait for converting into an equivalent type.
 ///
 /// e.g. `&[u8]` is equivalent to [`bytes::Bytes`](https://docs.rs/bytes/latest/bytes/struct.Bytes.html)
+///
+/// ## Example
+///
+/// ```rust
+/// use logosky::utils::IntoEquivalent;
+///
+/// let bytes: &[u8] = b"hello";
+/// let str_ref: &str = "world";
+///
+/// // Identity conversions (consuming)
+/// let _: &[u8] = bytes.into_equivalent();
+/// let _: &str = str_ref.into_equivalent();
+/// ```
 pub trait IntoEquivalent<T>: sealed::Sealed<T> {
   /// Consumes this element and converts it into an equivalent type `T`.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::IntoEquivalent;
+  ///
+  /// let data: &[u8] = b"test";
+  /// let result: &[u8] = data.into_equivalent();
+  /// assert_eq!(result, b"test");
+  /// ```
   fn into_equivalent(self) -> T;
 }
 

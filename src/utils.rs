@@ -198,6 +198,16 @@ impl Span {
   /// ## Panics
   ///
   /// Panics if `self.start + n > self.end`.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// span.bump_start(3);
+  /// assert_eq!(span, Span::new(8, 15));
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn bump_start(&mut self, n: usize) -> &mut Self {
     self.start += n;
@@ -209,6 +219,16 @@ impl Span {
   }
 
   /// Bump the end of the span by `n`.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// span.bump_end(5);
+  /// assert_eq!(span, Span::new(5, 20));
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn bump_end(&mut self, n: usize) -> &mut Self {
     self.end += n;
@@ -216,6 +236,16 @@ impl Span {
   }
 
   /// Bump the start and the end of the span by `n`.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// span.bump_span(10);
+  /// assert_eq!(span, Span::new(15, 25));
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn bump_span(&mut self, n: usize) -> &mut Self {
     self.start += n;
@@ -224,6 +254,16 @@ impl Span {
   }
 
   /// Set the start of the span, returning a mutable reference to self.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// span.set_start(10);
+  /// assert_eq!(span, Span::new(10, 15));
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn set_start(&mut self, start: usize) -> &mut Self {
     self.start = start;
@@ -231,6 +271,16 @@ impl Span {
   }
 
   /// Set the end of the span, returning a mutable reference to self.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// span.set_end(20);
+  /// assert_eq!(span, Span::new(5, 20));
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn set_end(&mut self, end: usize) -> &mut Self {
     self.end = end;
@@ -238,6 +288,15 @@ impl Span {
   }
 
   /// Set the start of the span, returning self.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let span = Span::new(5, 15).with_start(10);
+  /// assert_eq!(span, Span::new(10, 15));
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_start(mut self, start: usize) -> Self {
     self.start = start;
@@ -245,6 +304,15 @@ impl Span {
   }
 
   /// Set the end of the span, returning self.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let span = Span::new(5, 15).with_end(20);
+  /// assert_eq!(span, Span::new(5, 20));
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_end(mut self, end: usize) -> Self {
     self.end = end;
@@ -252,42 +320,110 @@ impl Span {
   }
 
   /// Get the start of the span.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let span = Span::new(5, 15);
+  /// assert_eq!(span.start(), 5);
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn start(&self) -> usize {
     self.start
   }
 
   /// Get the mutable reference to the start of the span.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// *span.start_mut() = 10;
+  /// assert_eq!(span.start(), 10);
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn start_mut(&mut self) -> &mut usize {
     &mut self.start
   }
 
   /// Get the end of the span.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let span = Span::new(5, 15);
+  /// assert_eq!(span.end(), 15);
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn end(&self) -> usize {
     self.end
   }
 
   /// Get the mutable reference to the end of the span.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// *span.end_mut() = 20;
+  /// assert_eq!(span.end(), 20);
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn end_mut(&mut self) -> &mut usize {
     &mut self.end
   }
 
   /// Get the length of the span.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let span = Span::new(5, 15);
+  /// assert_eq!(span.len(), 10);
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn len(&self) -> usize {
     self.end - self.start
   }
 
   /// Check if the span is empty.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let empty = Span::new(5, 5);
+  /// assert!(empty.is_empty());
+  ///
+  /// let not_empty = Span::new(5, 15);
+  /// assert!(!not_empty.is_empty());
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn is_empty(&self) -> bool {
     self.start == self.end
   }
 
   /// Returns a range covering the span.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let span = Span::new(5, 15);
+  /// assert_eq!(span.range(), 5..15);
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn range(&self) -> Range<usize> {
     self.start..self.end
@@ -520,30 +656,78 @@ impl<D> Spanned<D> {
   }
 
   /// Get a reference to the span.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::{Span, Spanned};
+  ///
+  /// let spanned = Spanned::new(Span::new(5, 10), "data");
+  /// assert_eq!(spanned.span(), &Span::new(5, 10));
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn span(&self) -> &Span {
     &self.span
   }
 
   /// Get a mutable reference to the span.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::{Span, Spanned};
+  ///
+  /// let mut spanned = Spanned::new(Span::new(5, 10), "data");
+  /// spanned.span_mut().set_end(15);
+  /// assert_eq!(spanned.span().end(), 15);
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn span_mut(&mut self) -> &mut Span {
     &mut self.span
   }
 
   /// Get a reference to the data.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::{Span, Spanned};
+  ///
+  /// let spanned = Spanned::new(Span::new(5, 10), 42);
+  /// assert_eq!(*spanned.data(), 42);
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn data(&self) -> &D {
     &self.data
   }
 
   /// Get a mutable reference to the data.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::{Span, Spanned};
+  ///
+  /// let mut spanned = Spanned::new(Span::new(5, 10), 42);
+  /// *spanned.data_mut() = 100;
+  /// assert_eq!(*spanned.data(), 100);
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn data_mut(&mut self) -> &mut D {
     &mut self.data
   }
 
   /// Returns a reference to the span and data.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::{Span, Spanned};
+  ///
+  /// let spanned = Spanned::new(Span::new(5, 10), String::from("hello"));
+  /// let borrowed: Spanned<&String> = spanned.as_ref();
+  /// assert_eq!(borrowed.data(), &"hello");
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_ref(&self) -> Spanned<&D> {
     Spanned {

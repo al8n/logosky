@@ -137,6 +137,19 @@ impl<T: DisplayHuman + ?Sized> DisplayHuman for CustomSource<T> {
 }
 
 impl DisplayHuman for u8 {
+  /// Formats ASCII bytes as characters, non-ASCII as numbers.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::human_display::DisplayHuman;
+  ///
+  /// let ascii = b'A';
+  /// let non_ascii: u8 = 200;
+  ///
+  /// assert_eq!(format!("{}", ascii.display()), "A");
+  /// assert_eq!(format!("{}", non_ascii.display()), "200");
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     if self.is_ascii() {
@@ -165,6 +178,16 @@ impl_display_human_for_primitive!(
 );
 
 impl<T: DisplayHuman> DisplayHuman for PositionedChar<T> {
+  /// Formats positioned characters showing only the character, not the position.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::{PositionedChar, human_display::DisplayHuman};
+  ///
+  /// let pc = PositionedChar::with_position('x', 100);
+  /// assert_eq!(format!("{}", pc.display()), "x");
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.char_ref().fmt(f)
@@ -189,6 +212,16 @@ impl DisplayHuman for [u8] {
 }
 
 impl DisplayHuman for [char] {
+  /// Formats character slices as a string.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::human_display::DisplayHuman;
+  ///
+  /// let chars = ['h', 'e', 'l', 'l', 'o'];
+  /// assert_eq!(format!("{}", chars.display()), "hello");
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     for c in self {
