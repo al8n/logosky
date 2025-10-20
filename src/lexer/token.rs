@@ -109,6 +109,12 @@ pub trait Token<'a>: Clone + core::fmt::Debug + From<Self::Logos> + 'a {
   fn kind(&self) -> Self::Kind;
 }
 
+/// A token trait for tokens that do not lose any information during lexing.
+pub trait LosslessToken<'a>: Token<'a> {
+  /// Returns `true` if this kind represents a trivia token (whitespace, comment, tab, and etc.).
+  fn is_trivia(&self) -> bool;
+}
+
 /// The token extension trait.
 pub trait TokenExt<'a>: Token<'a> {
   /// Returns a lexer for the token type from the given input.

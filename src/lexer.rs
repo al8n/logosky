@@ -1,10 +1,15 @@
 use core::ops::Range;
 
-use chumsky::input::{ExactSizeInput, Input, SliceInput, ValueInput};
+use chumsky::{
+  container::Container,
+  extra::ParserExtra,
+  input::{ExactSizeInput, Input, SliceInput, ValueInput},
+  prelude::*,
+};
 
 pub use error::*;
 pub use source::Source;
-pub use token::{Lexed, Logos, Token, TokenExt};
+pub use token::{Lexed, Logos, LosslessToken, Token, TokenExt};
 
 use crate::utils;
 
@@ -240,6 +245,42 @@ impl State for () {
 pub trait Tokenizer<'a, T: Token<'a>>:
   SliceInput<'a> + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>
 {
+  /// Returns a parser that skips trivia tokens.
+  #[inline(always)]
+  fn skip_trivias<E>() -> impl Parser<'a, Self, (), E> + Clone
+  where
+    Self: Sized + 'a,
+    E: ParserExtra<'a, Self>,
+    T: LosslessToken<'a>,
+  {
+    Self::collect_trivias::<(), E>()
+  }
+
+  /// Returns a parser that collects trivia tokens into a container until a non-trivia token is encountered.
+  #[inline(always)]
+  fn collect_trivias<C, E>() -> impl Parser<'a, Self, C, E> + Clone
+  where
+    Self: Sized + 'a,
+    C: Container<utils::Spanned<T>> + 'a,
+    E: ParserExtra<'a, Self>,
+    T: LosslessToken<'a>,
+  {
+    custom(|inp| {
+      let mut container = C::default();
+
+      loop {
+        let tok: Option<Lexed<'a, T>> = inp.peek();
+        match tok {
+          Some(Lexed::Token(tok)) if tok.is_trivia() => {
+            container.push(tok);
+            inp.skip();
+          }
+          _ => break,
+        }
+      }
+      Ok(container)
+    })
+  }
 }
 
 impl<'a, T, I> Tokenizer<'a, T> for I
