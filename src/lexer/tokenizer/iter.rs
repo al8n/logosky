@@ -1,16 +1,18 @@
+use chumsky::input::Input;
+
 use super::*;
 
-/// An iterator over the tokens produced by a [`TokenStream`].
+/// An iterator over the tokens produced by a [`Tokenizer`].
 #[derive(derive_more::From, derive_more::Into)]
 pub struct IntoIter<'a, T: Token<'a>> {
-  stream: TokenStream<'a, T>,
+  stream: Tokenizer<'a, T>,
 }
 
 impl<'a, T> IntoIter<'a, T>
 where
   T: Token<'a>,
 {
-  pub(super) const fn new(stream: TokenStream<'a, T>) -> Self {
+  pub(super) const fn new(stream: Tokenizer<'a, T>) -> Self {
     Self { stream }
   }
 }
@@ -39,7 +41,7 @@ where
   }
 }
 
-impl<'a, T> IntoIterator for TokenStream<'a, T>
+impl<'a, T> IntoIterator for Tokenizer<'a, T>
 where
   T: Token<'a>,
   <T::Logos as Logos<'a>>::Extras: Copy,
@@ -63,14 +65,14 @@ where
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn next(&mut self) -> Option<Self::Item> {
     let mut cursor = self.stream.cursor;
-    unsafe { TokenStream::<'a, T>::next_maybe(&mut self.stream, &mut cursor) }
+    unsafe { Tokenizer::<'a, T>::next_maybe(&mut self.stream, &mut cursor) }
   }
 }
 
-/// An iterator over the tokens produced by a [`TokenStream`].
+/// An iterator over the tokens produced by a [`Tokenizer`].
 #[derive(derive_more::From, derive_more::Into)]
 pub struct Iter<'a, 'b, T: Token<'a>> {
-  stream: &'b mut TokenStream<'a, T>,
+  stream: &'b mut Tokenizer<'a, T>,
 }
 
 impl<'a, 'b, T> Iter<'a, 'b, T>
@@ -78,12 +80,12 @@ where
   T: Token<'a>,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub(super) const fn new(stream: &'b mut TokenStream<'a, T>) -> Self {
+  pub(super) const fn new(stream: &'b mut Tokenizer<'a, T>) -> Self {
     Self { stream }
   }
 }
 
-impl<'a, 'b, T> IntoIterator for &'b mut TokenStream<'a, T>
+impl<'a, 'b, T> IntoIterator for &'b mut Tokenizer<'a, T>
 where
   T: Token<'a>,
   <T::Logos as Logos<'a>>::Extras: Copy,
@@ -108,6 +110,6 @@ where
   fn next(&mut self) -> Option<Self::Item> {
     let mut cursor = self.stream.cursor;
     // SAFETY: we ensure that the cursor is always valid
-    unsafe { TokenStream::<'a, T>::next_maybe(self.stream, &mut cursor) }
+    unsafe { Tokenizer::<'a, T>::next_maybe(self.stream, &mut cursor) }
   }
 }

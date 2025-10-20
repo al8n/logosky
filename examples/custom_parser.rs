@@ -1,21 +1,25 @@
+#![cfg(feature = "chumsky")]
+
 //! A custom parser example demonstrating the Parseable trait.
 //!
 //! This example shows how to:
 //! - Implement the Parseable trait for custom types
-//! - Compose parsers using the trait
+//! - Compose parsers using the trait with Rich error reporting
 //! - Build reusable parser components
 //! - Parse structured data with nested elements
+//! - Handle parse errors with detailed error messages
 //!
-//! Run with: cargo run --example custom_parser
+//! Run with: cargo run --example custom_parser --features chumsky
 
 use chumsky::prelude::*;
 use logos::Logos;
 use logosky::{
-  Lexed, Parseable, Token,
+  Lexed, Token,
+  chumsky::Parseable,
   utils::{Span, Spanned},
 };
 
-type TokenStream<'a> = logosky::TokenStream<'a, ConfigToken<'a>>;
+type Tokenizer<'a> = logosky::Tokenizer<'a, ConfigToken<'a>>;
 
 // Define tokens for a simple configuration language
 #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,6 +76,117 @@ impl<'a> Token<'a> for ConfigToken<'a> {
   }
 }
 
+impl std::fmt::Display for ConfigToken<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Equals => write!(f, "="),
+      Self::LBrace => write!(f, "{{"),
+      Self::RBrace => write!(f, "}}"),
+      Self::Semicolon => write!(f, ";"),
+      Self::Identifier(s) => write!(f, "{}", s),
+      Self::String(s) => write!(f, "{}", s),
+      Self::Number(n) => write!(f, "{}", n),
+    }
+  }
+}
+
+// Define a custom error type with rich error reporting
+#[derive(Debug, Clone, PartialEq)]
+enum ConfigError {
+  UnexpectedToken {
+    span: logosky::utils::Span,
+    found: Option<ConfigTokenKind>,
+    expected: Vec<ConfigTokenKind>,
+  },
+  InvalidNumber {
+    span: logosky::utils::Span,
+    value: String,
+    message: String,
+  },
+  Custom {
+    span: logosky::utils::Span,
+    message: String,
+  },
+}
+
+impl std::fmt::Display for ConfigError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      ConfigError::UnexpectedToken {
+        span,
+        found,
+        expected,
+      } => {
+        write!(f, "at {}..{}: ", span.start(), span.end())?;
+        match found {
+          Some(kind) => write!(f, "unexpected token {:?}", kind)?,
+          None => write!(f, "unexpected end of input")?,
+        }
+        if !expected.is_empty() {
+          write!(f, ", expected ")?;
+          if expected.len() == 1 {
+            write!(f, "{:?}", expected[0])?;
+          } else {
+            write!(f, "one of: ")?;
+            for (i, exp) in expected.iter().enumerate() {
+              if i > 0 {
+                write!(f, ", ")?;
+              }
+              write!(f, "{:?}", exp)?;
+            }
+          }
+        }
+        Ok(())
+      }
+      ConfigError::InvalidNumber {
+        span,
+        value,
+        message,
+      } => {
+        write!(
+          f,
+          "at {}..{}: invalid number '{}': {}",
+          span.start(),
+          span.end(),
+          value,
+          message
+        )
+      }
+      ConfigError::Custom { span, message } => {
+        write!(f, "at {}..{}: {}", span.start(), span.end(), message)
+      }
+    }
+  }
+}
+
+impl std::error::Error for ConfigError {}
+
+impl<'a, I, L> chumsky::error::LabelError<'a, I, L> for ConfigError
+where
+  I: chumsky::input::Input<'a, Span = logosky::utils::Span>,
+{
+  fn expected_found<E>(
+    _expected: E,
+    _found: Option<chumsky::util::Maybe<I::Token, &'a I::Token>>,
+    span: I::Span,
+  ) -> Self
+  where
+    E: IntoIterator<Item = L>,
+  {
+    ConfigError::Custom {
+      span,
+      message: "parse error".to_string(),
+    }
+  }
+
+  fn label_with(&mut self, _label: L) {}
+}
+
+impl<'a, I> chumsky::error::Error<'a, I> for ConfigError where
+  I: chumsky::input::Input<'a, Span = logosky::utils::Span>
+{
+}
+
 // AST types
 #[derive(Debug, Clone, PartialEq)]
 enum Value {
@@ -88,10 +203,10 @@ struct Property {
 
 impl Property {
   // Property contains a nested Value, so we need to pass a parser for Value to address recursion problems.
-  fn parser_with<'a, E, P>(vp: P) -> impl Parser<'a, TokenStream<'a>, Self, E> + Clone
+  fn parser_with<'a, E, P>(vp: P) -> impl Parser<'a, Tokenizer<'a>, Self, E> + Clone
   where
-    P: Parser<'a, TokenStream<'a>, Value, E> + Clone + 'a,
-    E: chumsky::extra::ParserExtra<'a, TokenStream<'a>, Error = EmptyErr> + 'a,
+    P: Parser<'a, Tokenizer<'a>, Value, E> + Clone + 'a,
+    E: chumsky::extra::ParserExtra<'a, Tokenizer<'a>, Error = ConfigError> + 'a,
   {
     // Parse identifier
     let identifier = any()
@@ -99,23 +214,50 @@ impl Property {
         Lexed::Token(t) if t.kind() == ConfigTokenKind::Identifier => {
           Ok(format!("id[{}..{}]", span.start(), span.end()))
         }
-        _ => Err(EmptyErr::default()),
+        Lexed::Token(t) => Err(ConfigError::UnexpectedToken {
+          span,
+          found: Some(t.kind()),
+          expected: vec![ConfigTokenKind::Identifier],
+        }),
+        _ => Err(ConfigError::UnexpectedToken {
+          span,
+          found: None,
+          expected: vec![ConfigTokenKind::Identifier],
+        }),
       })
       .boxed();
 
     // key = value;
     identifier
       .then_ignore(
-        any().try_map(|tok: Lexed<'_, ConfigToken<'_>>, _| match tok {
+        any().try_map(|tok: Lexed<'_, ConfigToken<'_>>, span| match tok {
           Lexed::Token(t) if t.kind() == ConfigTokenKind::Equals => Ok(()),
-          _ => Err(EmptyErr::default()),
+          Lexed::Token(t) => Err(ConfigError::UnexpectedToken {
+            span,
+            found: Some(t.kind()),
+            expected: vec![ConfigTokenKind::Equals],
+          }),
+          _ => Err(ConfigError::UnexpectedToken {
+            span,
+            found: None,
+            expected: vec![ConfigTokenKind::Equals],
+          }),
         }),
       )
       .then(vp)
       .then_ignore(
-        any().try_map(|tok: Lexed<'_, ConfigToken<'_>>, _| match tok {
+        any().try_map(|tok: Lexed<'_, ConfigToken<'_>>, span| match tok {
           Lexed::Token(t) if t.kind() == ConfigTokenKind::Semicolon => Ok(()),
-          _ => Err(EmptyErr::default()),
+          Lexed::Token(t) => Err(ConfigError::UnexpectedToken {
+            span,
+            found: Some(t.kind()),
+            expected: vec![ConfigTokenKind::Semicolon],
+          }),
+          _ => Err(ConfigError::UnexpectedToken {
+            span,
+            found: None,
+            expected: vec![ConfigTokenKind::Semicolon],
+          }),
         }),
       )
       .map(|(key, value)| Property { key, value })
@@ -123,11 +265,11 @@ impl Property {
 }
 
 // Implement Parseable for Value
-impl<'a> Parseable<'a, TokenStream<'a>, ConfigToken<'a>, EmptyErr> for Value {
-  fn parser<E>() -> impl chumsky::Parser<'a, TokenStream<'a>, Self, E> + Clone
+impl<'a> Parseable<'a, Tokenizer<'a>, ConfigToken<'a>, ConfigError> for Value {
+  fn parser<E>() -> impl chumsky::Parser<'a, Tokenizer<'a>, Self, E> + Clone
   where
     Self: Sized + 'a,
-    E: chumsky::extra::ParserExtra<'a, TokenStream<'a>, Error = EmptyErr> + 'a,
+    E: chumsky::extra::ParserExtra<'a, Tokenizer<'a>, Error = ConfigError> + 'a,
   {
     recursive(|value| {
       // Parse string values
@@ -138,31 +280,85 @@ impl<'a> Parseable<'a, TokenStream<'a>, ConfigToken<'a>, EmptyErr> for Value {
             let s = span.start() + 1..span.end() - 1;
             Ok(Value::String(format!("string[{}..{}]", s.start, s.end)))
           }
-          _ => Err(EmptyErr::default()),
+          Lexed::Token(t) => Err(ConfigError::UnexpectedToken {
+            span,
+            found: Some(t.kind()),
+            expected: vec![
+              ConfigTokenKind::String,
+              ConfigTokenKind::Number,
+              ConfigTokenKind::LBrace,
+            ],
+          }),
+          _ => Err(ConfigError::UnexpectedToken {
+            span,
+            found: None,
+            expected: vec![
+              ConfigTokenKind::String,
+              ConfigTokenKind::Number,
+              ConfigTokenKind::LBrace,
+            ],
+          }),
         })
         .boxed();
 
       // Parse number values
       let number = any()
-        .try_map(|tok: Lexed<'_, ConfigToken<'_>>, _| match tok {
+        .try_map(|tok: Lexed<'_, ConfigToken<'_>>, span| match tok {
           Lexed::Token(t) => {
             if let ConfigToken::Number(n) = t.data() {
               n.parse::<i64>()
                 .map(Value::Number)
-                .map_err(|_| EmptyErr::default())
+                .map_err(|e| ConfigError::InvalidNumber {
+                  span,
+                  value: n.to_string(),
+                  message: e.to_string(),
+                })
             } else {
-              Err(EmptyErr::default())
+              Err(ConfigError::UnexpectedToken {
+                span,
+                found: Some(t.kind()),
+                expected: vec![
+                  ConfigTokenKind::String,
+                  ConfigTokenKind::Number,
+                  ConfigTokenKind::LBrace,
+                ],
+              })
             }
           }
-          _ => Err(EmptyErr::default()),
+          _ => Err(ConfigError::UnexpectedToken {
+            span,
+            found: None,
+            expected: vec![
+              ConfigTokenKind::String,
+              ConfigTokenKind::Number,
+              ConfigTokenKind::LBrace,
+            ],
+          }),
         })
         .boxed();
 
       // Parse block values
       let block = any()
-        .try_map(|tok: Lexed<'_, ConfigToken<'_>>, _| match tok {
+        .try_map(|tok: Lexed<'_, ConfigToken<'_>>, span| match tok {
           Lexed::Token(t) if t.kind() == ConfigTokenKind::LBrace => Ok(()),
-          _ => Err(EmptyErr::default()),
+          Lexed::Token(t) => Err(ConfigError::UnexpectedToken {
+            span,
+            found: Some(t.kind()),
+            expected: vec![
+              ConfigTokenKind::String,
+              ConfigTokenKind::Number,
+              ConfigTokenKind::LBrace,
+            ],
+          }),
+          _ => Err(ConfigError::UnexpectedToken {
+            span,
+            found: None,
+            expected: vec![
+              ConfigTokenKind::String,
+              ConfigTokenKind::Number,
+              ConfigTokenKind::LBrace,
+            ],
+          }),
         })
         .ignore_then(
           Property::parser_with(value.clone())
@@ -171,9 +367,18 @@ impl<'a> Parseable<'a, TokenStream<'a>, ConfigToken<'a>, EmptyErr> for Value {
             .collect::<Vec<_>>(),
         )
         .then_ignore(
-          any().try_map(|tok: Lexed<'_, ConfigToken<'_>>, _| match tok {
+          any().try_map(|tok: Lexed<'_, ConfigToken<'_>>, span| match tok {
             Lexed::Token(t) if t.kind() == ConfigTokenKind::RBrace => Ok(()),
-            _ => Err(EmptyErr::default()),
+            Lexed::Token(t) => Err(ConfigError::UnexpectedToken {
+              span,
+              found: Some(t.kind()),
+              expected: vec![ConfigTokenKind::RBrace],
+            }),
+            _ => Err(ConfigError::UnexpectedToken {
+              span,
+              found: None,
+              expected: vec![ConfigTokenKind::RBrace],
+            }),
           }),
         )
         .map(Value::Block)
@@ -184,11 +389,11 @@ impl<'a> Parseable<'a, TokenStream<'a>, ConfigToken<'a>, EmptyErr> for Value {
   }
 }
 
-impl<'a> Parseable<'a, TokenStream<'a>, ConfigToken<'a>, EmptyErr> for Property {
-  fn parser<E>() -> impl chumsky::Parser<'a, TokenStream<'a>, Self, E> + Clone
+impl<'a> Parseable<'a, Tokenizer<'a>, ConfigToken<'a>, ConfigError> for Property {
+  fn parser<E>() -> impl chumsky::Parser<'a, Tokenizer<'a>, Self, E> + Clone
   where
     Self: Sized + 'a,
-    E: chumsky::extra::ParserExtra<'a, TokenStream<'a>, Error = EmptyErr> + 'a,
+    E: chumsky::extra::ParserExtra<'a, Tokenizer<'a>, Error = ConfigError> + 'a,
   {
     Property::parser_with(Value::parser())
   }
@@ -247,10 +452,10 @@ fn main() {
     println!("=== {} ===\n", name);
     println!("Input:\n{}\n", input);
 
-    let stream = TokenStream::<'_>::new(input);
+    let stream = Tokenizer::<'_>::new(input);
     let parser =
-      <Spanned<Property> as Parseable<TokenStream<'_>, ConfigToken<'_>, EmptyErr>>::parser::<
-        extra::Err<EmptyErr>,
+      <Spanned<Property> as Parseable<Tokenizer<'_>, ConfigToken<'_>, ConfigError>>::parser::<
+        extra::Err<ConfigError>,
       >();
 
     match parser.parse(stream).into_result() {
@@ -259,7 +464,9 @@ fn main() {
         println!("{}\n", property.data);
       }
       Err(errors) => {
-        println!("Parse errors: {:?}\n", errors);
+        for error in errors {
+          println!("Parse error: {}\n", error);
+        }
       }
     }
 

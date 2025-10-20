@@ -141,7 +141,7 @@ jobs:
         path: ~/.cargo
         key: ${{ runner.os }}-coverage-dotcargo
     - name: Run build
-      run: cargo hack build --feature-powerset --exclude-no-default-features
+      run: cargo hack build --each-feature
   
   test:
     name: test
@@ -175,7 +175,7 @@ jobs:
         path: ~/.cargo
         key: ${{ runner.os }}-coverage-dotcargo
     - name: Run test
-      run: cargo test --all-features
+      run: cargo hack test --each-feature
   
   # sanitizer:
   #   name: sanitizer
