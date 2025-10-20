@@ -11,8 +11,8 @@ mod hipstr;
 
 /// A transparent wrapper for custom source types to work around Logos orphan rule limitations.
 ///
-/// `CustomSource` solves a specific problem when using types like [`bytes::Bytes`] or
-/// [`bstr::BStr`] as lexer sources. These types implement `Deref<Target = [u8]>`, but
+/// `CustomSource` solves a specific problem when using types like [`bytes::Bytes`](::bytes::Bytes) or
+/// [`bstr::BStr`](::bstr::BStr) as lexer sources. These types implement `Deref<Target = [u8]>`, but
 /// Rust's orphan rules prevent LogoSky from implementing `logos::Source` for them directly
 /// (since both the trait and the type are defined in external crates).
 ///

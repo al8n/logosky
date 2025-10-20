@@ -1,8 +1,18 @@
 use core::ops::Range;
 
+pub use expected::*;
+pub use incomplete_token::*;
+pub use lexeme::*;
+pub use malformed_literal::*;
 pub use positioned_char::*;
+pub use unclosed::*;
 pub use unexpected_end::*;
+pub use unexpected_keyword::*;
 pub use unexpected_lexeme::*;
+pub use unexpected_prefix::*;
+pub use unexpected_suffix::*;
+pub use unexpected_token::*;
+pub use unknown_lexeme::*;
 
 /// Trackers for preventing infinite recursion in parsers.
 pub mod recursion_tracker;
@@ -22,6 +32,11 @@ pub mod syntax_tree_display;
 
 pub use to_equivalent::*;
 
+/// Syntax definitions and traits.
+#[cfg(feature = "generic-array")]
+#[cfg_attr(docsrs, doc(cfg(feature = "generic-array")))]
+pub mod syntax;
+
 mod to_equivalent;
 
 /// A module for container types with small size optimizations.
@@ -29,9 +44,19 @@ mod to_equivalent;
 #[cfg_attr(docsrs, doc(cfg(feature = "smallvec")))]
 pub mod container;
 
+mod expected;
+mod incomplete_token;
+mod lexeme;
+mod malformed_literal;
 mod positioned_char;
+mod unclosed;
 mod unexpected_end;
+mod unexpected_keyword;
 mod unexpected_lexeme;
+mod unexpected_prefix;
+mod unexpected_suffix;
+mod unexpected_token;
+mod unknown_lexeme;
 
 /// A lightweight span representing a range of positions in source input.
 ///
@@ -99,7 +124,7 @@ mod unexpected_lexeme;
 /// assert_eq!(span.end(), 30);
 ///
 /// // Shift the entire span
-/// span.bump_span(5);
+/// span.bump(5);
 /// assert_eq!(span.start(), 20);
 /// assert_eq!(span.end(), 35);
 /// ```
@@ -145,6 +170,14 @@ pub struct Span {
   end: usize,
 }
 
+impl core::fmt::Display for Span {
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "{}..{}", self.start, self.end)
+  }
+}
+
+#[cfg(feature = "chumsky")]
 impl chumsky::span::Span for Span {
   type Context = ();
 
@@ -243,11 +276,11 @@ impl Span {
   /// use logosky::utils::Span;
   ///
   /// let mut span = Span::new(5, 15);
-  /// span.bump_span(10);
+  /// span.bump(10);
   /// assert_eq!(span, Span::new(15, 25));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn bump_span(&mut self, n: usize) -> &mut Self {
+  pub const fn bump(&mut self, n: usize) -> &mut Self {
     self.start += n;
     self.end += n;
     self
@@ -891,51 +924,6 @@ pub trait IntoComponents {
   fn into_components(self) -> Self::Components;
 }
 
-/// A trait for char types that can return it length in bytes.
-pub trait CharSize {
-  /// Returns the length of the char in bytes.
-  ///
-  /// e.g.:
-  ///
-  /// - For `char`, this is between 1 - 4.
-  /// - For `u8`, this is always 1.
-  fn char_size(&self) -> usize;
-}
-
-impl<T> CharSize for &T
-where
-  T: CharSize + ?Sized,
-{
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn char_size(&self) -> usize {
-    <T as CharSize>::char_size(*self)
-  }
-}
-
-impl<T> CharSize for &mut T
-where
-  T: CharSize + ?Sized,
-{
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn char_size(&self) -> usize {
-    <T as CharSize>::char_size(*self)
-  }
-}
-
-impl CharSize for char {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn char_size(&self) -> usize {
-    self.len_utf8()
-  }
-}
-
-impl CharSize for u8 {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn char_size(&self) -> usize {
-    1
-  }
-}
-
 /// A trait for checking if a token is an ASCII character.
 pub trait IsAsciiChar {
   /// Returns `true` if self is equal to the given ASCII character.
@@ -1113,5 +1101,123 @@ impl IsAsciiChar for hipstr::HipStr<'_> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <str as IsAsciiChar>::is_ascii_digit(self)
+  }
+}
+
+/// A trait for character-like types that can report their encoded length in bytes.
+///
+/// `CharLen` provides a uniform way to query the byte length of different character
+/// types, which is essential for converting positioned characters into byte spans.
+///
+/// # Implementations
+///
+/// LogoSky provides implementations for:
+/// - **`u8`**: Always returns `1` (single byte)
+/// - **`char`**: Returns `len_utf8()` (1-4 bytes depending on the character)
+/// - **`&T`**: Delegates to `T::len()` for any `T: CharLen`
+///
+/// # Design Note
+///
+/// This trait is **sealed** and cannot be implemented outside of LogoSky. If you need
+/// to work with a custom character type, use [`Lexeme::span_with`] or
+/// [`UnknownLexeme::span_with`] and provide your own length function.
+///
+/// # Use Cases
+///
+/// - **Span calculation**: Convert positioned characters to byte spans automatically
+/// - **UTF-8 handling**: Properly account for multi-byte characters
+/// - **Error reporting**: Determine the exact byte range of an unexpected character
+///
+/// # Examples
+///
+/// ## Automatic Length Detection
+///
+/// ```rust
+/// use logosky::utils::{Lexeme, PositionedChar};
+///
+/// // ASCII character (1 byte)
+/// let ascii = Lexeme::from(PositionedChar::with_position('a', 10));
+/// let span = ascii.span();
+/// assert_eq!(span.len(), 1);
+///
+/// // Multi-byte UTF-8 character (3 bytes)
+/// let emoji = Lexeme::from(PositionedChar::with_position('€', 20));
+/// let span = emoji.span();
+/// assert_eq!(span.len(), 3);
+/// ```
+///
+/// ## With Custom Length Function
+///
+/// ```rust
+/// use logosky::utils::{Lexeme, PositionedChar};
+///
+/// // For types that don't implement CharLen, use span_with
+/// struct CustomChar(char);
+///
+/// let lexeme = Lexeme::from(PositionedChar::with_position(CustomChar('€'), 5));
+/// let span = lexeme.span_with(|c| c.0.len_utf8());
+///
+/// assert_eq!(span.start(), 5);
+/// assert_eq!(span.end(), 8);
+/// ```
+#[allow(clippy::len_without_is_empty)]
+pub trait CharLen: sealed::Sealed {
+  /// Returns the length of this character in bytes.
+  ///
+  /// # Examples
+  ///
+  /// ```rust
+  /// use logosky::utils::{Lexeme, PositionedChar};
+  ///
+  /// // The trait is used internally by span()
+  /// let ascii = Lexeme::from(PositionedChar::with_position('A', 0));
+  /// assert_eq!(ascii.span().len(), 1);
+  ///
+  /// let euro = Lexeme::from(PositionedChar::with_position('€', 0));
+  /// assert_eq!(euro.span().len(), 3);
+  ///
+  /// let crab = Lexeme::from(PositionedChar::with_position('🦀', 0));
+  /// assert_eq!(crab.span().len(), 4);
+  /// ```
+  fn char_len(&self) -> usize;
+}
+
+mod sealed {
+  use super::{CharLen, PositionedChar};
+
+  pub trait Sealed {}
+
+  impl Sealed for u8 {}
+  impl Sealed for char {}
+  impl<T: Sealed> Sealed for PositionedChar<T> {}
+
+  impl<T: Sealed> Sealed for &T {}
+
+  impl CharLen for u8 {
+    #[cfg_attr(not(tarpaulin), inline(always))]
+    fn char_len(&self) -> usize {
+      1
+    }
+  }
+
+  impl CharLen for char {
+    #[cfg_attr(not(tarpaulin), inline(always))]
+    fn char_len(&self) -> usize {
+      self.len_utf8()
+    }
+  }
+
+  impl<T: CharLen> CharLen for PositionedChar<T> {
+    #[cfg_attr(not(tarpaulin), inline(always))]
+    fn char_len(&self) -> usize {
+      self.char_ref().char_len()
+    }
+  }
+
+  impl<T: CharLen> CharLen for &T {
+    #[cfg_attr(not(tarpaulin), inline(always))]
+    fn char_len(&self) -> usize {
+      (*self).char_len()
+    }
   }
 }
