@@ -4,12 +4,118 @@ use crate::source::CustomSource;
 
 use super::PositionedChar;
 
-/// A trait for displaying in a human-friendly way.
+/// A trait for displaying values in a human-readable format.
+///
+/// `DisplayHuman` provides a standardized way to format values for human consumption,
+/// with special handling for edge cases like non-UTF-8 bytes, positioned characters,
+/// and various string types. The key difference from `Display` is that `DisplayHuman`
+/// attempts to show the "most natural" representation for humans.
+///
+/// # Behavior
+///
+/// - **ASCII bytes (`u8`)**: Displayed as characters if ASCII, otherwise as numbers
+/// - **Byte slices (`[u8]`)**: Displayed as UTF-8 strings if valid, otherwise as debug output
+/// - **Character slices (`[char]`)**: Displayed as a string
+/// - **Positioned characters**: Displays only the character, not the position
+/// - **Standard types**: Delegates to normal `Display` implementation
+///
+/// # Use Cases
+///
+/// - **Error messages**: Show tokens/lexemes in readable form
+/// - **Debug output**: Display parser state in understandable format
+/// - **Logging**: Record what the parser saw in human-friendly way
+/// - **Test assertions**: Compare expected vs actual in readable form
+///
+/// # Provided Implementations
+///
+/// LogoSky provides `DisplayHuman` for:
+/// - All primitive types (`u8`, `char`, `str`, integers, floats)
+/// - Byte slices (`[u8]`, `[u8; N]`)
+/// - Character slices (`[char]`, `[char; N]`)
+/// - `PositionedChar<T>` where `T: DisplayHuman`
+/// - `Bytes` (with `bytes` feature)
+/// - `BStr` (with `bstr` feature)
+/// - `HipStr`/`HipByt` (with `hipstr` feature)
+///
+/// # Examples
+///
+/// ## Basic Usage
+///
+/// ```rust
+/// use logosky::utils::human_display::DisplayHuman;
+///
+/// let ascii_byte: u8 = b'A';
+/// let non_ascii_byte: u8 = 200;
+///
+/// assert_eq!(format!("{}", ascii_byte.display()), "A");
+/// assert_eq!(format!("{}", non_ascii_byte.display()), "200");
+/// ```
+///
+/// ## Byte Slice Handling
+///
+/// ```rust
+/// use logosky::utils::human_display::DisplayHuman;
+///
+/// let utf8_bytes = b"hello";
+/// let invalid_utf8 = &[0xFF, 0xFE];
+///
+/// // Valid UTF-8 displays as string
+/// assert_eq!(format!("{}", utf8_bytes.display()), "hello");
+///
+/// // Invalid UTF-8 falls back to debug format
+/// let debug_output = format!("{}", invalid_utf8.display());
+/// ```
+///
+/// ## With Positioned Characters
+///
+/// ```rust
+/// use logosky::utils::{PositionedChar, human_display::DisplayHuman};
+///
+/// let pc = PositionedChar::with_position('x', 42);
+///
+/// // Only shows the character, not the position
+/// assert_eq!(format!("{}", pc.display()), "x");
+/// ```
+///
+/// ## Custom Implementation
+///
+/// ```rust,ignore
+/// use logosky::utils::human_display::DisplayHuman;
+///
+/// struct Token {
+///     kind: TokenKind,
+///     text: String,
+/// }
+///
+/// impl DisplayHuman for Token {
+///     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+///         write!(f, "{} '{}'", self.kind, self.text)
+///     }
+/// }
+///
+/// let token = Token { kind: TokenKind::Identifier, text: "foo".to_string() };
+/// println!("{}", token.display()); // "Identifier 'foo'"
+/// ```
 pub trait DisplayHuman {
   /// Formats the value in a human-friendly way.
+  ///
+  /// This method should format the value in the most natural way for human readers,
+  /// prioritizing readability over technical precision.
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result;
 
-  /// Returns a wrapper which implement `Display`.
+  /// Returns a wrapper that implements `Display` using the human-friendly format.
+  ///
+  /// This allows you to use `DisplayHuman` types with standard formatting macros
+  /// like `format!`, `println!`, etc.
+  ///
+  /// # Example
+  ///
+  /// ```rust
+  /// use logosky::utils::human_display::DisplayHuman;
+  ///
+  /// let bytes = b"hello";
+  /// println!("{}", bytes.display()); // Prints: hello
+  /// ```
   #[inline(always)]
   fn display(&self) -> HumanDisplay<'_, Self> {
     HumanDisplay(self)
@@ -141,7 +247,21 @@ const _: () = {
   }
 };
 
-/// A helper struct for displaying in a human-friendly way.
+/// A wrapper that implements `Display` using [`DisplayHuman`] formatting.
+///
+/// This type is returned by [`DisplayHuman::display()`] and allows you to use
+/// human-friendly formatting with standard Rust formatting macros.
+///
+/// # Examples
+///
+/// ```rust
+/// use logosky::utils::human_display::DisplayHuman;
+///
+/// let bytes = b"Hello, world!";
+/// let display_wrapper = bytes.display();
+///
+/// assert_eq!(format!("{}", display_wrapper), "Hello, world!");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HumanDisplay<'a, T: ?Sized>(&'a T);
 

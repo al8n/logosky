@@ -33,9 +33,112 @@ mod positioned_char;
 mod unexpected_end;
 mod unexpected_lexeme;
 
-/// A simple span just contains start and end position.
+/// A lightweight span representing a range of positions in source input.
 ///
-/// The structure is the same as [`Range<usize>`], but with more friendly methods.
+/// `Span` is a simple but powerful type that tracks where in the source code a particular
+/// element came from. It stores just two byte offsets: the start and end positions.
+/// While similar to [`Range<usize>`], `Span` provides additional methods tailored for
+/// working with source locations in parsers and compilers.
+///
+/// # Use Cases
+///
+/// - **Error Reporting**: Show users exactly where errors occurred in their code
+/// - **Source Mapping**: Track how parsed elements relate to original source
+/// - **IDE Integration**: Enable features like go-to-definition and hover tooltips
+/// - **Code Formatting**: Preserve the original location of code elements
+/// - **Debugging**: Understand which part of input produced which AST node
+///
+/// # Design
+///
+/// `Span` is designed to be:
+/// - **Copy**: Can be freely copied without allocation (just two `usize` values)
+/// - **Comparable**: Supports equality and ordering for span-based algorithms
+/// - **Hashable**: Can be used as map/set keys for span-indexed data structures
+/// - **Chumsky-compatible**: Implements `chumsky::span::Span` for parser integration
+///
+/// # Examples
+///
+/// ## Basic Usage
+///
+/// ```rust
+/// use logosky::utils::Span;
+///
+/// // Create a span covering characters 10-20
+/// let span = Span::new(10, 20);
+///
+/// assert_eq!(span.start(), 10);
+/// assert_eq!(span.end(), 20);
+/// assert_eq!(span.len(), 10);
+/// assert!(!span.is_empty());
+/// ```
+///
+/// ## Safe Creation
+///
+/// ```rust
+/// use logosky::utils::Span;
+///
+/// // try_new returns None for invalid spans
+/// assert!(Span::try_new(10, 5).is_none());  // end < start
+/// assert!(Span::try_new(10, 10).is_some()); // empty span is valid
+/// assert!(Span::try_new(10, 20).is_some()); // normal span
+/// ```
+///
+/// ## Span Manipulation
+///
+/// ```rust
+/// use logosky::utils::Span;
+///
+/// let mut span = Span::new(10, 20);
+///
+/// // Move the start forward
+/// span.bump_start(5);
+/// assert_eq!(span.start(), 15);
+///
+/// // Extend the end
+/// span.bump_end(10);
+/// assert_eq!(span.end(), 30);
+///
+/// // Shift the entire span
+/// span.bump_span(5);
+/// assert_eq!(span.start(), 20);
+/// assert_eq!(span.end(), 35);
+/// ```
+///
+/// ## Builder-Style Methods
+///
+/// ```rust
+/// use logosky::utils::Span;
+///
+/// let span = Span::new(0, 10)
+///     .with_start(5)
+///     .with_end(15);
+///
+/// assert_eq!(span.start(), 5);
+/// assert_eq!(span.end(), 15);
+/// ```
+///
+/// ## Error Reporting Example
+///
+/// ```rust,ignore
+/// use logosky::utils::Span;
+///
+/// fn report_error(message: &str, span: Span, source: &str) {
+///     let line_start = source[..span.start()].rfind('\n')
+///         .map(|pos| pos + 1)
+///         .unwrap_or(0);
+///     let line_end = source[span.end()..]
+///         .find('\n')
+///         .map(|pos| span.end() + pos)
+///         .unwrap_or(source.len());
+///
+///     let line = &source[line_start..line_end];
+///     let column = span.start() - line_start;
+///
+///     eprintln!("Error: {}", message);
+///     eprintln!("{}", line);
+///     eprintln!("{}^", " ".repeat(column));
+/// }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Span {
   start: usize,
@@ -205,12 +308,151 @@ impl From<Span> for Range<usize> {
   }
 }
 
-/// A spanned value.
+/// A value paired with its source location span.
+///
+/// `Spanned<D>` combines a value of type `D` with a [`Span`] that indicates where in
+/// the source input the value came from. This is fundamental for building parsers and
+/// compilers that need to track source locations for error reporting, debugging, and
+/// IDE integration.
+///
+/// # Design
+///
+/// `Spanned` uses public fields for direct access, but also provides accessor methods
+/// for consistency. It implements `Deref` and `DerefMut` to allow transparent access
+/// to the inner data while keeping span information available when needed.
+///
+/// # Common Patterns
+///
+/// ## Transparent Access via Deref
+///
+/// Thanks to `Deref`, you can call methods on the wrapped value directly:
+///
+/// ```rust
+/// use logosky::utils::{Span, Spanned};
+///
+/// let spanned_str = Spanned::new(Span::new(0, 5), "hello");
+///
+/// // Can call str methods directly
+/// assert_eq!(spanned_str.len(), 5);
+/// assert_eq!(spanned_str.to_uppercase(), "HELLO");
+///
+/// // But can still access the span
+/// assert_eq!(spanned_str.span().start(), 0);
+/// ```
+///
+/// ## Mapping Values While Preserving Spans
+///
+/// ```rust,ignore
+/// use logosky::utils::{Span, Spanned};
+///
+/// let spanned_num = Spanned::new(Span::new(10, 12), "42");
+///
+/// // Parse the string, keeping the same span
+/// let parsed: Spanned<i32> = Spanned::new(
+///     spanned_num.span,
+///     spanned_num.data.parse().unwrap()
+/// );
+///
+/// assert_eq!(*parsed, 42);
+/// assert_eq!(parsed.span().start(), 10);
+/// ```
+///
+/// ## Building AST Nodes with Locations
+///
+/// ```rust,ignore
+/// use logosky::utils::{Span, Spanned};
+///
+/// enum Expr {
+///     Number(i64),
+///     Add(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+/// }
+///
+/// // Each AST node knows its source location
+/// let left = Spanned::new(Span::new(0, 2), Expr::Number(1));
+/// let right = Spanned::new(Span::new(5, 7), Expr::Number(2));
+///
+/// let add = Spanned::new(
+///     Span::new(0, 7), // Covers the whole expression
+///     Expr::Add(Box::new(left), Box::new(right))
+/// );
+/// ```
+///
+/// ## Error Reporting with Context
+///
+/// ```rust,ignore
+/// fn type_error<T>(expected: &str, got: &Spanned<T>) -> Error
+/// where
+///     T: core::fmt::Debug
+/// {
+///     Error {
+///         message: format!("Expected {}, got {:?}", expected, got.data),
+///         span: *got.span(),
+///         help: Some("Try using a different type".to_string()),
+///     }
+/// }
+/// ```
+///
+/// # Trait Implementations
+///
+/// - **`Deref` / `DerefMut`**: Access the inner data transparently
+/// - **`Display`**: Delegates to the inner data's `Display` implementation
+/// - **`AsSpan` / `IntoSpan`**: Extract just the span information
+/// - **`IntoComponents`**: Destructure into `(Span, D)` tuple
+///
+/// # Examples
+///
+/// ## Basic Usage
+///
+/// ```rust
+/// use logosky::utils::{Span, Spanned};
+///
+/// let span = Span::new(10, 15);
+/// let spanned = Spanned::new(span, "hello");
+///
+/// assert_eq!(spanned.span(), &span);
+/// assert_eq!(spanned.data(), &"hello");
+/// assert_eq!(*spanned, "hello"); // Via Deref
+/// ```
+///
+/// ## Destructuring
+///
+/// ```rust
+/// use logosky::utils::{Span, Spanned};
+///
+/// let spanned = Spanned::new(Span::new(0, 5), 42);
+///
+/// let (span, value) = spanned.into_components();
+/// assert_eq!(span.start(), 0);
+/// assert_eq!(value, 42);
+/// ```
+///
+/// ## Mutable Access
+///
+/// ```rust
+/// use logosky::utils::{Span, Spanned};
+///
+/// let mut spanned = Spanned::new(Span::new(0, 1), 10);
+///
+/// // Modify the data
+/// *spanned += 5;
+/// assert_eq!(*spanned, 15);
+///
+/// // Modify the span
+/// spanned.span_mut().bump_end(4);
+/// assert_eq!(spanned.span().end(), 5);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Spanned<D> {
-  /// The span of the data.
+  /// The source location span of the data.
+  ///
+  /// This indicates where in the source input this value came from,
+  /// expressed as byte offsets.
   pub span: Span,
-  /// The spanned data.
+
+  /// The wrapped data value.
+  ///
+  /// This is the actual parsed or processed value, paired with its
+  /// source location for error reporting and debugging.
   pub data: D,
 }
 

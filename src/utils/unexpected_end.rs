@@ -2,37 +2,182 @@ use std::borrow::Cow;
 
 use derive_more::Display;
 
-/// A zero-sized marker that describes what was expected when the *file/input bytes* ended.
+/// A zero-sized marker indicating the parser expected more bytes when the file ended.
 ///
-/// Displayed as `"byte"` so messages read naturally:
-/// `"unexpected end of file, expected byte"`.
+/// This hint type is used with [`UnexpectedEnd`] to create natural-reading error messages
+/// like: `"unexpected end of file, expected byte"`.
+///
+/// # Use Case
+///
+/// Use `FileHint` when lexing byte-oriented input (files, byte streams) and you reach EOF
+/// unexpectedly.
+///
+/// # Example
+///
+/// ```rust
+/// use logosky::utils::{UnexpectedEnd, FileHint};
+///
+/// let error = UnexpectedEnd::EOF;
+/// assert_eq!(error.to_string(), "unexpected end of file, expected byte");
+/// ```
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display)]
 #[display("byte")]
 pub struct FileHint;
 
-/// A zero-sized marker that describes what was expected when the *token stream* ended.
+/// A zero-sized marker indicating the parser expected more tokens when the stream ended.
 ///
-/// Displayed as `"token"` so messages read naturally:
-/// `"unexpected end of token stream, expected token"`.
+/// This hint type is used with [`UnexpectedEnd`] to create natural-reading error messages
+/// like: `"unexpected end of token stream, expected token"`.
+///
+/// # Use Case
+///
+/// Use `TokenHint` when parsing a token stream with Chumsky and you reach end-of-tokens
+/// unexpectedly.
+///
+/// # Example
+///
+/// ```rust
+/// use logosky::utils::{UnexpectedEnd, TokenHint};
+///
+/// let error = UnexpectedEnd::EOT;
+/// assert_eq!(error.to_string(), "unexpected end of token stream, expected token");
+/// ```
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display)]
 #[display("token")]
 pub struct TokenHint;
 
-/// A zero-sized marker that describes what was expected when the *string* ended.
+/// A zero-sized marker indicating the parser expected more characters when the string ended.
 ///
-/// Displayed as `"token"` so messages read naturally:
-/// `"unexpected end of token stream, expected token"`.
+/// This hint type is used with [`UnexpectedEnd`] to create natural-reading error messages
+/// like: `"unexpected end of string, expected character"`.
+///
+/// # Use Case
+///
+/// Use `CharacterHint` when parsing character-by-character and you reach end-of-string
+/// unexpectedly.
+///
+/// # Example
+///
+/// ```rust
+/// use logosky::utils::{UnexpectedEnd, CharacterHint};
+///
+/// let error = UnexpectedEnd::EOS;
+/// assert_eq!(error.to_string(), "unexpected end of string, expected character");
+/// ```
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display)]
 #[display("character")]
 pub struct CharacterHint;
 
-/// A zero-copy description of an *unexpected end* (EOF/EOT) for diagnostics.
+/// A zero-copy, composable error type for unexpected end-of-input conditions.
 ///
-/// This type intentionally avoids owning strings. It stores:
-/// - an optional **name** for the thing that ended (e.g., `"file"`, `"token stream"`,
-///   `"string"`, `"block comment"`), and
-/// - a **hint** describing what was expected next (e.g., `TokenHint`, `FileHint`,
-///   or any custom type that implements `Display`).
+/// `UnexpectedEnd` represents situations where the parser or lexer expected more input
+/// but encountered the end of the stream instead (EOF, EOT, EOS, etc.). It's designed to:
+///
+/// - Avoid allocations by using `Cow<'static, str>` for names
+/// - Provide natural-reading error messages
+/// - Be composable with custom hint types
+/// - Implement `Error` trait for standard error handling
+///
+/// # Type Parameter
+///
+/// - `Hint`: The type describing what was expected. Typically one of:
+///   - [`FileHint`]: Expected more bytes in a file
+///   - [`TokenHint`]: Expected more tokens in a stream
+///   - [`CharacterHint`]: Expected more characters in a string
+///   - Custom types implementing `Display` for domain-specific hints
+///
+/// # Components
+///
+/// 1. **Name** (`Option<Cow<'static, str>>`): What ended (e.g., "file", "block comment")
+/// 2. **Hint** (generic `Hint`): What was expected next
+///
+/// Together, these create error messages like:
+/// - `"unexpected end of file, expected byte"`
+/// - `"unexpected end of block comment, expected */"`
+/// - `"unexpected end, expected closing brace"`
+///
+/// # Zero-Copy Design
+///
+/// `UnexpectedEnd` uses `Cow<'static, str>` for the name field, which means:
+/// - Static strings (`&'static str`) involve no allocation
+/// - Dynamic strings (`String`) are only allocated when necessary
+/// - Most common cases (EOF, EOT, EOS) use compile-time constants
+///
+/// # Examples
+///
+/// ## Using Predefined Constants
+///
+/// ```rust
+/// use logosky::utils::{UnexpectedEnd, UnexpectedEof, UnexpectedEot};
+///
+/// // Unexpected end of file
+/// let eof = UnexpectedEnd::EOF;
+/// assert_eq!(eof.to_string(), "unexpected end of file, expected byte");
+///
+/// // Unexpected end of token stream
+/// let eot = UnexpectedEnd::EOT;
+/// assert_eq!(eot.to_string(), "unexpected end of token stream, expected token");
+/// ```
+///
+/// ## Custom Names and Hints
+///
+/// ```rust,ignore
+/// use logosky::utils::UnexpectedEnd;
+/// use std::borrow::Cow;
+///
+/// // Custom hint type for SQL parsing
+/// #[derive(Debug)]
+/// struct SqlHint(&'static str);
+///
+/// impl std::fmt::Display for SqlHint {
+///     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+///         write!(f, "{}", self.0)
+///     }
+/// }
+///
+/// let error = UnexpectedEnd::with_name(
+///     Cow::Borrowed("SELECT statement"),
+///     SqlHint("FROM clause")
+/// );
+///
+/// assert_eq!(
+///     error.to_string(),
+///     "unexpected end of SELECT statement, expected FROM clause"
+/// );
+/// ```
+///
+/// ## Transforming Hints
+///
+/// ```rust,ignore
+/// use logosky::utils::{UnexpectedEnd, FileHint};
+///
+/// let file_error: UnexpectedEnd<FileHint> = UnexpectedEnd::EOF;
+///
+/// // Map the hint to a more specific type
+/// let custom_error = file_error.map_hint(|_| "closing brace");
+///
+/// assert_eq!(
+///     custom_error.to_string(),
+///     "unexpected end of file, expected closing brace"
+/// );
+/// ```
+///
+/// ## Error Handling
+///
+/// ```rust,ignore
+/// use logosky::utils::UnexpectedEof;
+/// use std::error::Error;
+///
+/// fn parse_config(input: &str) -> Result<Config, Box<dyn Error>> {
+///     // ... parsing logic ...
+///
+///     if input.is_empty() {
+///         return Err(Box::new(UnexpectedEof::EOF));
+///     }
+///
+///     Ok(config)
+/// }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnexpectedEnd<Hint> {
   name: Option<Cow<'static, str>>,

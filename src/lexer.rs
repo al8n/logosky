@@ -7,13 +7,10 @@ use chumsky::{
   prelude::*,
 };
 
-pub use error::*;
 pub use source::Source;
 pub use token::{Lexed, Logos, LosslessToken, Token, TokenExt};
 
 use crate::utils;
-
-mod error;
 
 /// The token related structures and traits
 pub mod token;
@@ -25,14 +22,145 @@ pub mod source;
 pub mod iter;
 
 /// A trait for types that can be lexed from the input.
+///
+/// This trait provides a standardized way to lex (tokenize) an entire input
+/// into a structured type. It's useful for types that represent complete
+/// lexical structures that can be built from an input source.
+///
+/// # Type Parameters
+///
+/// - `I`: The input type to lex from (e.g., `&str`, `&[u8]`)
+/// - `Error`: The error type returned when lexing fails
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use logosky::Lexable;
+///
+/// struct Document {
+///     tokens: Vec<Token>,
+/// }
+///
+/// impl Lexable<&str, LexError> for Document {
+///     fn lex(input: &str) -> Result<Self, LexError> {
+///         // Lex the entire input into a Document
+///         let tokens = tokenize(input)?;
+///         Ok(Document { tokens })
+///     }
+/// }
+/// ```
 pub trait Lexable<I, Error> {
   /// Lexes `Self` from the given input.
+  ///
+  /// This method consumes the input and attempts to construct `Self` by
+  /// lexing the entire input. It returns an error if the input cannot be
+  /// successfully lexed.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the input is malformed or cannot be lexed according
+  /// to the rules of the implementing type.
   fn lex(input: I) -> Result<Self, Error>
   where
     Self: Sized;
 }
 
-/// The logos token stream adapter for chumsky's parsers
+/// A zero-copy token stream adapter that bridges Logos and Chumsky.
+///
+/// `TokenStream` is the core integration layer between [Logos](https://github.com/maciejhirsz/logos)
+/// lexical analysis and [Chumsky](https://github.com/zesterer/chumsky) parser combinators.
+/// It efficiently wraps a Logos token source and implements all necessary Chumsky input traits,
+/// allowing you to use Chumsky parsers directly on Logos tokens.
+///
+/// # Zero-Copy Design
+///
+/// `TokenStream` doesn't allocate or copy tokens. Instead, it maintains a cursor position
+/// and calls Logos on-demand as the parser consumes tokens. This makes it efficient for
+/// large inputs and streaming scenarios.
+///
+/// # State Management
+///
+/// For stateful lexers (those with non-`()` `Extras`), `TokenStream` maintains the lexer
+/// state and passes it through token-by-token. This allows for context-sensitive lexing
+/// patterns.
+///
+/// # Type Parameters
+///
+/// - `'a`: The lifetime of the input source
+/// - `T`: The token type implementing [`Token<'a>`]
+///
+/// # Implemented Traits
+///
+/// This type implements all core Chumsky input traits:
+/// - [`Input`](chumsky::input::Input) - Basic input stream functionality
+/// - [`ValueInput`](chumsky::input::ValueInput) - Token-by-token consumption
+/// - [`SliceInput`](chumsky::input::SliceInput) - Slice extraction from source
+/// - [`ExactSizeInput`](chumsky::input::ExactSizeInput) - Known input length
+///
+/// # Examples
+///
+/// ## Basic Usage
+///
+/// ```rust,ignore
+/// use logosky::{Token, TokenStream, TokenExt};
+/// use logos::Logos;
+/// use chumsky::prelude::*;
+///
+/// #[derive(Logos, Debug, Clone, Copy, PartialEq)]
+/// #[logos(skip r"[ \t\n]+")]
+/// enum MyTokens {
+///     #[regex(r"[0-9]+")]
+///     Number,
+///     #[token("+")]
+///     Plus,
+/// }
+///
+/// // Create a token stream from input
+/// let input = "42 + 13";
+/// let stream = MyToken::lexer(input); // Returns TokenStream<'_, MyToken>
+///
+/// // Use with Chumsky parsers
+/// let parser = any().repeated().collect::<Vec<_>>();
+/// let tokens = parser.parse(stream).into_result();
+/// ```
+///
+/// ## Stateful Lexing
+///
+/// ```rust,ignore
+/// #[derive(Default, Clone)]
+/// struct LexerState {
+///     brace_count: usize,
+/// }
+///
+/// #[derive(Logos, Debug, Clone, Copy)]
+/// #[logos(extras = LexerState)]
+/// enum MyTokens {
+///     #[token("{", |lex| lex.extras.brace_count += 1)]
+///     LBrace,
+///     #[token("}", |lex| lex.extras.brace_count -= 1)]
+///     RBrace,
+/// }
+///
+/// let input = "{ { } }";
+/// let initial_state = LexerState::default();
+/// let stream = TokenStream::with_state(input, initial_state);
+/// ```
+///
+/// ## Cloning and Backtracking
+///
+/// TokenStream supports cloning (when the token type and extras are Clone/Copy),
+/// which is essential for Chumsky's backtracking:
+///
+/// ```rust,ignore
+/// let stream = MyToken::lexer(input);
+/// let checkpoint = stream.clone(); // Save position for backtracking
+///
+/// // Try to parse something
+/// if let Err(_) = try_parser.parse(stream) {
+///     // Backtrack by using the cloned stream
+///     alternative_parser.parse(checkpoint);
+/// }
+/// ```
 pub struct TokenStream<'a, T: Token<'a>> {
   input: &'a <T::Logos as Logos<'a>>::Source,
   state: <T::Logos as Logos<'a>>::Extras,
@@ -241,11 +369,98 @@ impl State for () {
   type Error = core::convert::Infallible;
 }
 
-/// Tokenizer trait
+/// Tokenizer trait providing utilities for working with token streams.
+///
+/// This trait is automatically implemented for any type that implements Chumsky's
+/// [`SliceInput`] and [`ValueInput`] traits with the appropriate associated types.
+/// It provides parser combinators for handling trivia tokens when working with
+/// [`LosslessToken`] implementations.
+///
+/// # Trivia Handling
+///
+/// When implementing parsers for languages with trivia (whitespace, comments), you typically
+/// have two approaches:
+///
+/// 1. **Skip trivia entirely** - Use [`skip_trivias()`](Self::skip_trivias) to ignore formatting
+/// 2. **Preserve trivia** - Use [`collect_trivias()`](Self::collect_trivias) to capture formatting information
+///
+/// # Example: Building a Simple Parser with Trivia
+///
+/// ```rust,ignore
+/// use chumsky::prelude::*;
+/// use logosky::{TokenStream, Tokenizer, LosslessToken};
+///
+/// type MyStream<'a> = TokenStream<'a, MyToken>;
+///
+/// // Parser that skips leading trivia
+/// fn identifier_parser<'a>() -> impl Parser<'a, MyStream<'a>, String, extra::Err<EmptyErr>> {
+///     MyStream::skip_trivias()
+///         .ignore_then(any().try_map(|tok, _| {
+///             if let Lexed::Token(t) = tok {
+///                 if matches!(t.kind(), TokenKind::Identifier) {
+///                     return Ok(t.text().to_string());
+///                 }
+///             }
+///             Err(EmptyErr::default())
+///         }))
+/// }
+///
+/// // Parser that preserves trivia for formatting
+/// fn statement_with_trivia<'a>() -> impl Parser<'a, MyStream<'a>, Statement, extra::Err<EmptyErr>> {
+///     MyStream::collect_trivias::<Vec<_>, _>()
+///         .then(statement_parser())
+///         .map(|(leading_trivia, stmt)| Statement {
+///             leading_trivia,
+///             node: stmt,
+///         })
+/// }
+/// ```
 pub trait Tokenizer<'a, T: Token<'a>>:
   SliceInput<'a> + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>
 {
-  /// Returns a parser that skips trivia tokens.
+  /// Returns a parser that skips over trivia tokens.
+  ///
+  /// This parser consumes all consecutive trivia tokens (as identified by
+  /// [`LosslessToken::is_trivia()`]) from the input stream and returns `()`.
+  /// It stops when it encounters a non-trivia token or reaches the end of input.
+  ///
+  /// # Use Cases
+  ///
+  /// - **Simple parsers** that don't need to preserve formatting
+  /// - **Semantic analysis** where comments and whitespace are irrelevant
+  /// - **Performance-critical parsing** where you want to skip trivia without allocation
+  ///
+  /// # Type Parameters
+  ///
+  /// - `E`: The parser extra/error type (e.g., `extra::Err<EmptyErr>`)
+  ///
+  /// # Requirements
+  ///
+  /// - The token type `T` must implement [`LosslessToken`]
+  ///
+  /// # Example
+  ///
+  /// ```rust,ignore
+  /// use chumsky::prelude::*;
+  /// use logosky::Tokenizer;
+  ///
+  /// // Skip trivia before parsing a number
+  /// let parser = MyTokenStream::skip_trivias()
+  ///     .ignore_then(number_parser());
+  ///
+  /// // Parse multiple tokens with trivia in between
+  /// let expr_parser = term_parser()
+  ///     .then_ignore(MyTokenStream::skip_trivias())
+  ///     .then(operator_parser())
+  ///     .then_ignore(MyTokenStream::skip_trivias())
+  ///     .then(term_parser());
+  /// ```
+  ///
+  /// # Performance
+  ///
+  /// This method is implemented as a call to [`collect_trivias()`](Tokenizer::collect_trivias)
+  /// with `()` as the container type, which means it doesn't allocate and simply
+  /// consumes trivia tokens without storing them.
   #[inline(always)]
   fn skip_trivias<E>() -> impl Parser<'a, Self, (), E> + Clone
   where
@@ -256,7 +471,63 @@ pub trait Tokenizer<'a, T: Token<'a>>:
     Self::collect_trivias::<(), E>()
   }
 
-  /// Returns a parser that collects trivia tokens into a container until a non-trivia token is encountered.
+  /// Returns a parser that collects trivia tokens into a container.
+  ///
+  /// This parser consumes consecutive trivia tokens (as identified by
+  /// [`LosslessToken::is_trivia()`]) and collects them into a container of type `C`.
+  /// It stops collecting when it encounters a non-trivia token or reaches the end of input.
+  ///
+  /// # Use Cases
+  ///
+  /// - **Code formatters** that need to preserve original whitespace and comments
+  /// - **Linters** that analyze comment placement or formatting
+  /// - **Language servers** that provide hover information for documentation comments
+  /// - **Syntax highlighters** that need to colorize comments differently
+  ///
+  /// # Type Parameters
+  ///
+  /// - `C`: The container type for collected tokens (e.g., `Vec<Spanned<T>>`, or `()` to skip)
+  /// - `E`: The parser extra/error type (e.g., `extra::Err<EmptyErr>`)
+  ///
+  /// # Requirements
+  ///
+  /// - The token type `T` must implement [`LosslessToken`]
+  /// - The container type `C` must implement [`Container<Spanned<T>>`](chumsky::container::Container)
+  ///
+  /// # Example
+  ///
+  /// ```rust,ignore
+  /// use chumsky::prelude::*;
+  /// use logosky::{Tokenizer, utils::Spanned};
+  ///
+  /// // Collect trivia into a Vec
+  /// let parser = MyTokenStream::collect_trivias::<Vec<Spanned<MyToken>>, _>()
+  ///     .then(statement_parser())
+  ///     .map(|(trivia, stmt)| {
+  ///         // Process trivia: extract documentation, check formatting, etc.
+  ///         Statement {
+  ///             leading_trivia: trivia,
+  ///             node: stmt,
+  ///         }
+  ///     });
+  ///
+  /// // Skip trivia without allocation by using () as container
+  /// let skip_parser = MyTokenStream::collect_trivias::<(), _>()
+  ///     .ignore_then(token_parser());
+  /// ```
+  ///
+  /// # Behavior
+  ///
+  /// - **Empty input**: Returns an empty container successfully
+  /// - **No trivia**: Returns an empty container and doesn't consume any tokens
+  /// - **Consecutive trivia**: Collects all trivia tokens until a non-trivia token
+  /// - **Span preservation**: Each collected token retains its original span information
+  ///
+  /// # Performance
+  ///
+  /// When using `()` as the container type, this method doesn't allocate and simply
+  /// skips over trivia tokens. This makes it equivalent to [`skip_trivias()`](Tokenizer::skip_trivias)
+  /// in terms of performance.
   #[inline(always)]
   fn collect_trivias<C, E>() -> impl Parser<'a, Self, C, E> + Clone
   where

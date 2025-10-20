@@ -68,6 +68,21 @@ logosky = "0.1"
   - `Kind`: Token kind discriminator
   - `Logos`: Associated Logos token enum
 
+- `LosslessToken<'a>` Trait
+
+  Extends `Token<'a>` for tokens that preserve all source information, including trivia (whitespace, comments).
+
+  - Provides `is_trivia()` method to identify non-semantic tokens
+  - Essential for building formatters, linters, and language servers that need to preserve formatting
+  - Works seamlessly with `Tokenizer` trivia handling utilities
+
+- `Tokenizer<'a, T>` Trait
+
+  Provides parser combinators for working with token streams:
+
+  - `skip_trivias()`: Skip over trivia tokens (whitespace, comments)
+  - `collect_trivias()`: Collect trivia tokens into a container for later processing
+
 - `Parseable<'a, I, T, Error>` Trait
 
   A trait for types that can be parsed from a token stream. Implement this to create composable parsers.
