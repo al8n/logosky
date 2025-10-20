@@ -166,7 +166,7 @@ impl<T, const N: usize> SmallVec<T, N> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::SmallVec;
+  /// use logosky::utils::container::SmallVec;
   ///
   /// let vec = SmallVec::<i32, 4>::new();
   /// assert_eq!(vec.len(), 0);
@@ -181,7 +181,7 @@ impl<T, const N: usize> SmallVec<T, N> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::SmallVec;
+  /// use logosky::utils::container::SmallVec;
   ///
   /// let vec = SmallVec::<i32, 2>::with_capacity(10);
   /// assert_eq!(vec.len(), 0);
@@ -197,7 +197,7 @@ impl<T, const N: usize> SmallVec<T, N> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::SmallVec;
+  /// use logosky::utils::container::SmallVec;
   ///
   /// let vec = SmallVec::from_const([1, 2, 3]);
   /// assert_eq!(vec.len(), 3);
