@@ -330,7 +330,7 @@ jobs:
       - name: Run tarpaulin
         uses: actions-rs/cargo@v1
         env:
-          RUSTFLAGS: "--cfg all_tests"
+          RUSTFLAGS: "--cfg tarpaulin"
         with:
           command: tarpaulin
           args: --all-features --run-types tests --run-types doctests --workspace --out xml
