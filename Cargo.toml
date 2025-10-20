@@ -1,6 +1,6 @@
 [package]
 name = "logosky"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 repository = "https://github.com/al8n/logosky"
 homepage = "https://github.com/al8n/logosky"
@@ -15,6 +15,8 @@ keywords = ["lexer", "parser", "logos", "chumsky", "combinator"]
 default = ["std"]
 alloc = []
 std = ["thiserror/default", "bytes?/default", "hipstr?/default", "bstr?/default"]
+
+rowan = ["dep:rowan", "std"]
 
 either = ["dep:either"]
 among = ["dep:among"]
@@ -40,6 +42,8 @@ logos = { version = "0.15", default-features = false, features = [
   "export_derive",
 ] }
 thiserror = { version = "2", default-features = false }
+
+rowan = { version = "0.16", optional = true }
 
 among = { version = "0.1", default-features = false, optional = true }
 bstr = { version = "1", default-features = false, optional = true }

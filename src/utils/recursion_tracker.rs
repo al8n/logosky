@@ -86,7 +86,7 @@ impl RecursionLimitExceeded {
 /// # Integration with LogoSky
 ///
 /// `RecursionLimiter` can be used as part of a Logos lexer's `Extras` state by
-/// implementing the [`State`](crate::State) trait, allowing you to track recursion
+/// implementing the [`State`] trait, allowing you to track recursion
 /// during lexing.
 ///
 /// # Examples

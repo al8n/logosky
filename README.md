@@ -3,7 +3,7 @@
 </div>
 <div align="center">
 
-A seamless integration layer between [Logos](https://github.com/maciejhirsz/logos) and [Chumsky](https://github.com/zesterer/chumsky) parser combinator, providing zero-copy `TokenStream` adapter and `Parseable` trait for building robust parsers
+A seamless integration layer between [Logos](https://github.com/maciejhirsz/logos) and [Chumsky](https://github.com/zesterer/chumsky) parser combinator, with optional CST support via [rowan](https://github.com/rust-analyzer/rowan), providing zero-copy `TokenStream` adapter and `Parseable` trait for building robust parsers and language tooling
 
 [<img alt="github" src="https://img.shields.io/badge/github-al8n/logosky-8da0cb?style=for-the-badge&logo=Github" height="22">][Github-url]
 <img alt="LoC" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fal8n%2F327b2a8aef9003246e45c6e47fe63937%2Fraw%2Flogosky" height="22">
@@ -28,6 +28,7 @@ English | [简体中文][zh-cn-url]
 - 🚀 **High-performance tokenization** with Logos
 - 🎯 **Expressive parser combinators** with Chumsky
 - 🔗 **Seamless integration** via `TokenStream` adapter
+- 🌲 **CST support** with rowan for lossless syntax trees (formatters, linters, language servers)
 - 📍 **Rich span tracking** with `Span` and `Spanned` types
 - 🎨 **Flexible parseable trait** for building composable parsers
 - 🔧 **No-std support** with optional allocator
@@ -40,13 +41,14 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-logosky = "0.2"
+logosky = "0.3"
 ```
 
 ### Feature Flags
 
 - `std` (default) - Enable standard library support
 - `alloc` - Enable allocator support for no-std environments
+- `rowan` - Enable CST (Concrete Syntax Tree) support with rowan integration
 - `bytes` - Support for `bytes::Bytes` as token source
 - `bstr` - Support for `bstr::BStr` as token source
 - `hipstr` - Support for `hipstr::HipStr` as token source
