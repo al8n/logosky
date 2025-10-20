@@ -11,8 +11,8 @@ mod hipstr;
 
 /// A transparent wrapper for custom source types to work around Logos orphan rule limitations.
 ///
-/// `CustomSource` solves a specific problem when using types like [`bytes::Bytes`] or
-/// [`bstr::BStr`] as lexer sources. These types implement `Deref<Target = [u8]>`, but
+/// `CustomSource` solves a specific problem when using types like [`bytes::Bytes`](::bytes::Bytes) or
+/// [`bstr::BStr`](::bstr::BStr) as lexer sources. These types implement `Deref<Target = [u8]>`, but
 /// Rust's orphan rules prevent LogoSky from implementing `logos::Source` for them directly
 /// (since both the trait and the type are defined in external crates).
 ///
@@ -172,11 +172,13 @@ impl<S: ?Sized> CustomSource<S> {
   /// # Examples
   ///
   /// ```rust
+  /// # #[cfg(feature = "bytes")] {
   /// use bytes::Bytes;
   /// use logosky::source::CustomSource;
   ///
   /// let bytes = Bytes::from_static(b"hello");
   /// let source_ref: &CustomSource<Bytes> = CustomSource::from_ref(&bytes);
+  /// # }
   /// ```
   ///
   /// # Use Case
@@ -198,11 +200,13 @@ impl<S: ?Sized> CustomSource<S> {
   /// # Examples
   ///
   /// ```rust
+  /// # #[cfg(feature = "bytes")] {
   /// use bytes::Bytes;
   /// use logosky::source::CustomSource;
   ///
   /// let mut bytes = Bytes::from_static(b"data");
   /// let source_mut: &mut CustomSource<Bytes> = CustomSource::from_mut(&mut bytes);
+  /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_mut(source: &mut S) -> &mut Self {
@@ -218,11 +222,13 @@ impl<S: ?Sized> CustomSource<S> {
   /// # Examples
   ///
   /// ```rust
+  /// # #[cfg(feature = "bytes")] {
   /// use logosky::source::CustomSource;
   /// use bytes::Bytes;
   ///
   /// let source = CustomSource::from(Bytes::from_static(b"hello"));
   /// let borrowed: CustomSource<&Bytes> = source.as_ref();
+  /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_ref(&self) -> CustomSource<&S> {
@@ -236,11 +242,13 @@ impl<S: ?Sized> CustomSource<S> {
   /// # Examples
   ///
   /// ```rust
+  /// # #[cfg(feature = "bytes")] {
   /// use logosky::source::CustomSource;
   /// use bytes::Bytes;
   ///
   /// let mut source = CustomSource::from(Bytes::from_static(b"hello"));
   /// let mut_borrowed: CustomSource<&mut Bytes> = source.as_mut();
+  /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn as_mut(&mut self) -> CustomSource<&mut S> {
@@ -255,6 +263,7 @@ impl<S: ?Sized> CustomSource<S> {
   /// # Examples
   ///
   /// ```rust
+  /// # #[cfg(feature = "bytes")] {
   /// use logosky::source::CustomSource;
   /// use bytes::Bytes;
   ///
@@ -263,6 +272,7 @@ impl<S: ?Sized> CustomSource<S> {
   ///
   /// // Can now call Bytes-specific methods
   /// assert_eq!(inner.len(), 11);
+  /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_inner(&self) -> &S {
@@ -276,6 +286,7 @@ impl<S: ?Sized> CustomSource<S> {
   /// # Examples
   ///
   /// ```rust
+  /// # #[cfg(feature = "bytes")] {
   /// use logosky::source::CustomSource;
   /// use bytes::BytesMut;
   ///
@@ -284,6 +295,7 @@ impl<S: ?Sized> CustomSource<S> {
   ///
   /// // Modify the inner value
   /// inner.extend_from_slice(b" world");
+  /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn as_inner_mut(&mut self) -> &mut S {
@@ -297,6 +309,7 @@ impl<S: ?Sized> CustomSource<S> {
   /// # Examples
   ///
   /// ```rust
+  /// # #[cfg(feature = "bytes")] {
   /// use logosky::source::CustomSource;
   /// use bytes::Bytes;
   ///
@@ -304,6 +317,7 @@ impl<S: ?Sized> CustomSource<S> {
   /// let bytes: Bytes = source.into_inner();
   ///
   /// assert_eq!(&bytes[..], b"hello");
+  /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_inner(self) -> S

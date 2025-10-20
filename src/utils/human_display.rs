@@ -129,6 +129,13 @@ impl<T: DisplayHuman + ?Sized> DisplayHuman for &T {
   }
 }
 
+impl DisplayHuman for () {
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn fmt(&self, _: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    Ok(())
+  }
+}
+
 impl<T: DisplayHuman + ?Sized> DisplayHuman for CustomSource<T> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

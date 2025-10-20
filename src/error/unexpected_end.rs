@@ -1,6 +1,6 @@
-use std::borrow::Cow;
-
 use derive_more::Display;
+
+use crate::utils::Message;
 
 /// A zero-sized marker indicating the parser expected more bytes when the file ended.
 ///
@@ -15,7 +15,7 @@ use derive_more::Display;
 /// # Example
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedEnd, FileHint};
+/// use logosky::error::{UnexpectedEnd, FileHint};
 ///
 /// let error = UnexpectedEnd::EOF;
 /// assert_eq!(error.to_string(), "unexpected end of file, expected byte");
@@ -37,7 +37,7 @@ pub struct FileHint;
 /// # Example
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedEnd, TokenHint};
+/// use logosky::error::{UnexpectedEnd, TokenHint};
 ///
 /// let error = UnexpectedEnd::EOT;
 /// assert_eq!(error.to_string(), "unexpected end of token stream, expected token");
@@ -59,7 +59,7 @@ pub struct TokenHint;
 /// # Example
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedEnd, CharacterHint};
+/// use logosky::error::{UnexpectedEnd, CharacterHint};
 ///
 /// let error = UnexpectedEnd::EOS;
 /// assert_eq!(error.to_string(), "unexpected end of string, expected character");
@@ -73,7 +73,7 @@ pub struct CharacterHint;
 /// `UnexpectedEnd` represents situations where the parser or lexer expected more input
 /// but encountered the end of the stream instead (EOF, EOT, EOS, etc.). It's designed to:
 ///
-/// - Avoid allocations by using `Cow<'static, str>` for names
+/// - Avoid allocations by using [`Message`] for names
 /// - Provide natural-reading error messages
 /// - Be composable with custom hint types
 /// - Implement `Error` trait for standard error handling
@@ -88,7 +88,7 @@ pub struct CharacterHint;
 ///
 /// # Components
 ///
-/// 1. **Name** (`Option<Cow<'static, str>>`): What ended (e.g., "file", "block comment")
+/// 1. **Name** (`Option<Message>`): What ended (e.g., "file", "block comment")
 /// 2. **Hint** (generic `Hint`): What was expected next
 ///
 /// Together, these create error messages like:
@@ -98,7 +98,7 @@ pub struct CharacterHint;
 ///
 /// # Zero-Copy Design
 ///
-/// `UnexpectedEnd` uses `Cow<'static, str>` for the name field, which means:
+/// `UnexpectedEnd` uses [`Message`] for the name field, which means:
 /// - Static strings (`&'static str`) involve no allocation
 /// - Dynamic strings (`String`) are only allocated when necessary
 /// - Most common cases (EOF, EOT, EOS) use compile-time constants
@@ -108,7 +108,7 @@ pub struct CharacterHint;
 /// ## Using Predefined Constants
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedEnd, UnexpectedEof, UnexpectedEot};
+/// use logosky::error::{UnexpectedEnd, UnexpectedEof, UnexpectedEot};
 ///
 /// // Unexpected end of file
 /// let eof = UnexpectedEnd::EOF;
@@ -149,7 +149,7 @@ pub struct CharacterHint;
 /// ## Transforming Hints
 ///
 /// ```rust,ignore
-/// use logosky::utils::{UnexpectedEnd, FileHint};
+/// use logosky::error::{UnexpectedEnd, FileHint};
 ///
 /// let file_error: UnexpectedEnd<FileHint> = UnexpectedEnd::EOF;
 ///
@@ -165,7 +165,7 @@ pub struct CharacterHint;
 /// ## Error Handling
 ///
 /// ```rust,ignore
-/// use logosky::utils::UnexpectedEof;
+/// use logosky::error::UnexpectedEof;
 /// use std::error::Error;
 ///
 /// fn parse_config(input: &str) -> Result<Config, Box<dyn Error>> {
@@ -180,7 +180,7 @@ pub struct CharacterHint;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnexpectedEnd<Hint> {
-  name: Option<Cow<'static, str>>,
+  name: Option<Message>,
   hint: Hint,
 }
 
@@ -215,7 +215,7 @@ impl<Hint> core::error::Error for UnexpectedEnd<Hint> where
 impl UnexpectedEnd<FileHint> {
   /// A constant representing an unexpected **end of file** (EOF).
   pub const EOF: Self = Self {
-    name: Some(Cow::Borrowed("file")),
+    name: Some(Message::from_static("file")),
     hint: FileHint,
   };
 }
@@ -223,7 +223,7 @@ impl UnexpectedEnd<FileHint> {
 impl UnexpectedEnd<TokenHint> {
   /// A constant representing an unexpected **end of token stream** (EOT).
   pub const EOT: Self = Self {
-    name: Some(Cow::Borrowed("token stream")),
+    name: Some(Message::from_static("token stream")),
     hint: TokenHint,
   };
 }
@@ -231,7 +231,7 @@ impl UnexpectedEnd<TokenHint> {
 impl UnexpectedEnd<CharacterHint> {
   /// A constant representing an unexpected **end of string** (EOS).
   pub const EOS: Self = Self {
-    name: Some(Cow::Borrowed("string")),
+    name: Some(Message::from_static("string")),
     hint: CharacterHint,
   };
 }
@@ -242,7 +242,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
+  /// use logosky::error::{FileHint, UnexpectedEnd};
   ///
   /// let error = UnexpectedEnd::new(FileHint);
   /// assert_eq!(error.name(), None);
@@ -257,14 +257,16 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
-  /// use std::borrow::Cow;
   ///
-  /// let error = UnexpectedEnd::maybe_name(Some(Cow::Borrowed("string")), FileHint);
+  /// # #[cfg(feature = "std")] {
+  /// use logosky::{error::{FileHint, UnexpectedEnd}, utils::Message};
+  ///
+  /// let error = UnexpectedEnd::maybe_name(Some(Message::from_static("string")), FileHint);
   /// assert_eq!(error.name(), Some("string"));
+  /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn maybe_name(name: Option<Cow<'static, str>>, hint: Hint) -> Self {
+  pub const fn maybe_name(name: Option<Message>, hint: Hint) -> Self {
     Self { name, hint }
   }
 
@@ -273,14 +275,15 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
-  /// use std::borrow::Cow;
+  /// # #[cfg(feature = "std")] {
+  /// use logosky::{error::{FileHint, UnexpectedEnd}, utils::Message};
   ///
-  /// let error = UnexpectedEnd::with_name(Cow::Borrowed("block"), FileHint);
+  /// let error = UnexpectedEnd::with_name(Message::from_static("block"), FileHint);
   /// assert_eq!(error.name(), Some("block"));
+  /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_name(name: Cow<'static, str>, hint: Hint) -> Self {
+  pub const fn with_name(name: Message, hint: Hint) -> Self {
     Self::maybe_name(Some(name), hint)
   }
 
@@ -289,7 +292,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, TokenHint};
+  /// use logosky::error::{UnexpectedEnd, TokenHint};
   ///
   /// let error = UnexpectedEnd::with_hint(TokenHint);
   /// assert_eq!(error.name(), None);
@@ -304,14 +307,14 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint};
   ///
   /// let mut error = UnexpectedEnd::new(FileHint);
   /// error.set_name("expression");
   /// assert_eq!(error.name(), Some("expression"));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_name(&mut self, name: impl Into<Cow<'static, str>>) -> &mut Self {
+  pub fn set_name(&mut self, name: impl Into<Message>) -> &mut Self {
     self.name = Some(name.into());
     self
   }
@@ -321,15 +324,16 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
-  /// use std::borrow::Cow;
+  /// # #[cfg(feature = "std")] {
+  /// use logosky::{error::{FileHint, UnexpectedEnd}, utils::Message};
   ///
-  /// let mut error = UnexpectedEnd::with_name(Cow::Borrowed("old"), FileHint);
+  /// let mut error = UnexpectedEnd::with_name(Message::from_static("old"), FileHint);
   /// error.update_name(Some("new"));
   /// assert_eq!(error.name(), Some("new"));
+  /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn update_name(&mut self, name: Option<impl Into<Cow<'static, str>>>) -> &mut Self {
+  pub fn update_name(&mut self, name: Option<impl Into<Message>>) -> &mut Self {
     self.name = name.map(Into::into);
     self
   }
@@ -339,12 +343,13 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
-  /// use std::borrow::Cow;
+  /// # #[cfg(feature = "std")] {
+  /// use logosky::{error::{FileHint, UnexpectedEnd}, utils::Message};
   ///
-  /// let mut error = UnexpectedEnd::with_name(Cow::Borrowed("block"), FileHint);
+  /// let mut error = UnexpectedEnd::with_name(Message::from_static("block"), FileHint);
   /// error.clear_name();
   /// assert_eq!(error.name(), None);
+  /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn clear_name(&mut self) -> &mut Self {
@@ -357,18 +362,15 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::UnexpectedEnd;
+  /// use logosky::error::UnexpectedEnd;
   ///
   /// let error = UnexpectedEnd::EOF;
   /// assert_eq!(error.name(), Some("file"));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn name(&self) -> Option<&str> {
-    match self.name.as_ref() {
-      Some(name) => match name {
-        Cow::Borrowed(borrowed) => Some(borrowed),
-        Cow::Owned(owned) => Some(owned.as_str()),
-      },
+    match &self.name {
+      Some(name) => Some(name.as_str()),
       None => None,
     }
   }
@@ -378,7 +380,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint};
   ///
   /// let error = UnexpectedEnd::EOF;
   /// // FileHint is a zero-sized type
@@ -394,7 +396,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint};
   ///
   /// let mut error = UnexpectedEnd::EOF;
   /// let old_hint = error.replace_hint(FileHint);
@@ -410,7 +412,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint, TokenHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint, TokenHint};
   ///
   /// let file_error = UnexpectedEnd::EOF;
   /// let token_error = file_error.map_hint(|_| TokenHint);
@@ -432,7 +434,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint, TokenHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint, TokenHint};
   ///
   /// let file_error = UnexpectedEnd::EOF;
   /// let token_error = file_error.reconstruct(Some("block"), |_| TokenHint);
@@ -441,7 +443,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn reconstruct<F, NewHint>(
     self,
-    name: Option<impl Into<Cow<'static, str>>>,
+    name: Option<impl Into<Message>>,
     f: F,
   ) -> UnexpectedEnd<NewHint>
   where
@@ -455,7 +457,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint, TokenHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint, TokenHint};
   ///
   /// let file_error = UnexpectedEnd::EOF;
   /// let token_error = file_error.reconstruct_with_name("expression", |_| TokenHint);
@@ -464,7 +466,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn reconstruct_with_name<F, NewHint>(
     self,
-    name: impl Into<Cow<'static, str>>,
+    name: impl Into<Message>,
     f: F,
   ) -> UnexpectedEnd<NewHint>
   where
@@ -478,12 +480,13 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint, TokenHint};
-  /// use std::borrow::Cow;
+  /// # #[cfg(feature = "std")] {
+  /// use logosky::{error::{UnexpectedEnd, FileHint, TokenHint}, utils::Message};
   ///
-  /// let file_error = UnexpectedEnd::with_name(Cow::Borrowed("file"), FileHint);
+  /// let file_error = UnexpectedEnd::with_name(Message::from_static("file"), FileHint);
   /// let token_error = file_error.reconstruct_without_name(|_| TokenHint);
   /// assert_eq!(token_error.name(), None);
+  /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn reconstruct_without_name<F, NewHint>(self, f: F) -> UnexpectedEnd<NewHint>
@@ -498,14 +501,14 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint};
   ///
   /// let error = UnexpectedEnd::EOF;
   /// let (name, hint) = error.into_components();
   /// assert_eq!(name, Some("file".into()));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn into_components(self) -> (Option<Cow<'static, str>>, Hint) {
+  pub fn into_components(self) -> (Option<Message>, Hint) {
     (self.name, self.hint)
   }
 }
