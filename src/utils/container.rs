@@ -52,7 +52,7 @@ pub type FourOrMore<T> = SmallVec<T, 4>;
 /// ## Example
 ///
 /// ```rust
-/// use logosky::utils::SmallVec;
+/// use logosky::utils::container::SmallVec;
 ///
 /// // Create a SmallVec that inlines 4 elements
 /// let mut vec = SmallVec::<i32, 4>::new();
