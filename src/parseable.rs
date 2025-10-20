@@ -5,9 +5,159 @@ use super::{
   utils::{AsSpan, IntoSpan, Span, Spanned},
 };
 
-/// A trait for types that can be parsed directly from a [`I: Tokenizer<'a, T>`](Tokenizer) which yields [`T: Token<'a>`](Token) and may produce an `Error`.
+/// A trait for types that can be parsed from a token stream using Chumsky parsers.
+///
+/// `Parseable` provides a standardized way to define parsers for types that can be
+/// constructed from a token stream. It enables composable, type-safe parsing where
+/// each type knows how to parse itself, promoting modularity and reusability.
+///
+/// # Design Philosophy
+///
+/// This trait follows the principle of "parse, don't validate" - each type that implements
+/// `Parseable` encapsulates both the structure and the parsing logic needed to construct
+/// valid instances from tokens. This makes it easy to build complex parsers by composing
+/// smaller, self-contained parsers.
+///
+/// # Type Parameters
+///
+/// - `'a`: The lifetime of the input source
+/// - `I`: The input stream type (typically [`TokenStream<'a, T>`](crate::TokenStream))
+/// - `T`: The token type being parsed
+/// - `Error`: The error type produced during parsing
+///
+/// # Provided Implementations
+///
+/// LogoSky provides `Parseable` implementations for many common types:
+///
+/// - **`Spanned<D>`**: Wraps a parseable type with span information
+/// - **`Option<D>`**: Makes any parseable type optional
+/// - **`Vec<D>`**: Parses repeated occurrences of a type
+/// - **`Box<D>`, `Rc<D>`, `Arc<D>`**: Smart pointer wrappers
+/// - **`Either<L, R>`**: Choice between two parseable types (with `either` feature)
+/// - **`Among<L, M, R>`**: Choice among three parseable types (with `among` feature)
+///
+/// # Examples
+///
+/// ## Basic Implementation
+///
+/// ```rust,ignore
+/// use logosky::{Parseable, Tokenizer, Token};
+/// use chumsky::prelude::*;
+///
+/// // Define a simple expression type
+/// enum Expr {
+///     Number(i64),
+///     Add(Box<Expr>, Box<Expr>),
+/// }
+///
+/// impl<'a, I, T, Error> Parseable<'a, I, T, Error> for Expr
+/// where
+///     I: Tokenizer<'a, T>,
+///     T: Token<'a>,
+///     Error: 'a,
+/// {
+///     fn parser<E>() -> impl Parser<'a, I, Self, E> + Clone
+///     where
+///         E: extra::ParserExtra<'a, I, Error = Error> + 'a,
+///     {
+///         // Parse a number token
+///         let number = any()
+///             .try_map(|tok, _| match tok {
+///                 Lexed::Token(t) if is_number(&t) => {
+///                     Ok(Expr::Number(parse_number(&t)))
+///                 }
+///                 _ => Err(Error::expected_number()),
+///             });
+///
+///         // Parse addition
+///         recursive(|expr| {
+///             number.or(expr.clone()
+///                 .then_ignore(plus_token())
+///                 .then(expr)
+///                 .map(|(l, r)| Expr::Add(Box::new(l), Box::new(r))))
+///         })
+///     }
+/// }
+/// ```
+///
+/// ## Using Provided Implementations
+///
+/// ```rust,ignore
+/// // Parse optional expressions
+/// type OptionalExpr = Option<Expr>;
+/// let parser = OptionalExpr::parser(); // Automatically derives from Expr::parser()
+///
+/// // Parse a list of expressions
+/// type ExprList = Vec<Expr>;
+/// let parser = ExprList::parser(); // Parses repeated expressions
+///
+/// // Parse an expression with span information
+/// type SpannedExpr = Spanned<Expr>;
+/// let parser = SpannedExpr::parser(); // Adds span tracking
+/// ```
+///
+/// ## Composing Parseable Types
+///
+/// ```rust,ignore
+/// // A statement can be an expression or a declaration
+/// enum Statement {
+///     Expr(Expr),
+///     Decl(Declaration),
+/// }
+///
+/// impl<'a, I, T, Error> Parseable<'a, I, T, Error> for Statement
+/// where
+///     I: Tokenizer<'a, T>,
+///     T: Token<'a>,
+///     Expr: Parseable<'a, I, T, Error>,
+///     Declaration: Parseable<'a, I, T, Error>,
+///     Error: 'a,
+/// {
+///     fn parser<E>() -> impl Parser<'a, I, Self, E> + Clone
+///     where
+///         E: extra::ParserExtra<'a, I, Error = Error> + 'a,
+///     {
+///         // Compose parsers from parseable types
+///         Expr::parser().map(Statement::Expr)
+///             .or(Declaration::parser().map(Statement::Decl))
+///     }
+/// }
+/// ```
+///
+/// # Benefits
+///
+/// - **Modularity**: Each type encapsulates its own parsing logic
+/// - **Composability**: Complex parsers are built from simple, reusable parts
+/// - **Type Safety**: The type system ensures parsers are correctly composed
+/// - **Maintainability**: Parsing logic lives with the data structures it creates
 pub trait Parseable<'a, I, T, Error> {
-  /// Returns a parser that can parse `Self` from the given tokenizer.
+  /// Returns a parser that can parse `Self` from the given token stream.
+  ///
+  /// This method constructs a Chumsky parser that knows how to parse the implementing
+  /// type from a stream of tokens. The parser is composable and can be used with other
+  /// Chumsky combinators.
+  ///
+  /// # Type Parameters
+  ///
+  /// - `E`: The parser extra type that carries error and state information
+  ///
+  /// # Returns
+  ///
+  /// A Chumsky parser that produces `Self` on success or an error of type `Error` on failure.
+  ///
+  /// # Example
+  ///
+  /// ```rust,ignore
+  /// // Get a parser for MyType
+  /// let parser = MyType::parser::<extra::Err<MyError>>();
+  ///
+  /// // Use it to parse a token stream
+  /// let stream = TokenStream::new(input);
+  /// match parser.parse(stream).into_result() {
+  ///     Ok(value) => println!("Parsed: {:?}", value),
+  ///     Err(errors) => println!("Parse errors: {:?}", errors),
+  /// }
+  /// ```
   fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
   where
     Self: Sized + 'a,
@@ -21,7 +171,8 @@ impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for Spanned<D>
 where
   D: Parseable<'a, I, T, Error>,
 {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
   where
     Self: Sized + 'a,
@@ -41,7 +192,8 @@ impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for Option<D>
 where
   D: Parseable<'a, I, T, Error> + 'a,
 {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
   where
     Self: Sized + 'a,
@@ -66,7 +218,8 @@ macro_rules! wrapper_parser {
         T: Token<'a>,
         Error: 'a,
       {
-        #[inline(always)]
+        #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
         fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
         where
           Self: Sized + 'a,
@@ -82,7 +235,8 @@ macro_rules! wrapper_parser {
       where
         D: AsSpan<Span>,
       {
-        #[inline(always)]
+        #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
         fn as_span(&self) -> &Span {
           self.as_ref().as_span()
         }
@@ -101,7 +255,8 @@ impl<D> IntoSpan<Span> for std::boxed::Box<D>
 where
   D: IntoSpan<Span>,
 {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn into_span(self) -> Span {
     (*self).into_span()
   }
@@ -114,7 +269,8 @@ where
   T: Token<'a>,
   Error: 'a,
 {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
   where
     Self: Sized + 'a,
@@ -138,7 +294,8 @@ const _: () = {
     L: Parseable<'a, I, T, Error>,
     R: Parseable<'a, I, T, Error>,
   {
-    #[inline(always)]
+    #[cfg_attr(test, inline)]
+    #[cfg_attr(not(test), inline(always))]
     fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
     where
       Self: Sized + 'a,
@@ -160,7 +317,8 @@ const _: () = {
     L: AsSpan<Span>,
     R: AsSpan<Span>,
   {
-    #[inline(always)]
+    #[cfg_attr(test, inline)]
+    #[cfg_attr(not(test), inline(always))]
     fn as_span(&self) -> &Span {
       match self {
         Either::Left(l) => l.as_span(),
@@ -174,7 +332,8 @@ const _: () = {
     L: IntoSpan<Span>,
     R: IntoSpan<Span>,
   {
-    #[inline(always)]
+    #[cfg_attr(test, inline)]
+    #[cfg_attr(not(test), inline(always))]
     fn into_span(self) -> Span {
       match self {
         Either::Left(l) => l.into_span(),
@@ -196,7 +355,8 @@ const _: () = {
     M: Parseable<'a, I, T, Error>,
     R: Parseable<'a, I, T, Error>,
   {
-    #[inline(always)]
+    #[cfg_attr(test, inline)]
+    #[cfg_attr(not(test), inline(always))]
     fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
     where
       Self: Sized + 'a,
@@ -221,7 +381,8 @@ const _: () = {
     M: AsSpan<Span>,
     R: AsSpan<Span>,
   {
-    #[inline(always)]
+    #[cfg_attr(test, inline)]
+    #[cfg_attr(not(test), inline(always))]
     fn as_span(&self) -> &Span {
       match self {
         Self::Left(l) => l.as_span(),
@@ -237,7 +398,8 @@ const _: () = {
     M: IntoSpan<Span>,
     R: IntoSpan<Span>,
   {
-    #[inline(always)]
+    #[cfg_attr(test, inline)]
+    #[cfg_attr(not(test), inline(always))]
     fn into_span(self) -> Span {
       match self {
         Self::Left(l) => l.into_span(),

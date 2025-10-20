@@ -33,9 +33,112 @@ mod positioned_char;
 mod unexpected_end;
 mod unexpected_lexeme;
 
-/// A simple span just contains start and end position.
+/// A lightweight span representing a range of positions in source input.
 ///
-/// The structure is the same as [`Range<usize>`], but with more friendly methods.
+/// `Span` is a simple but powerful type that tracks where in the source code a particular
+/// element came from. It stores just two byte offsets: the start and end positions.
+/// While similar to [`Range<usize>`], `Span` provides additional methods tailored for
+/// working with source locations in parsers and compilers.
+///
+/// # Use Cases
+///
+/// - **Error Reporting**: Show users exactly where errors occurred in their code
+/// - **Source Mapping**: Track how parsed elements relate to original source
+/// - **IDE Integration**: Enable features like go-to-definition and hover tooltips
+/// - **Code Formatting**: Preserve the original location of code elements
+/// - **Debugging**: Understand which part of input produced which AST node
+///
+/// # Design
+///
+/// `Span` is designed to be:
+/// - **Copy**: Can be freely copied without allocation (just two `usize` values)
+/// - **Comparable**: Supports equality and ordering for span-based algorithms
+/// - **Hashable**: Can be used as map/set keys for span-indexed data structures
+/// - **Chumsky-compatible**: Implements `chumsky::span::Span` for parser integration
+///
+/// # Examples
+///
+/// ## Basic Usage
+///
+/// ```rust
+/// use logosky::utils::Span;
+///
+/// // Create a span covering characters 10-20
+/// let span = Span::new(10, 20);
+///
+/// assert_eq!(span.start(), 10);
+/// assert_eq!(span.end(), 20);
+/// assert_eq!(span.len(), 10);
+/// assert!(!span.is_empty());
+/// ```
+///
+/// ## Safe Creation
+///
+/// ```rust
+/// use logosky::utils::Span;
+///
+/// // try_new returns None for invalid spans
+/// assert!(Span::try_new(10, 5).is_none());  // end < start
+/// assert!(Span::try_new(10, 10).is_some()); // empty span is valid
+/// assert!(Span::try_new(10, 20).is_some()); // normal span
+/// ```
+///
+/// ## Span Manipulation
+///
+/// ```rust
+/// use logosky::utils::Span;
+///
+/// let mut span = Span::new(10, 20);
+///
+/// // Move the start forward
+/// span.bump_start(5);
+/// assert_eq!(span.start(), 15);
+///
+/// // Extend the end
+/// span.bump_end(10);
+/// assert_eq!(span.end(), 30);
+///
+/// // Shift the entire span
+/// span.bump_span(5);
+/// assert_eq!(span.start(), 20);
+/// assert_eq!(span.end(), 35);
+/// ```
+///
+/// ## Builder-Style Methods
+///
+/// ```rust
+/// use logosky::utils::Span;
+///
+/// let span = Span::new(0, 10)
+///     .with_start(5)
+///     .with_end(15);
+///
+/// assert_eq!(span.start(), 5);
+/// assert_eq!(span.end(), 15);
+/// ```
+///
+/// ## Error Reporting Example
+///
+/// ```rust,ignore
+/// use logosky::utils::Span;
+///
+/// fn report_error(message: &str, span: Span, source: &str) {
+///     let line_start = source[..span.start()].rfind('\n')
+///         .map(|pos| pos + 1)
+///         .unwrap_or(0);
+///     let line_end = source[span.end()..]
+///         .find('\n')
+///         .map(|pos| span.end() + pos)
+///         .unwrap_or(source.len());
+///
+///     let line = &source[line_start..line_end];
+///     let column = span.start() - line_start;
+///
+///     eprintln!("Error: {}", message);
+///     eprintln!("{}", line);
+///     eprintln!("{}^", " ".repeat(column));
+/// }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Span {
   start: usize,
@@ -47,20 +150,24 @@ impl chumsky::span::Span for Span {
 
   type Offset = usize;
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn new(_: Self::Context, range: Range<Self::Offset>) -> Self {
     Self::new(range.start, range.end)
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn context(&self) -> Self::Context {}
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn start(&self) -> Self::Offset {
     self.start
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn end(&self) -> Self::Offset {
     self.end
   }
@@ -72,7 +179,8 @@ impl Span {
   /// ## Panics
   ///
   /// Panics if `end < start`.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn new(start: usize, end: usize) -> Self {
     assert!(end >= start, "end must be greater than or equal to start");
     Self { start, end }
@@ -81,7 +189,8 @@ impl Span {
   /// Try to create a new span.
   ///
   /// Returns `None` if `end < start`.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn try_new(start: usize, end: usize) -> Option<Self> {
     if end >= start {
       Some(Self { start, end })
@@ -95,7 +204,8 @@ impl Span {
   /// ## Panics
   ///
   /// Panics if `self.start + n > self.end`.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn bump_start(&mut self, n: usize) -> &mut Self {
     self.start += n;
     assert!(
@@ -106,14 +216,16 @@ impl Span {
   }
 
   /// Bump the end of the span by `n`.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn bump_end(&mut self, n: usize) -> &mut Self {
     self.end += n;
     self
   }
 
   /// Bump the start and the end of the span by `n`.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn bump_span(&mut self, n: usize) -> &mut Self {
     self.start += n;
     self.end += n;
@@ -121,115 +233,270 @@ impl Span {
   }
 
   /// Set the start of the span, returning a mutable reference to self.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn set_start(&mut self, start: usize) -> &mut Self {
     self.start = start;
     self
   }
 
   /// Set the end of the span, returning a mutable reference to self.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn set_end(&mut self, end: usize) -> &mut Self {
     self.end = end;
     self
   }
 
   /// Set the start of the span, returning self.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn with_start(mut self, start: usize) -> Self {
     self.start = start;
     self
   }
 
   /// Set the end of the span, returning self.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn with_end(mut self, end: usize) -> Self {
     self.end = end;
     self
   }
 
   /// Get the start of the span.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn start(&self) -> usize {
     self.start
   }
 
   /// Get the mutable reference to the start of the span.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn start_mut(&mut self) -> &mut usize {
     &mut self.start
   }
 
   /// Get the end of the span.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn end(&self) -> usize {
     self.end
   }
 
   /// Get the mutable reference to the end of the span.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn end_mut(&mut self) -> &mut usize {
     &mut self.end
   }
 
   /// Get the length of the span.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn len(&self) -> usize {
     self.end - self.start
   }
 
   /// Check if the span is empty.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn is_empty(&self) -> bool {
     self.start == self.end
   }
 
   /// Returns a range covering the span.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn range(&self) -> Range<usize> {
     self.start..self.end
   }
 }
 
 impl From<Range<usize>> for Span {
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn from(range: Range<usize>) -> Self {
     Self::new(range.start, range.end)
   }
 }
 
 impl From<Span> for Range<usize> {
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn from(span: Span) -> Self {
     span.start..span.end
   }
 }
 
-/// A spanned value.
+/// A value paired with its source location span.
+///
+/// `Spanned<D>` combines a value of type `D` with a [`Span`] that indicates where in
+/// the source input the value came from. This is fundamental for building parsers and
+/// compilers that need to track source locations for error reporting, debugging, and
+/// IDE integration.
+///
+/// # Design
+///
+/// `Spanned` uses public fields for direct access, but also provides accessor methods
+/// for consistency. It implements `Deref` and `DerefMut` to allow transparent access
+/// to the inner data while keeping span information available when needed.
+///
+/// # Common Patterns
+///
+/// ## Transparent Access via Deref
+///
+/// Thanks to `Deref`, you can call methods on the wrapped value directly:
+///
+/// ```rust
+/// use logosky::utils::{Span, Spanned};
+///
+/// let spanned_str = Spanned::new(Span::new(0, 5), "hello");
+///
+/// // Can call str methods directly
+/// assert_eq!(spanned_str.len(), 5);
+/// assert_eq!(spanned_str.to_uppercase(), "HELLO");
+///
+/// // But can still access the span
+/// assert_eq!(spanned_str.span().start(), 0);
+/// ```
+///
+/// ## Mapping Values While Preserving Spans
+///
+/// ```rust,ignore
+/// use logosky::utils::{Span, Spanned};
+///
+/// let spanned_num = Spanned::new(Span::new(10, 12), "42");
+///
+/// // Parse the string, keeping the same span
+/// let parsed: Spanned<i32> = Spanned::new(
+///     spanned_num.span,
+///     spanned_num.data.parse().unwrap()
+/// );
+///
+/// assert_eq!(*parsed, 42);
+/// assert_eq!(parsed.span().start(), 10);
+/// ```
+///
+/// ## Building AST Nodes with Locations
+///
+/// ```rust,ignore
+/// use logosky::utils::{Span, Spanned};
+///
+/// enum Expr {
+///     Number(i64),
+///     Add(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+/// }
+///
+/// // Each AST node knows its source location
+/// let left = Spanned::new(Span::new(0, 2), Expr::Number(1));
+/// let right = Spanned::new(Span::new(5, 7), Expr::Number(2));
+///
+/// let add = Spanned::new(
+///     Span::new(0, 7), // Covers the whole expression
+///     Expr::Add(Box::new(left), Box::new(right))
+/// );
+/// ```
+///
+/// ## Error Reporting with Context
+///
+/// ```rust,ignore
+/// fn type_error<T>(expected: &str, got: &Spanned<T>) -> Error
+/// where
+///     T: core::fmt::Debug
+/// {
+///     Error {
+///         message: format!("Expected {}, got {:?}", expected, got.data),
+///         span: *got.span(),
+///         help: Some("Try using a different type".to_string()),
+///     }
+/// }
+/// ```
+///
+/// # Trait Implementations
+///
+/// - **`Deref` / `DerefMut`**: Access the inner data transparently
+/// - **`Display`**: Delegates to the inner data's `Display` implementation
+/// - **`AsSpan` / `IntoSpan`**: Extract just the span information
+/// - **`IntoComponents`**: Destructure into `(Span, D)` tuple
+///
+/// # Examples
+///
+/// ## Basic Usage
+///
+/// ```rust
+/// use logosky::utils::{Span, Spanned};
+///
+/// let span = Span::new(10, 15);
+/// let spanned = Spanned::new(span, "hello");
+///
+/// assert_eq!(spanned.span(), &span);
+/// assert_eq!(spanned.data(), &"hello");
+/// assert_eq!(*spanned, "hello"); // Via Deref
+/// ```
+///
+/// ## Destructuring
+///
+/// ```rust
+/// use logosky::utils::{Span, Spanned};
+///
+/// let spanned = Spanned::new(Span::new(0, 5), 42);
+///
+/// let (span, value) = spanned.into_components();
+/// assert_eq!(span.start(), 0);
+/// assert_eq!(value, 42);
+/// ```
+///
+/// ## Mutable Access
+///
+/// ```rust
+/// use logosky::utils::{Span, Spanned};
+///
+/// let mut spanned = Spanned::new(Span::new(0, 1), 10);
+///
+/// // Modify the data
+/// *spanned += 5;
+/// assert_eq!(*spanned, 15);
+///
+/// // Modify the span
+/// spanned.span_mut().bump_end(4);
+/// assert_eq!(spanned.span().end(), 5);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Spanned<D> {
-  /// The span of the data.
+  /// The source location span of the data.
+  ///
+  /// This indicates where in the source input this value came from,
+  /// expressed as byte offsets.
   pub span: Span,
-  /// The spanned data.
+
+  /// The wrapped data value.
+  ///
+  /// This is the actual parsed or processed value, paired with its
+  /// source location for error reporting and debugging.
   pub data: D,
 }
 
 impl<D> AsRef<Span> for Spanned<D> {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn as_ref(&self) -> &Span {
     self.span()
   }
 }
 
 impl<D> AsSpan<Span> for Spanned<D> {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn as_span(&self) -> &Span {
     AsRef::as_ref(self)
   }
 }
 
 impl<D> IntoSpan<Span> for Spanned<D> {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn into_span(self) -> Span {
     self.span
   }
@@ -238,14 +505,16 @@ impl<D> IntoSpan<Span> for Spanned<D> {
 impl<D> core::ops::Deref for Spanned<D> {
   type Target = D;
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn deref(&self) -> &Self::Target {
     &self.data
   }
 }
 
 impl<D> core::ops::DerefMut for Spanned<D> {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.data
   }
@@ -255,7 +524,8 @@ impl<D> core::fmt::Display for Spanned<D>
 where
   D: core::fmt::Display,
 {
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.data.fmt(f)
   }
@@ -264,7 +534,8 @@ where
 impl<D> IntoComponents for Spanned<D> {
   type Components = (Span, D);
 
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn into_components(self) -> Self::Components {
     (self.span, self.data)
   }
@@ -272,37 +543,43 @@ impl<D> IntoComponents for Spanned<D> {
 
 impl<D> Spanned<D> {
   /// Create a new spanned value.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn new(span: Span, data: D) -> Self {
     Self { span, data }
   }
 
   /// Get a reference to the span.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn span(&self) -> &Span {
     &self.span
   }
 
   /// Get a mutable reference to the span.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn span_mut(&mut self) -> &mut Span {
     &mut self.span
   }
 
   /// Get a reference to the data.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn data(&self) -> &D {
     &self.data
   }
 
   /// Get a mutable reference to the data.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn data_mut(&mut self) -> &mut D {
     &mut self.data
   }
 
   /// Returns a reference to the span and data.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub const fn as_ref(&self) -> Spanned<&D> {
     Spanned {
       span: self.span,
@@ -311,13 +588,15 @@ impl<D> Spanned<D> {
   }
 
   /// Consume the spanned value and return the data.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub fn into_data(self) -> D {
     self.data
   }
 
   /// Decompose the spanned value into its span and data.
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub fn into_components(self) -> (Span, D) {
     (self.span, self.data)
   }
@@ -480,7 +759,8 @@ impl<T> CharSize for &T
 where
   T: CharSize + ?Sized,
 {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn char_size(&self) -> usize {
     <T as CharSize>::char_size(*self)
   }
@@ -490,21 +770,24 @@ impl<T> CharSize for &mut T
 where
   T: CharSize + ?Sized,
 {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn char_size(&self) -> usize {
     <T as CharSize>::char_size(*self)
   }
 }
 
 impl CharSize for char {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn char_size(&self) -> usize {
     self.len_utf8()
   }
 }
 
 impl CharSize for u8 {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn char_size(&self) -> usize {
     1
   }
@@ -520,7 +803,8 @@ pub trait IsAsciiChar {
   fn is_ascii_digit(&self) -> bool;
 
   /// Returns `true` if self is one of the given ASCII characters.
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn one_of(&self, choices: &[ascii::AsciiChar]) -> bool {
     choices.iter().any(|&ch| self.is_ascii_char(ch))
   }
@@ -530,17 +814,20 @@ impl<T> IsAsciiChar for &T
 where
   T: IsAsciiChar + ?Sized,
 {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     <T as IsAsciiChar>::is_ascii_char(*self, ch)
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <T as IsAsciiChar>::is_ascii_digit(*self)
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn one_of(&self, choices: &[ascii::AsciiChar]) -> bool {
     <T as IsAsciiChar>::one_of(*self, choices)
   }
@@ -550,17 +837,20 @@ impl<T> IsAsciiChar for &mut T
 where
   T: IsAsciiChar + ?Sized,
 {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     <T as IsAsciiChar>::is_ascii_char(*self, ch)
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <T as IsAsciiChar>::is_ascii_digit(*self)
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn one_of(&self, choices: &[ascii::AsciiChar]) -> bool {
     <T as IsAsciiChar>::one_of(*self, choices)
   }
@@ -570,24 +860,28 @@ impl<T> IsAsciiChar for crate::source::CustomSource<T>
 where
   T: IsAsciiChar + ?Sized,
 {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     self.as_inner().is_ascii_char(ch)
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <T as IsAsciiChar>::is_ascii_digit(self.as_inner())
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn one_of(&self, choices: &[ascii::AsciiChar]) -> bool {
     <T as IsAsciiChar>::one_of(self.as_inner(), choices)
   }
 }
 
 impl IsAsciiChar for char {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     if self.is_ascii() {
       *self as u8 == ch as u8
@@ -596,43 +890,50 @@ impl IsAsciiChar for char {
     }
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     char::is_ascii_digit(self)
   }
 }
 
 impl IsAsciiChar for u8 {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     *self == ch as u8
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     u8::is_ascii_digit(self)
   }
 }
 
 impl IsAsciiChar for str {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     self.len() == 1 && self.as_bytes()[0] == ch as u8
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     self.len() == 1 && self.as_bytes()[0].is_ascii_digit()
   }
 }
 
 impl IsAsciiChar for [u8] {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     self.len() == 1 && self[0] == ch as u8
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     self.len() == 1 && self[0].is_ascii_digit()
   }
@@ -640,12 +941,14 @@ impl IsAsciiChar for [u8] {
 
 #[cfg(feature = "bstr")]
 impl IsAsciiChar for bstr::BStr {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     <[u8] as IsAsciiChar>::is_ascii_char(self, ch)
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <[u8] as IsAsciiChar>::is_ascii_digit(self)
   }
@@ -653,12 +956,14 @@ impl IsAsciiChar for bstr::BStr {
 
 #[cfg(feature = "bytes")]
 impl IsAsciiChar for bytes::Bytes {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     <[u8] as IsAsciiChar>::is_ascii_char(self, ch)
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <[u8] as IsAsciiChar>::is_ascii_digit(self)
   }
@@ -666,12 +971,14 @@ impl IsAsciiChar for bytes::Bytes {
 
 #[cfg(feature = "hipstr")]
 impl IsAsciiChar for hipstr::HipByt<'_> {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     <[u8] as IsAsciiChar>::is_ascii_char(self, ch)
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <[u8] as IsAsciiChar>::is_ascii_digit(self)
   }
@@ -679,12 +986,14 @@ impl IsAsciiChar for hipstr::HipByt<'_> {
 
 #[cfg(feature = "hipstr")]
 impl IsAsciiChar for hipstr::HipStr<'_> {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     <str as IsAsciiChar>::is_ascii_char(self, ch)
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <str as IsAsciiChar>::is_ascii_digit(self)
   }

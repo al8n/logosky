@@ -3,7 +3,7 @@
 use chumsky::prelude::*;
 use logos::Logos;
 use logosky::{
-  Token, TokenExt, Tokenizer,
+  LosslessToken, Token, TokenExt, Tokenizer,
   utils::{Span, Spanned},
 };
 
@@ -566,4 +566,303 @@ fn test_stateful_lexing() {
 
   // The stream should work with stateful lexers
   assert_eq!(stream.input(), input);
+}
+
+// Tests for trivia token handling
+#[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
+enum TriviaTokens {
+  #[regex(r"[ \t\n\r]+")]
+  Whitespace,
+
+  #[regex(r"//[^\n]*")]
+  LineComment,
+
+  #[regex(r"/\*([^*]|\*[^/])*\*/")]
+  BlockComment,
+
+  #[token("+")]
+  Plus,
+
+  #[token("-")]
+  Minus,
+
+  #[regex(r"[0-9]+")]
+  Number,
+
+  #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*")]
+  Identifier,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum TriviaTokenKind {
+  Whitespace,
+  LineComment,
+  BlockComment,
+  Plus,
+  Minus,
+  Number,
+  Identifier,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct TriviaToken {
+  kind: TriviaTokenKind,
+  logos: TriviaTokens,
+}
+
+impl Token<'_> for TriviaToken {
+  type Char = char;
+  type Kind = TriviaTokenKind;
+  type Logos = TriviaTokens;
+
+  fn kind(&self) -> Self::Kind {
+    self.kind
+  }
+}
+
+impl LosslessToken<'_> for TriviaToken {
+  fn is_trivia(&self) -> bool {
+    matches!(
+      self.kind,
+      TriviaTokenKind::Whitespace | TriviaTokenKind::LineComment | TriviaTokenKind::BlockComment
+    )
+  }
+}
+
+impl From<TriviaTokens> for TriviaToken {
+  fn from(logos: TriviaTokens) -> Self {
+    let kind = match logos {
+      TriviaTokens::Whitespace => TriviaTokenKind::Whitespace,
+      TriviaTokens::LineComment => TriviaTokenKind::LineComment,
+      TriviaTokens::BlockComment => TriviaTokenKind::BlockComment,
+      TriviaTokens::Plus => TriviaTokenKind::Plus,
+      TriviaTokens::Minus => TriviaTokenKind::Minus,
+      TriviaTokens::Number => TriviaTokenKind::Number,
+      TriviaTokens::Identifier => TriviaTokenKind::Identifier,
+    };
+    TriviaToken { kind, logos }
+  }
+}
+
+type TriviaStream<'a> = logosky::TokenStream<'a, TriviaToken>;
+
+#[test]
+fn test_skip_trivias_basic() {
+  use chumsky::prelude::*;
+
+  let input = "  \t\n  42";
+  let stream = TriviaStream::new(input);
+
+  // Create a parser that skips trivia then parses a number
+  let parser = TriviaStream::skip_trivias::<extra::Err<EmptyErr>>().ignore_then(any().try_map(
+    |tok: logosky::Lexed<'_, TriviaToken>, _| match tok {
+      logosky::Lexed::Token(t) if t.kind() == TriviaTokenKind::Number => Ok(()),
+      _ => Err(EmptyErr::default()),
+    },
+  ));
+
+  let result = parser.parse(stream).into_result();
+  assert!(
+    result.is_ok(),
+    "Should successfully skip whitespace and parse number"
+  );
+}
+
+#[test]
+fn test_skip_trivias_with_comments() {
+  use chumsky::prelude::*;
+
+  let input = "// This is a comment\n  /* block comment */  \t42";
+  let stream = TriviaStream::new(input);
+
+  let parser = TriviaStream::skip_trivias::<extra::Err<EmptyErr>>().ignore_then(any().try_map(
+    |tok: logosky::Lexed<'_, TriviaToken>, _| match tok {
+      logosky::Lexed::Token(t) if t.kind() == TriviaTokenKind::Number => Ok(()),
+      _ => Err(EmptyErr::default()),
+    },
+  ));
+
+  let result = parser.parse(stream).into_result();
+  assert!(result.is_ok(), "Should skip comments and whitespace");
+}
+
+#[test]
+fn test_skip_trivias_no_trivia() {
+  use chumsky::prelude::*;
+
+  let input = "42";
+  let stream = TriviaStream::new(input);
+
+  // Parser should work even when there's no trivia to skip
+  let parser = TriviaStream::skip_trivias::<extra::Err<EmptyErr>>().ignore_then(any().try_map(
+    |tok: logosky::Lexed<'_, TriviaToken>, _| match tok {
+      logosky::Lexed::Token(t) if t.kind() == TriviaTokenKind::Number => Ok(()),
+      _ => Err(EmptyErr::default()),
+    },
+  ));
+
+  let result = parser.parse(stream).into_result();
+  assert!(result.is_ok(), "Should work even with no trivia present");
+}
+
+#[test]
+fn test_collect_trivias_basic() {
+  use chumsky::prelude::*;
+
+  let input = "  \t\n  42";
+  let stream = TriviaStream::new(input);
+
+  // Collect trivia tokens into a Vec
+  let parser = TriviaStream::collect_trivias::<Vec<Spanned<TriviaToken>>, extra::Err<EmptyErr>>()
+    .then_ignore(
+      any().try_map(|tok: logosky::Lexed<'_, TriviaToken>, _| match tok {
+        logosky::Lexed::Token(t) if t.kind() == TriviaTokenKind::Number => Ok(()),
+        _ => Err(EmptyErr::default()),
+      }),
+    );
+
+  let result = parser.parse(stream).into_result();
+  match result {
+    Ok(trivias) => {
+      assert!(
+        !trivias.is_empty(),
+        "Should have collected some trivia tokens"
+      );
+      for trivia in &trivias {
+        assert!(trivia.is_trivia(), "All collected tokens should be trivia");
+      }
+    }
+    Err(e) => panic!("Failed to collect trivias: {:?}", e),
+  }
+}
+
+#[test]
+fn test_collect_trivias_with_comments() {
+  use chumsky::prelude::*;
+
+  let input = "// line comment\n  /* block */  ";
+  let stream = TriviaStream::new(input);
+
+  let parser = TriviaStream::collect_trivias::<Vec<Spanned<TriviaToken>>, extra::Err<EmptyErr>>();
+
+  let result = parser.parse(stream).into_result();
+  assert!(result.is_ok(), "Should collect comments and whitespace");
+
+  if let Ok(trivias) = result {
+    assert!(!trivias.is_empty(), "Should have collected trivia");
+
+    // Verify we collected different types of trivia
+    let has_comment = trivias.iter().any(|t| {
+      matches!(
+        t.kind(),
+        TriviaTokenKind::LineComment | TriviaTokenKind::BlockComment
+      )
+    });
+    let has_whitespace = trivias
+      .iter()
+      .any(|t| t.kind() == TriviaTokenKind::Whitespace);
+
+    assert!(has_comment, "Should have collected at least one comment");
+    assert!(has_whitespace, "Should have collected whitespace");
+  }
+}
+
+#[test]
+fn test_collect_trivias_empty_source() {
+  use chumsky::prelude::*;
+
+  let input = "";
+  let stream = TriviaStream::new(input);
+
+  // When there's no trivia, should return empty container
+  let parser = TriviaStream::collect_trivias::<Vec<Spanned<TriviaToken>>, extra::Err<EmptyErr>>();
+
+  let result = parser.parse(stream).into_result();
+  assert!(result.is_ok(), "Should succeed even with no trivia");
+
+  if let Ok(trivias) = result {
+    assert!(trivias.is_empty(), "Should have collected no trivia tokens");
+  }
+}
+
+#[test]
+fn test_collect_trivias_empty() {
+  use chumsky::prelude::*;
+
+  let input = "42";
+  let stream = TriviaStream::new(input);
+
+  // When there's no trivia, should return empty container
+  let parser = TriviaStream::collect_trivias::<Vec<Spanned<TriviaToken>>, extra::Err<EmptyErr>>()
+    .then_ignore(
+      any().try_map(|tok: logosky::Lexed<'_, TriviaToken>, _| match tok {
+        logosky::Lexed::Token(t) if t.kind() == TriviaTokenKind::Number => Ok(()),
+        _ => Err(EmptyErr::default()),
+      }),
+    );
+
+  let result = parser.parse(stream).into_result();
+  assert!(result.is_ok(), "Should succeed even with no trivia");
+
+  if let Ok(trivias) = result {
+    assert!(trivias.is_empty(), "Should have collected no trivia tokens");
+  }
+}
+
+#[test]
+fn test_skip_trivias_between_tokens() {
+  use chumsky::prelude::*;
+
+  let input = "42  // comment\n  +  /* block */  13";
+  let stream = TriviaStream::new(input);
+
+  // Parse: number, skip trivia, plus, skip trivia, number
+  let number_parser = any().try_map(|tok: logosky::Lexed<'_, TriviaToken>, _| match tok {
+    logosky::Lexed::Token(t) if t.kind() == TriviaTokenKind::Number => Ok(()),
+    _ => Err(EmptyErr::default()),
+  });
+
+  let plus_parser = any().try_map(|tok: logosky::Lexed<'_, TriviaToken>, _| match tok {
+    logosky::Lexed::Token(t) if t.kind() == TriviaTokenKind::Plus => Ok(()),
+    _ => Err(EmptyErr::default()),
+  });
+
+  let parser = number_parser
+    .then_ignore(TriviaStream::skip_trivias::<extra::Err<EmptyErr>>())
+    .then_ignore(plus_parser)
+    .then_ignore(TriviaStream::skip_trivias::<extra::Err<EmptyErr>>())
+    .then_ignore(number_parser);
+
+  let result = parser.parse(stream).into_result();
+  assert!(
+    result.is_ok(),
+    "Should parse tokens with trivia between them"
+  );
+}
+
+#[test]
+fn test_collect_trivias_preserves_spans() {
+  use chumsky::prelude::*;
+
+  let input = "  \t  ";
+  let stream = TriviaStream::new(input);
+
+  let parser = TriviaStream::collect_trivias::<Vec<Spanned<TriviaToken>>, extra::Err<EmptyErr>>();
+
+  let result = parser.parse(stream).into_result();
+  assert!(result.is_ok(), "Should collect trivia");
+
+  if let Ok(trivias) = result {
+    for trivia in &trivias {
+      let span = trivia.span();
+      assert!(
+        span.start() < span.end(),
+        "Each trivia should have a valid span"
+      );
+      assert!(
+        span.end() <= input.len(),
+        "Span should be within input bounds"
+      );
+    }
+  }
 }

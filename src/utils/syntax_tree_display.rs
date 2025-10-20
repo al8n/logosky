@@ -8,7 +8,8 @@ pub trait DisplaySyntaxTree {
   -> core::fmt::Result;
 
   /// Returns a wrapper which implement `Display`.
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn display(&self, level: usize, indent: usize) -> SyntaxTreeDisplay<'_, Self> {
     SyntaxTreeDisplay {
       t: self,
@@ -19,7 +20,8 @@ pub trait DisplaySyntaxTree {
 }
 
 impl<T: DisplaySyntaxTree + ?Sized> DisplaySyntaxTree for &T {
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn fmt(
     &self,
     level: usize,
@@ -39,7 +41,8 @@ pub struct SyntaxTreeDisplay<'a, T: ?Sized> {
 }
 
 impl<T: DisplaySyntaxTree + ?Sized> core::fmt::Display for SyntaxTreeDisplay<'_, T> {
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.t.fmt(self.level, self.indent, f)
   }

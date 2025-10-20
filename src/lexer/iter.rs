@@ -19,7 +19,8 @@ impl<'a, T: Token<'a>> Clone for IntoIter<'a, T>
 where
   <T::Logos as Logos<'a>>::Extras: Clone,
 {
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn clone(&self) -> Self {
     Self {
       stream: self.stream.clone(),
@@ -33,7 +34,8 @@ where
   <T::Logos as Logos<'a>>::Source: core::fmt::Debug,
   <T::Logos as Logos<'a>>::Extras: core::fmt::Debug,
 {
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.stream.fmt(f)
   }
@@ -47,7 +49,8 @@ where
   type Item = Lexed<'a, T>;
   type IntoIter = IntoIter<'a, T>;
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn into_iter(self) -> Self::IntoIter {
     self.into_iter()
   }
@@ -60,7 +63,8 @@ where
 {
   type Item = Lexed<'a, T>;
 
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn next(&mut self) -> Option<Self::Item> {
     let mut cursor = self.stream.cursor;
     unsafe { TokenStream::<'a, T>::next_maybe(&mut self.stream, &mut cursor) }
@@ -77,7 +81,8 @@ impl<'a, 'b, T> Iter<'a, 'b, T>
 where
   T: Token<'a>,
 {
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   pub(super) const fn new(stream: &'b mut TokenStream<'a, T>) -> Self {
     Self { stream }
   }
@@ -91,7 +96,8 @@ where
   type Item = Lexed<'a, T>;
   type IntoIter = Iter<'a, 'b, T>;
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn into_iter(self) -> Self::IntoIter {
     self.iter()
   }
@@ -104,7 +110,8 @@ where
 {
   type Item = Lexed<'a, T>;
 
-  #[inline]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn next(&mut self) -> Option<Self::Item> {
     let mut cursor = self.stream.cursor;
     // SAFETY: we ensure that the cursor is always valid

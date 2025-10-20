@@ -10,12 +10,14 @@ impl logos::Source for CustomSource<Bytes> {
   where
     Self: 'a;
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn len(&self) -> usize {
     self.0.len()
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn read<'a, Chunk>(&'a self, offset: usize) -> Option<Chunk>
   where
     Chunk: logos::source::Chunk<'a>,
@@ -27,14 +29,16 @@ impl logos::Source for CustomSource<Bytes> {
     }
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   unsafe fn read_byte_unchecked(&self, offset: usize) -> u8 {
     // The outer unsafe fn has a Safety warnings about the offset must not exceed the bounds,
     // which is guaranteed by the outer caller.
     unsafe { *self.0.get_unchecked(offset) }
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn slice(&self, range: Range<usize>) -> Option<Self::Slice<'_>> {
     if range.end <= self.len() {
       Some(self.0.slice(range))
@@ -43,12 +47,14 @@ impl logos::Source for CustomSource<Bytes> {
     }
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   unsafe fn slice_unchecked(&self, range: Range<usize>) -> Self::Slice<'_> {
     self.0.slice(range)
   }
 
-  #[inline(always)]
+  #[cfg_attr(test, inline)]
+  #[cfg_attr(not(test), inline(always))]
   fn is_boundary(&self, index: usize) -> bool {
     self.0.is_boundary(index)
   }
