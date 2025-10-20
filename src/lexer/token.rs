@@ -107,8 +107,7 @@ impl<'a, T> Clone for Lexed<'a, T>
 where
   T: Token<'a>,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn clone(&self) -> Self {
     match self {
       Self::Token(tok) => Self::Token(tok.clone()),
@@ -126,8 +125,7 @@ where
 
 impl<'a, T: Token<'a>> Lexed<'a, T> {
   /// Lexes the next token from the given lexer, returning `None` if the input is exhausted.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn lex(lexer: &mut Lexer<'a, T::Logos>) -> Option<Self> {
     lexer.next().map(|res| {
       let span = lexer.span();
@@ -143,8 +141,7 @@ where
   T: Token<'a> + core::fmt::Display,
   <T::Logos as Logos<'a>>::Error: core::fmt::Display,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self {
       Self::Token(tok) => ::core::fmt::Display::fmt(tok, f),
@@ -154,8 +151,7 @@ where
 }
 
 impl<'a, T: Token<'a>> From<Result<(Span, T), <T::Logos as Logos<'a>>::Error>> for Lexed<'a, T> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn from(value: Result<(Span, T), <T::Logos as Logos<'a>>::Error>) -> Self {
     match value {
       Ok((span, tok)) => Self::Token(Spanned::new(span, tok)),
@@ -165,8 +161,7 @@ impl<'a, T: Token<'a>> From<Result<(Span, T), <T::Logos as Logos<'a>>::Error>> f
 }
 
 impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, <T::Logos as Logos<'a>>::Error> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn from(value: Lexed<'a, T>) -> Self {
     match value {
       Lexed::Token(tok) => Ok(tok.into_data()),
@@ -539,8 +534,7 @@ pub trait LosslessToken<'a>: Token<'a> {
 /// The token extension trait.
 pub trait TokenExt<'a>: Token<'a> {
   /// Returns a lexer for the token type from the given input.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn lexer(input: &'a <Self::Logos as Logos<'a>>::Source) -> TokenStream<'a, Self>
   where
     <Self::Logos as Logos<'a>>::Extras: Default,
@@ -549,8 +543,7 @@ pub trait TokenExt<'a>: Token<'a> {
   }
 
   /// Returns a lexer for the token type from the given input.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn lexer_with_state(
     input: &'a <Self::Logos as Logos<'a>>::Source,
     state: <Self::Logos as Logos<'a>>::Extras,
@@ -559,8 +552,7 @@ pub trait TokenExt<'a>: Token<'a> {
   }
 
   /// Lexes the next token from the given lexer, returning `None` if the input is exhausted.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn lex(lexer: &mut Lexer<'a, Self::Logos>) -> Option<Lexed<'a, Self>> {
     Lexed::lex(lexer)
   }

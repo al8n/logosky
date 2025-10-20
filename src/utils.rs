@@ -150,24 +150,20 @@ impl chumsky::span::Span for Span {
 
   type Offset = usize;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn new(_: Self::Context, range: Range<Self::Offset>) -> Self {
     Self::new(range.start, range.end)
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn context(&self) -> Self::Context {}
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn start(&self) -> Self::Offset {
     self.start
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn end(&self) -> Self::Offset {
     self.end
   }
@@ -179,8 +175,7 @@ impl Span {
   /// ## Panics
   ///
   /// Panics if `end < start`.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new(start: usize, end: usize) -> Self {
     assert!(end >= start, "end must be greater than or equal to start");
     Self { start, end }
@@ -189,8 +184,7 @@ impl Span {
   /// Try to create a new span.
   ///
   /// Returns `None` if `end < start`.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn try_new(start: usize, end: usize) -> Option<Self> {
     if end >= start {
       Some(Self { start, end })
@@ -204,8 +198,17 @@ impl Span {
   /// ## Panics
   ///
   /// Panics if `self.start + n > self.end`.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// span.bump_start(3);
+  /// assert_eq!(span, Span::new(8, 15));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn bump_start(&mut self, n: usize) -> &mut Self {
     self.start += n;
     assert!(
@@ -216,16 +219,34 @@ impl Span {
   }
 
   /// Bump the end of the span by `n`.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// span.bump_end(5);
+  /// assert_eq!(span, Span::new(5, 20));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn bump_end(&mut self, n: usize) -> &mut Self {
     self.end += n;
     self
   }
 
   /// Bump the start and the end of the span by `n`.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// span.bump_span(10);
+  /// assert_eq!(span, Span::new(15, 25));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn bump_span(&mut self, n: usize) -> &mut Self {
     self.start += n;
     self.end += n;
@@ -233,98 +254,191 @@ impl Span {
   }
 
   /// Set the start of the span, returning a mutable reference to self.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// span.set_start(10);
+  /// assert_eq!(span, Span::new(10, 15));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn set_start(&mut self, start: usize) -> &mut Self {
     self.start = start;
     self
   }
 
   /// Set the end of the span, returning a mutable reference to self.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// span.set_end(20);
+  /// assert_eq!(span, Span::new(5, 20));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn set_end(&mut self, end: usize) -> &mut Self {
     self.end = end;
     self
   }
 
   /// Set the start of the span, returning self.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let span = Span::new(5, 15).with_start(10);
+  /// assert_eq!(span, Span::new(10, 15));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_start(mut self, start: usize) -> Self {
     self.start = start;
     self
   }
 
   /// Set the end of the span, returning self.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let span = Span::new(5, 15).with_end(20);
+  /// assert_eq!(span, Span::new(5, 20));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_end(mut self, end: usize) -> Self {
     self.end = end;
     self
   }
 
   /// Get the start of the span.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let span = Span::new(5, 15);
+  /// assert_eq!(span.start(), 5);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn start(&self) -> usize {
     self.start
   }
 
   /// Get the mutable reference to the start of the span.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// *span.start_mut() = 10;
+  /// assert_eq!(span.start(), 10);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn start_mut(&mut self) -> &mut usize {
     &mut self.start
   }
 
   /// Get the end of the span.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let span = Span::new(5, 15);
+  /// assert_eq!(span.end(), 15);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn end(&self) -> usize {
     self.end
   }
 
   /// Get the mutable reference to the end of the span.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let mut span = Span::new(5, 15);
+  /// *span.end_mut() = 20;
+  /// assert_eq!(span.end(), 20);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn end_mut(&mut self) -> &mut usize {
     &mut self.end
   }
 
   /// Get the length of the span.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let span = Span::new(5, 15);
+  /// assert_eq!(span.len(), 10);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn len(&self) -> usize {
     self.end - self.start
   }
 
   /// Check if the span is empty.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let empty = Span::new(5, 5);
+  /// assert!(empty.is_empty());
+  ///
+  /// let not_empty = Span::new(5, 15);
+  /// assert!(!not_empty.is_empty());
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn is_empty(&self) -> bool {
     self.start == self.end
   }
 
   /// Returns a range covering the span.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::Span;
+  ///
+  /// let span = Span::new(5, 15);
+  /// assert_eq!(span.range(), 5..15);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn range(&self) -> Range<usize> {
     self.start..self.end
   }
 }
 
 impl From<Range<usize>> for Span {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn from(range: Range<usize>) -> Self {
     Self::new(range.start, range.end)
   }
 }
 
 impl From<Span> for Range<usize> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn from(span: Span) -> Self {
     span.start..span.end
   }
@@ -479,24 +593,21 @@ pub struct Spanned<D> {
 }
 
 impl<D> AsRef<Span> for Spanned<D> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_ref(&self) -> &Span {
     self.span()
   }
 }
 
 impl<D> AsSpan<Span> for Spanned<D> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_span(&self) -> &Span {
     AsRef::as_ref(self)
   }
 }
 
 impl<D> IntoSpan<Span> for Spanned<D> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn into_span(self) -> Span {
     self.span
   }
@@ -505,16 +616,14 @@ impl<D> IntoSpan<Span> for Spanned<D> {
 impl<D> core::ops::Deref for Spanned<D> {
   type Target = D;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn deref(&self) -> &Self::Target {
     &self.data
   }
 }
 
 impl<D> core::ops::DerefMut for Spanned<D> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.data
   }
@@ -524,8 +633,7 @@ impl<D> core::fmt::Display for Spanned<D>
 where
   D: core::fmt::Display,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.data.fmt(f)
   }
@@ -534,8 +642,7 @@ where
 impl<D> IntoComponents for Spanned<D> {
   type Components = (Span, D);
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn into_components(self) -> Self::Components {
     (self.span, self.data)
   }
@@ -543,43 +650,85 @@ impl<D> IntoComponents for Spanned<D> {
 
 impl<D> Spanned<D> {
   /// Create a new spanned value.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new(span: Span, data: D) -> Self {
     Self { span, data }
   }
 
   /// Get a reference to the span.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::{Span, Spanned};
+  ///
+  /// let spanned = Spanned::new(Span::new(5, 10), "data");
+  /// assert_eq!(spanned.span(), &Span::new(5, 10));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn span(&self) -> &Span {
     &self.span
   }
 
   /// Get a mutable reference to the span.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::{Span, Spanned};
+  ///
+  /// let mut spanned = Spanned::new(Span::new(5, 10), "data");
+  /// spanned.span_mut().set_end(15);
+  /// assert_eq!(spanned.span().end(), 15);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn span_mut(&mut self) -> &mut Span {
     &mut self.span
   }
 
   /// Get a reference to the data.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::{Span, Spanned};
+  ///
+  /// let spanned = Spanned::new(Span::new(5, 10), 42);
+  /// assert_eq!(*spanned.data(), 42);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn data(&self) -> &D {
     &self.data
   }
 
   /// Get a mutable reference to the data.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::{Span, Spanned};
+  ///
+  /// let mut spanned = Spanned::new(Span::new(5, 10), 42);
+  /// *spanned.data_mut() = 100;
+  /// assert_eq!(*spanned.data(), 100);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn data_mut(&mut self) -> &mut D {
     &mut self.data
   }
 
   /// Returns a reference to the span and data.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::{Span, Spanned};
+  ///
+  /// let spanned = Spanned::new(Span::new(5, 10), String::from("hello"));
+  /// let borrowed: Spanned<&String> = spanned.as_ref();
+  /// assert_eq!(borrowed.data(), &"hello");
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_ref(&self) -> Spanned<&D> {
     Spanned {
       span: self.span,
@@ -588,15 +737,13 @@ impl<D> Spanned<D> {
   }
 
   /// Consume the spanned value and return the data.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_data(self) -> D {
     self.data
   }
 
   /// Decompose the spanned value into its span and data.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_components(self) -> (Span, D) {
     (self.span, self.data)
   }
@@ -759,8 +906,7 @@ impl<T> CharSize for &T
 where
   T: CharSize + ?Sized,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn char_size(&self) -> usize {
     <T as CharSize>::char_size(*self)
   }
@@ -770,24 +916,21 @@ impl<T> CharSize for &mut T
 where
   T: CharSize + ?Sized,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn char_size(&self) -> usize {
     <T as CharSize>::char_size(*self)
   }
 }
 
 impl CharSize for char {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn char_size(&self) -> usize {
     self.len_utf8()
   }
 }
 
 impl CharSize for u8 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn char_size(&self) -> usize {
     1
   }
@@ -803,8 +946,7 @@ pub trait IsAsciiChar {
   fn is_ascii_digit(&self) -> bool;
 
   /// Returns `true` if self is one of the given ASCII characters.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn one_of(&self, choices: &[ascii::AsciiChar]) -> bool {
     choices.iter().any(|&ch| self.is_ascii_char(ch))
   }
@@ -814,20 +956,17 @@ impl<T> IsAsciiChar for &T
 where
   T: IsAsciiChar + ?Sized,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     <T as IsAsciiChar>::is_ascii_char(*self, ch)
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <T as IsAsciiChar>::is_ascii_digit(*self)
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn one_of(&self, choices: &[ascii::AsciiChar]) -> bool {
     <T as IsAsciiChar>::one_of(*self, choices)
   }
@@ -837,20 +976,17 @@ impl<T> IsAsciiChar for &mut T
 where
   T: IsAsciiChar + ?Sized,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     <T as IsAsciiChar>::is_ascii_char(*self, ch)
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <T as IsAsciiChar>::is_ascii_digit(*self)
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn one_of(&self, choices: &[ascii::AsciiChar]) -> bool {
     <T as IsAsciiChar>::one_of(*self, choices)
   }
@@ -860,28 +996,24 @@ impl<T> IsAsciiChar for crate::source::CustomSource<T>
 where
   T: IsAsciiChar + ?Sized,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     self.as_inner().is_ascii_char(ch)
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <T as IsAsciiChar>::is_ascii_digit(self.as_inner())
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn one_of(&self, choices: &[ascii::AsciiChar]) -> bool {
     <T as IsAsciiChar>::one_of(self.as_inner(), choices)
   }
 }
 
 impl IsAsciiChar for char {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     if self.is_ascii() {
       *self as u8 == ch as u8
@@ -890,50 +1022,43 @@ impl IsAsciiChar for char {
     }
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     char::is_ascii_digit(self)
   }
 }
 
 impl IsAsciiChar for u8 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     *self == ch as u8
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     u8::is_ascii_digit(self)
   }
 }
 
 impl IsAsciiChar for str {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     self.len() == 1 && self.as_bytes()[0] == ch as u8
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     self.len() == 1 && self.as_bytes()[0].is_ascii_digit()
   }
 }
 
 impl IsAsciiChar for [u8] {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     self.len() == 1 && self[0] == ch as u8
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     self.len() == 1 && self[0].is_ascii_digit()
   }
@@ -941,14 +1066,12 @@ impl IsAsciiChar for [u8] {
 
 #[cfg(feature = "bstr")]
 impl IsAsciiChar for bstr::BStr {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     <[u8] as IsAsciiChar>::is_ascii_char(self, ch)
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <[u8] as IsAsciiChar>::is_ascii_digit(self)
   }
@@ -956,14 +1079,12 @@ impl IsAsciiChar for bstr::BStr {
 
 #[cfg(feature = "bytes")]
 impl IsAsciiChar for bytes::Bytes {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     <[u8] as IsAsciiChar>::is_ascii_char(self, ch)
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <[u8] as IsAsciiChar>::is_ascii_digit(self)
   }
@@ -971,14 +1092,12 @@ impl IsAsciiChar for bytes::Bytes {
 
 #[cfg(feature = "hipstr")]
 impl IsAsciiChar for hipstr::HipByt<'_> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     <[u8] as IsAsciiChar>::is_ascii_char(self, ch)
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <[u8] as IsAsciiChar>::is_ascii_digit(self)
   }
@@ -986,14 +1105,12 @@ impl IsAsciiChar for hipstr::HipByt<'_> {
 
 #[cfg(feature = "hipstr")]
 impl IsAsciiChar for hipstr::HipStr<'_> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_char(&self, ch: ascii::AsciiChar) -> bool {
     <str as IsAsciiChar>::is_ascii_char(self, ch)
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ascii_digit(&self) -> bool {
     <str as IsAsciiChar>::is_ascii_digit(self)
   }

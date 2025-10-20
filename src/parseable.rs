@@ -171,8 +171,7 @@ impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for Spanned<D>
 where
   D: Parseable<'a, I, T, Error>,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
   where
     Self: Sized + 'a,
@@ -192,8 +191,7 @@ impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for Option<D>
 where
   D: Parseable<'a, I, T, Error> + 'a,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
   where
     Self: Sized + 'a,
@@ -218,8 +216,7 @@ macro_rules! wrapper_parser {
         T: Token<'a>,
         Error: 'a,
       {
-        #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+        #[cfg_attr(not(tarpaulin), inline(always))]
         fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
         where
           Self: Sized + 'a,
@@ -235,8 +232,7 @@ macro_rules! wrapper_parser {
       where
         D: AsSpan<Span>,
       {
-        #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+        #[cfg_attr(not(tarpaulin), inline(always))]
         fn as_span(&self) -> &Span {
           self.as_ref().as_span()
         }
@@ -255,8 +251,7 @@ impl<D> IntoSpan<Span> for std::boxed::Box<D>
 where
   D: IntoSpan<Span>,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn into_span(self) -> Span {
     (*self).into_span()
   }
@@ -269,8 +264,7 @@ where
   T: Token<'a>,
   Error: 'a,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
   where
     Self: Sized + 'a,

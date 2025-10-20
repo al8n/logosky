@@ -121,8 +121,7 @@ impl<Char> Lexeme<Char> {
   ///
   /// assert_eq!(upper.unwrap_char().char(), 'A');
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn map<F, NewChar>(self, f: F) -> Lexeme<NewChar>
   where
     F: FnOnce(Char) -> NewChar,
@@ -153,8 +152,7 @@ impl<Char> Lexeme<Char> {
   /// assert_eq!(span.start(), 10);
   /// assert_eq!(span.end(), 13);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn span_with(&self, len_of: impl FnOnce(&Char) -> usize) -> Span {
     match self {
       Self::Char(pc) => {
@@ -184,8 +182,7 @@ impl<Char> Lexeme<Char> {
   /// let span_lexeme: Lexeme<char> = Lexeme::from(Span::new(10, 15));
   /// assert_eq!(span_lexeme.span(), Span::new(10, 15));
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn span(&self) -> Span
   where
     Char: CharLen,
@@ -216,8 +213,7 @@ impl<Char> Lexeme<Char> {
   ///
   /// assert_eq!(lexeme.unwrap_char().position(), 15);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn bump(&mut self, n: usize) -> &mut Self {
     match self {
       Self::Char(positioned_char) => {
@@ -346,16 +342,14 @@ pub struct UnexpectedLexeme<Char, Hint> {
 impl<Char, Hint> core::ops::Deref for UnexpectedLexeme<Char, Hint> {
   type Target = Lexeme<Char>;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn deref(&self) -> &Self::Target {
     &self.lexeme
   }
 }
 
 impl<Char, Hint> core::ops::DerefMut for UnexpectedLexeme<Char, Hint> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.lexeme
   }
@@ -374,8 +368,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   ///
   /// assert_eq!(*error.hint(), "identifier");
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new(lexeme: Lexeme<Char>, hint: Hint) -> Self {
     Self { lexeme, hint }
   }
@@ -395,8 +388,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// assert!(error.is_char());
   /// assert_eq!(error.unwrap_char().position(), 42);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_char(pc: PositionedChar<Char>, hint: Hint) -> Self {
     Self::new(Lexeme::Char(pc), hint)
   }
@@ -417,8 +409,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   ///
   /// assert!(error.is_span());
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_span_const(span: Span, hint: Hint) -> Self {
     Self::new(Lexeme::Span(span), hint)
   }
@@ -435,8 +426,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// assert!(error.is_span());
   /// assert_eq!(error.unwrap_span().start(), 10);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn from_span(span: impl Into<Span>, hint: Hint) -> Self {
     Self::new(Lexeme::Span(span.into()), hint)
   }
@@ -455,8 +445,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   ///
   /// assert!(error.lexeme().is_char());
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn lexeme(&self) -> &Lexeme<Char> {
     &self.lexeme
   }
@@ -475,8 +464,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   ///
   /// assert_eq!(*error.hint(), "expected digit");
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn hint(&self) -> &Hint {
     &self.hint
   }
@@ -496,8 +484,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// error.lexeme_mut().bump(10);
   /// assert_eq!(error.unwrap_char().position(), 15);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn lexeme_mut(&mut self) -> &mut Lexeme<Char> {
     &mut self.lexeme
   }
@@ -517,8 +504,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// error.hint_mut().push_str(" or letter");
   /// assert_eq!(error.hint(), "digit or letter");
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn hint_mut(&mut self) -> &mut Hint {
     &mut self.hint
   }
@@ -539,8 +525,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// assert!(lexeme.is_char());
   /// assert_eq!(hint, "identifier");
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_components(self) -> (Lexeme<Char>, Hint) {
     (self.lexeme, self.hint)
   }
@@ -560,8 +545,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// let lexeme = error.into_lexeme();
   /// assert!(lexeme.is_char());
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_lexeme(self) -> Lexeme<Char> {
     self.lexeme
   }
@@ -581,8 +565,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// let hint = error.into_hint();
   /// assert_eq!(hint, "identifier");
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_hint(self) -> Hint {
     self.hint
   }
@@ -605,8 +588,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// assert_eq!(span.start(), 5);
   /// assert_eq!(span.end(), 8); // '€' is 3 bytes
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn span_with(&self, len_of: impl FnOnce(&Char) -> usize) -> Span {
     self.lexeme.span_with(len_of)
   }
@@ -627,8 +609,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   ///
   /// assert_eq!(error.span(), Span::new(10, 11));
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn span(&self) -> Span
   where
     Char: CharLen,
@@ -652,8 +633,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// assert_eq!(upper.unwrap_char().char(), 'A');
   /// assert_eq!(*upper.hint(), "digit");
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn map_char<F, NewChar>(self, f: F) -> UnexpectedLexeme<NewChar, Hint>
   where
     F: FnMut(Char) -> NewChar,
@@ -679,8 +659,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// let detailed = error.map_hint(|h| format!("expected {}", h));
   /// assert_eq!(detailed.hint(), "expected digit");
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn map_hint<F, NewHint>(self, f: F) -> UnexpectedLexeme<Char, NewHint>
   where
     F: FnOnce(Hint) -> NewHint,
@@ -711,8 +690,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// assert_eq!(transformed.unwrap_char().char(), 'A');
   /// assert_eq!(transformed.hint(), "expected number");
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn map<F, NewChar, G, NewHint>(self, f: F, g: G) -> UnexpectedLexeme<NewChar, NewHint>
   where
     F: FnMut(Char) -> NewChar,
@@ -741,8 +719,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// error.bump(10);
   /// assert_eq!(error.unwrap_char().position(), 15);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn bump(&mut self, n: usize) -> &mut Self {
     self.lexeme.bump(n);
     self

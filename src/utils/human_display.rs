@@ -116,32 +116,41 @@ pub trait DisplayHuman {
   /// let bytes = b"hello";
   /// println!("{}", bytes.display()); // Prints: hello
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn display(&self) -> HumanDisplay<'_, Self> {
     HumanDisplay(self)
   }
 }
 
 impl<T: DisplayHuman + ?Sized> DisplayHuman for &T {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     (*self).fmt(f)
   }
 }
 
 impl<T: DisplayHuman + ?Sized> DisplayHuman for CustomSource<T> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.as_inner().fmt(f)
   }
 }
 
 impl DisplayHuman for u8 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  /// Formats ASCII bytes as characters, non-ASCII as numbers.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::human_display::DisplayHuman;
+  ///
+  /// let ascii = b'A';
+  /// let non_ascii: u8 = 200;
+  ///
+  /// assert_eq!(format!("{}", ascii.display()), "A");
+  /// assert_eq!(format!("{}", non_ascii.display()), "200");
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     if self.is_ascii() {
       write!(f, "{}", *self as char)
@@ -155,8 +164,7 @@ macro_rules! impl_display_human_for_primitive {
   ($($ty:ty),+) => {
     $(
       impl DisplayHuman for $ty {
-        #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+        #[cfg_attr(not(tarpaulin), inline(always))]
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
           fmt::Display::fmt(self, f)
         }
@@ -170,8 +178,17 @@ impl_display_human_for_primitive!(
 );
 
 impl<T: DisplayHuman> DisplayHuman for PositionedChar<T> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  /// Formats positioned characters showing only the character, not the position.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::{PositionedChar, human_display::DisplayHuman};
+  ///
+  /// let pc = PositionedChar::with_position('x', 100);
+  /// assert_eq!(format!("{}", pc.display()), "x");
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.char_ref().fmt(f)
   }
@@ -179,8 +196,7 @@ impl<T: DisplayHuman> DisplayHuman for PositionedChar<T> {
 
 impl DisplayHuman for [u8] {
   #[cfg(not(feature = "bstr"))]
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match core::str::from_utf8(self) {
       Ok(s) => s.fmt(f),
@@ -189,16 +205,24 @@ impl DisplayHuman for [u8] {
   }
 
   #[cfg(feature = "bstr")]
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     bstr::BStr::new(self).fmt(f)
   }
 }
 
 impl DisplayHuman for [char] {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  /// Formats character slices as a string.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::human_display::DisplayHuman;
+  ///
+  /// let chars = ['h', 'e', 'l', 'l', 'o'];
+  /// assert_eq!(format!("{}", chars.display()), "hello");
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     for c in self {
       c.fmt(f)?;
@@ -208,16 +232,14 @@ impl DisplayHuman for [char] {
 }
 
 impl<const N: usize> DisplayHuman for [u8; N] {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.as_slice().fmt(f)
   }
 }
 
 impl<const N: usize> DisplayHuman for [char; N] {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.as_slice().fmt(f)
   }
@@ -225,8 +247,7 @@ impl<const N: usize> DisplayHuman for [char; N] {
 
 #[cfg(feature = "bytes")]
 impl DisplayHuman for bytes::Bytes {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.as_ref().fmt(f)
   }
@@ -234,8 +255,7 @@ impl DisplayHuman for bytes::Bytes {
 
 #[cfg(feature = "bstr")]
 impl DisplayHuman for bstr::BStr {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     fmt::Display::fmt(self, f)
   }
@@ -281,8 +301,7 @@ const _: () = {
 pub struct HumanDisplay<'a, T: ?Sized>(&'a T);
 
 impl<T: DisplayHuman + ?Sized> core::fmt::Display for HumanDisplay<'_, T> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.0.fmt(f)
   }

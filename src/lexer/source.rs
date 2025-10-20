@@ -139,8 +139,7 @@ where
   S: AsRef<T> + ?Sized,
   T: ?Sized,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_ref(&self) -> &T {
     self.0.as_ref()
   }
@@ -151,16 +150,14 @@ where
   S: AsMut<T> + ?Sized,
   T: ?Sized,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_mut(&mut self) -> &mut T {
     self.0.as_mut()
   }
 }
 
 impl<S> From<S> for CustomSource<S> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn from(s: S) -> Self {
     Self(s)
   }
@@ -186,8 +183,7 @@ impl<S: ?Sized> CustomSource<S> {
   ///
   /// This is particularly useful when you need to pass a borrowed value to a function
   /// expecting `&CustomSource<S>` without cloning or moving the original value.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_ref(source: &S) -> &Self {
     // Safety:
     // The cast is safe because `CustomSource` is a transparent wrapper.
@@ -208,8 +204,7 @@ impl<S: ?Sized> CustomSource<S> {
   /// let mut bytes = Bytes::from_static(b"data");
   /// let source_mut: &mut CustomSource<Bytes> = CustomSource::from_mut(&mut bytes);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_mut(source: &mut S) -> &mut Self {
     // Safety:
     // The cast is safe because `CustomSource` is a transparent wrapper.
@@ -229,8 +224,7 @@ impl<S: ?Sized> CustomSource<S> {
   /// let source = CustomSource::from(Bytes::from_static(b"hello"));
   /// let borrowed: CustomSource<&Bytes> = source.as_ref();
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_ref(&self) -> CustomSource<&S> {
     CustomSource(&self.0)
   }
@@ -248,8 +242,7 @@ impl<S: ?Sized> CustomSource<S> {
   /// let mut source = CustomSource::from(Bytes::from_static(b"hello"));
   /// let mut_borrowed: CustomSource<&mut Bytes> = source.as_mut();
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn as_mut(&mut self) -> CustomSource<&mut S> {
     CustomSource(&mut self.0)
   }
@@ -271,8 +264,7 @@ impl<S: ?Sized> CustomSource<S> {
   /// // Can now call Bytes-specific methods
   /// assert_eq!(inner.len(), 11);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_inner(&self) -> &S {
     &self.0
   }
@@ -293,8 +285,7 @@ impl<S: ?Sized> CustomSource<S> {
   /// // Modify the inner value
   /// inner.extend_from_slice(b" world");
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn as_inner_mut(&mut self) -> &mut S {
     &mut self.0
   }
@@ -314,8 +305,7 @@ impl<S: ?Sized> CustomSource<S> {
   ///
   /// assert_eq!(&bytes[..], b"hello");
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_inner(self) -> S
   where
     S: Sized,

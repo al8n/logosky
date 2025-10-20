@@ -19,8 +19,7 @@ impl<'a, T: Token<'a>> Clone for IntoIter<'a, T>
 where
   <T::Logos as Logos<'a>>::Extras: Clone,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn clone(&self) -> Self {
     Self {
       stream: self.stream.clone(),
@@ -34,8 +33,7 @@ where
   <T::Logos as Logos<'a>>::Source: core::fmt::Debug,
   <T::Logos as Logos<'a>>::Extras: core::fmt::Debug,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.stream.fmt(f)
   }
@@ -49,8 +47,7 @@ where
   type Item = Lexed<'a, T>;
   type IntoIter = IntoIter<'a, T>;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn into_iter(self) -> Self::IntoIter {
     self.into_iter()
   }
@@ -63,8 +60,7 @@ where
 {
   type Item = Lexed<'a, T>;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn next(&mut self) -> Option<Self::Item> {
     let mut cursor = self.stream.cursor;
     unsafe { TokenStream::<'a, T>::next_maybe(&mut self.stream, &mut cursor) }
@@ -81,8 +77,7 @@ impl<'a, 'b, T> Iter<'a, 'b, T>
 where
   T: Token<'a>,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub(super) const fn new(stream: &'b mut TokenStream<'a, T>) -> Self {
     Self { stream }
   }
@@ -96,8 +91,7 @@ where
   type Item = Lexed<'a, T>;
   type IntoIter = Iter<'a, 'b, T>;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn into_iter(self) -> Self::IntoIter {
     self.iter()
   }
@@ -110,8 +104,7 @@ where
 {
   type Item = Lexed<'a, T>;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn next(&mut self) -> Option<Self::Item> {
     let mut cursor = self.stream.cursor;
     // SAFETY: we ensure that the cursor is always valid

@@ -257,8 +257,7 @@ pub struct Tracker {
 }
 
 impl Default for Tracker {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn default() -> Self {
     Self::new()
   }
@@ -279,8 +278,7 @@ impl Tracker {
   /// assert_eq!(tracker.recursion().limitation(), 500);
   /// assert_eq!(tracker.token().limitation(), usize::MAX);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new() -> Self {
     Self::with_trackers(TokenLimiter::new(), RecursionLimiter::new())
   }
@@ -300,8 +298,7 @@ impl Tracker {
   /// assert_eq!(tracker.token().limitation(), 10000);
   /// assert_eq!(tracker.recursion().limitation(), 500);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_token_tracker(token_tracker: TokenLimiter) -> Self {
     Self::with_trackers(token_tracker, RecursionLimiter::new())
   }
@@ -321,8 +318,7 @@ impl Tracker {
   /// assert_eq!(tracker.recursion().limitation(), 100);
   /// assert_eq!(tracker.token().limitation(), usize::MAX);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_recursion_tracker(recursion_tracker: RecursionLimiter) -> Self {
     Self::with_trackers(TokenLimiter::new(), recursion_tracker)
   }
@@ -344,8 +340,7 @@ impl Tracker {
   /// assert_eq!(tracker.token().limitation(), 5000);
   /// assert_eq!(tracker.recursion().limitation(), 200);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_trackers(
     token_tracker: TokenLimiter,
     recursion_tracker: RecursionLimiter,
@@ -366,8 +361,7 @@ impl Tracker {
   /// let tracker = Tracker::new();
   /// assert_eq!(tracker.token().tokens(), 0);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn token(&self) -> &TokenLimiter {
     &self.token_tracker
   }
@@ -383,8 +377,7 @@ impl Tracker {
   /// tracker.token_mut().increase();
   /// assert_eq!(tracker.token().tokens(), 1);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn token_mut(&mut self) -> &mut TokenLimiter {
     &mut self.token_tracker
   }
@@ -399,8 +392,7 @@ impl Tracker {
   /// let tracker = Tracker::new();
   /// assert_eq!(tracker.recursion().depth(), 0);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn recursion(&self) -> &RecursionLimiter {
     &self.recursion_tracker
   }
@@ -416,8 +408,7 @@ impl Tracker {
   /// tracker.recursion_mut().increase();
   /// assert_eq!(tracker.recursion().depth(), 1);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn recursion_mut(&mut self) -> &mut RecursionLimiter {
     &mut self.recursion_tracker
   }
@@ -435,8 +426,7 @@ impl Tracker {
   /// tracker.increase_token();
   /// assert_eq!(tracker.token().tokens(), 1);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn increase_token(&mut self) {
     self.token_mut().increase();
   }
@@ -454,8 +444,7 @@ impl Tracker {
   /// tracker.increase_recursion();
   /// assert_eq!(tracker.recursion().depth(), 1);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn increase_recursion(&mut self) {
     self.recursion_mut().increase();
   }
@@ -474,8 +463,7 @@ impl Tracker {
   /// tracker.decrease_recursion();
   /// assert_eq!(tracker.recursion().depth(), 0);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn decrease_recursion(&mut self) {
     self.recursion_mut().decrease();
   }
@@ -506,8 +494,7 @@ impl Tracker {
   /// tracker.increase_token(); // Exceeds limit
   /// assert!(tracker.check().is_err());
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn check(&self) -> Result<(), LimitExceeded> {
     self
       .recursion_tracker
