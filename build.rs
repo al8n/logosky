@@ -16,7 +16,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=CARGO_CFG_TARPAULIN");
 
     // Detect tarpaulin by environment variable
-    if env::var("CARGO_TARPAULIN").is_ok() {
+    if env::var("CARGO_TARPAULIN").is_ok() || env::var("CARGO_CFG_TARPAULIN").is_ok() {
       use_feature("tarpaulin");
     }
   }

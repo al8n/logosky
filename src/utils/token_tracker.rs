@@ -98,7 +98,7 @@ impl TokenLimitExceeded {
 /// # Integration with LogoSky
 ///
 /// `TokenLimiter` can be used as part of a Logos lexer's `Extras` state by
-/// implementing the [`State`](crate::State) trait, allowing you to track token
+/// implementing the [`State`] trait, allowing you to track token
 /// counts during lexing.
 ///
 /// # Examples

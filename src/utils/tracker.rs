@@ -111,7 +111,7 @@ pub enum LimitExceeded {
 ///
 /// # Integration with LogoSky
 ///
-/// `Tracker` implements the [`State`](crate::State) trait and can be used directly
+/// `Tracker` implements the [`State`] trait and can be used directly
 /// as a Logos lexer's `Extras` state, providing automatic limit checking during lexing.
 ///
 /// # Examples
