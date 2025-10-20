@@ -3,7 +3,7 @@
 </div>
 <div align="center">
 
-A seamless integration layer between [Logos](https://github.com/maciejhirsz/logos) and [Chumsky](https://github.com/zesterer/chumsky) parser combinator, providing zero-copy `TokenStream` adapter and `Parseable` trait for building robust parsers
+A seamless integration layer between [Logos](https://github.com/maciejhirsz/logos) and [Chumsky](https://github.com/zesterer/chumsky) parser combinator, providing zero-copy `Tokenizer` adapter and `Parseable` trait for building robust parsers and language tooling
 
 [<img alt="github" src="https://img.shields.io/badge/github-al8n/logosky-8da0cb?style=for-the-badge&logo=Github" height="22">][Github-url]
 <img alt="LoC" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fal8n%2F327b2a8aef9003246e45c6e47fe63937%2Fraw%2Flogosky" height="22">
@@ -27,7 +27,7 @@ English | [简体中文][zh-cn-url]
 
 - 🚀 **High-performance tokenization** with Logos
 - 🎯 **Expressive parser combinators** with Chumsky
-- 🔗 **Seamless integration** via `TokenStream` adapter
+- 🔗 **Seamless integration** via `Tokenizer` adapter
 - 📍 **Rich span tracking** with `Span` and `Spanned` types
 - 🎨 **Flexible parseable trait** for building composable parsers
 - 🔧 **No-std support** with optional allocator
@@ -40,13 +40,18 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-logosky = "0.2"
+logosky = "0.3"
+
+# Lexing-only, no_std, no_alloc builds:
+# logosky = { version = "0.3", default-features = false }
 ```
 
 ### Feature Flags
 
 - `std` (default) - Enable standard library support
+- `chumsky` (default) - Enable parser combinator integration (disable for lexer-only builds)
 - `alloc` - Enable allocator support for no-std environments
+- `rowan` - Enable CST (Concrete Syntax Tree) support with rowan integration
 - `bytes` - Support for `bytes::Bytes` as token source
 - `bstr` - Support for `bstr::BStr` as token source
 - `hipstr` - Support for `hipstr::HipStr` as token source
@@ -56,11 +61,11 @@ logosky = "0.2"
 
 ## Core Components
 
-- `TokenStream<'a, T>`
+- **`Tokenizer<'a, T>`**
 
   An zero-copy adapter that bridges Logos lexer output to Chumsky parser input. Implements Chumsky's `Input`, `ValueInput`, `SliceInput`, and `ExactSizeInput` traits.
 
-- `Token<'a>` Trait
+- **`Token<'a>` Trait**
 
   The core trait for defining tokens. Requires:
 
@@ -68,7 +73,7 @@ logosky = "0.2"
   - `Kind`: Token kind discriminator
   - `Logos`: Associated Logos token enum
 
-- `LosslessToken<'a>` Trait
+- **`LosslessToken<'a>` Trait**
 
   Extends `Token<'a>` for tokens that preserve all source information, including trivia (whitespace, comments).
 
@@ -76,27 +81,55 @@ logosky = "0.2"
   - Essential for building formatters, linters, and language servers that need to preserve formatting
   - Works seamlessly with `Tokenizer` trivia handling utilities
 
-- `Tokenizer<'a, T>` Trait
+- **`LogoStream<'a, T>` Trait**
 
   Provides parser combinators for working with token streams:
 
   - `skip_trivias()`: Skip over trivia tokens (whitespace, comments)
   - `collect_trivias()`: Collect trivia tokens into a container for later processing
 
-- `Parseable<'a, I, T, Error>` Trait
+- **`Parseable<'a, I, T, Error>` Trait**
 
   A trait for types that can be parsed from a token stream. Implement this to create composable parsers.
 
-- `Span` and `Spanned<T>`
+- **`Span` and `Spanned<T>`**
 
   - `Span`: Lightweight span tracking (start/end positions)
   - `Spanned<T>`: Wraps a value with its source span
 
-- Utility Traits
+- **Error Types**
+
+  Rich, composable error types for precise error reporting:
+
+  - `Expected<T>`: Represents expected values in parse errors (one or multiple alternatives)
+  - `UnexpectedToken<T, TK>`: Detailed token mismatch errors with span tracking
+  - `UnexpectedKeyword<S>`: Specialized error for keyword-based parsing
+  - All error types include `span()` getter and `bump(offset)` for position adjustment
+  - Comprehensive documentation with 25+ doc tests
+
+- **Utility Traits**
 
   - `IsAsciiChar`: ASCII character checking utilities
   - `AsSpan` / `IntoSpan`: Span access traits
   - `IntoComponents`: Destructure parsed elements
+
+## Quick Start
+
+Check out the examples to see LogoSky in action:
+
+```bash
+# Simple arithmetic calculator with rich error reporting
+cargo run --example simple_calculator --features chumsky
+
+# Custom parser demonstrating the Parseable trait
+cargo run --example custom_parser --features chumsky
+```
+
+Both examples demonstrate:
+
+- Custom error types compatible with logosky's `Span`
+- Rich error messages with precise source locations
+- Integration with Chumsky's error handling
 
 ## Who uses `logosky`?
 

@@ -1,15 +1,20 @@
-use crate::State;
+use logos::{Lexer, Logos};
+
+use crate::{
+  State,
+  utils::{recursion_tracker::RecursionLimiter, token_tracker::TokenLimiter},
+};
 
 use super::{
-  recursion_tracker::{RecursionLimitExceeded, RecursionLimiter},
-  token_tracker::{TokenLimitExceeded, TokenLimiter},
+  recursion_tracker::{RecursionLimitExceeded, RecursionTracker},
+  token_tracker::{TokenLimitExceeded, TokenTracker},
 };
 
 /// Error returned when either token or recursion limits are exceeded.
 ///
 /// This enum combines both [`TokenLimitExceeded`] and [`RecursionLimitExceeded`]
 /// errors, making it easy to handle both limit types uniformly when using
-/// the [`Tracker`] type.
+/// the [`Limiter`] type.
 ///
 /// # Variants
 ///
@@ -28,9 +33,9 @@ use super::{
 /// ## Pattern Matching
 ///
 /// ```rust
-/// use logosky::utils::tracker::{Tracker, LimitExceeded};
+/// use logosky::utils::tracker::{Limiter, LimitExceeded};
 ///
-/// let mut tracker = Tracker::new();
+/// let mut tracker = Limiter::new();
 /// // ... use tracker ...
 ///
 /// match tracker.check() {
@@ -41,16 +46,17 @@ use super::{
 ///     Err(LimitExceeded::Recursion(e)) => {
 ///         eprintln!("Recursion limit exceeded: {}", e);
 ///     }
+///     Err(_) => { eprintln!("Unknown limit exceeded"); }
 /// }
 /// ```
 ///
 /// ## Using Derived Methods
 ///
 /// ```rust
-/// use logosky::utils::tracker::{Tracker, LimitExceeded};
+/// use logosky::utils::tracker::{Limiter, LimitExceeded};
 /// use logosky::utils::recursion_tracker::RecursionLimiter;
 ///
-/// let mut tracker = Tracker::with_recursion_tracker(
+/// let mut tracker = Limiter::with_recursion_tracker(
 ///     RecursionLimiter::with_limitation(2)
 /// );
 ///
@@ -77,6 +83,7 @@ use super::{
 )]
 #[unwrap(ref)]
 #[try_unwrap(ref)]
+#[non_exhaustive]
 pub enum LimitExceeded {
   /// The token limit has been exceeded.
   #[error(transparent)]
@@ -88,7 +95,7 @@ pub enum LimitExceeded {
 
 /// A combined limiter that tracks both token count and recursion depth.
 ///
-/// `Tracker` brings together [`TokenLimiter`] and [`RecursionLimiter`] into a single
+/// `Limiter` brings together [`TokenLimiter`] and [`RecursionLimiter`] into a single
 /// type, providing comprehensive protection against both DoS attacks (via token limiting)
 /// and stack overflow (via recursion limiting). This is the recommended choice for
 /// production parsers that need robust safety guarantees.
@@ -111,7 +118,7 @@ pub enum LimitExceeded {
 ///
 /// # Integration with LogoSky
 ///
-/// `Tracker` implements the [`State`](crate::State) trait and can be used directly
+/// `Limiter` implements the [`State`] trait and can be used directly
 /// as a Logos lexer's `Extras` state, providing automatic limit checking during lexing.
 ///
 /// # Examples
@@ -119,9 +126,9 @@ pub enum LimitExceeded {
 /// ## Basic Usage
 ///
 /// ```rust
-/// use logosky::utils::tracker::Tracker;
+/// use logosky::utils::tracker::Limiter;
 ///
-/// let mut tracker = Tracker::new();
+/// let mut tracker = Limiter::new();
 ///
 /// // Track token processing
 /// tracker.increase_token();
@@ -138,11 +145,11 @@ pub enum LimitExceeded {
 /// ## Configuring Limits
 ///
 /// ```rust
-/// use logosky::utils::tracker::Tracker;
+/// use logosky::utils::tracker::Limiter;
 /// use logosky::utils::token_tracker::TokenLimiter;
 /// use logosky::utils::recursion_tracker::RecursionLimiter;
 ///
-/// let tracker = Tracker::with_trackers(
+/// let tracker = Limiter::with_trackers(
 ///     TokenLimiter::with_limitation(10000),
 ///     RecursionLimiter::with_limitation(100)
 /// );
@@ -154,10 +161,10 @@ pub enum LimitExceeded {
 /// ## Checking Limits
 ///
 /// ```rust
-/// use logosky::utils::tracker::Tracker;
+/// use logosky::utils::tracker::Limiter;
 /// use logosky::utils::token_tracker::TokenLimiter;
 ///
-/// let mut tracker = Tracker::with_token_tracker(
+/// let mut tracker = Limiter::with_token_tracker(
 ///     TokenLimiter::with_limitation(5)
 /// );
 ///
@@ -174,19 +181,19 @@ pub enum LimitExceeded {
 ///
 /// ```rust,ignore
 /// use logos::Logos;
-/// use logosky::utils::tracker::Tracker;
+/// use logosky::utils::tracker::Limiter;
 /// use logosky::utils::token_tracker::TokenLimiter;
 /// use logosky::utils::recursion_tracker::RecursionLimiter;
 ///
 /// #[derive(Default)]
 /// struct LexerState {
-///     tracker: Tracker,
+///     tracker: Limiter,
 /// }
 ///
 /// impl LexerState {
 ///     fn new() -> Self {
 ///         Self {
-///             tracker: Tracker::with_trackers(
+///             tracker: Limiter::with_trackers(
 ///                 TokenLimiter::with_limitation(10000),
 ///                 RecursionLimiter::with_limitation(500),
 ///             ),
@@ -222,10 +229,10 @@ pub enum LimitExceeded {
 /// ## Parser Integration
 ///
 /// ```rust,ignore
-/// use logosky::utils::tracker::Tracker;
+/// use logosky::utils::tracker::Limiter;
 ///
 /// struct Parser {
-///     tracker: Tracker,
+///     tracker: Limiter,
 /// }
 ///
 /// impl Parser {
@@ -251,19 +258,19 @@ pub enum LimitExceeded {
 /// }
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Tracker {
+pub struct Limiter {
   token_tracker: TokenLimiter,
   recursion_tracker: RecursionLimiter,
 }
 
-impl Default for Tracker {
+impl Default for Limiter {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn default() -> Self {
     Self::new()
   }
 }
 
-impl Tracker {
+impl Limiter {
   /// Creates a new tracker with default limits.
   ///
   /// - Token limit: Unlimited (`usize::MAX`)
@@ -272,9 +279,9 @@ impl Tracker {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::tracker::Tracker;
+  /// use logosky::utils::tracker::Limiter;
   ///
-  /// let tracker = Tracker::new();
+  /// let tracker = Limiter::new();
   /// assert_eq!(tracker.recursion().limitation(), 500);
   /// assert_eq!(tracker.token().limitation(), usize::MAX);
   /// ```
@@ -288,10 +295,10 @@ impl Tracker {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::tracker::Tracker;
+  /// use logosky::utils::tracker::Limiter;
   /// use logosky::utils::token_tracker::TokenLimiter;
   ///
-  /// let tracker = Tracker::with_token_tracker(
+  /// let tracker = Limiter::with_token_tracker(
   ///     TokenLimiter::with_limitation(10000)
   /// );
   ///
@@ -308,10 +315,10 @@ impl Tracker {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::tracker::Tracker;
+  /// use logosky::utils::tracker::Limiter;
   /// use logosky::utils::recursion_tracker::RecursionLimiter;
   ///
-  /// let tracker = Tracker::with_recursion_tracker(
+  /// let tracker = Limiter::with_recursion_tracker(
   ///     RecursionLimiter::with_limitation(100)
   /// );
   ///
@@ -328,11 +335,11 @@ impl Tracker {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::tracker::Tracker;
+  /// use logosky::utils::tracker::Limiter;
   /// use logosky::utils::token_tracker::TokenLimiter;
   /// use logosky::utils::recursion_tracker::RecursionLimiter;
   ///
-  /// let tracker = Tracker::with_trackers(
+  /// let tracker = Limiter::with_trackers(
   ///     TokenLimiter::with_limitation(5000),
   ///     RecursionLimiter::with_limitation(200)
   /// );
@@ -356,9 +363,9 @@ impl Tracker {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::tracker::Tracker;
+  /// use logosky::utils::tracker::Limiter;
   ///
-  /// let tracker = Tracker::new();
+  /// let tracker = Limiter::new();
   /// assert_eq!(tracker.token().tokens(), 0);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -371,9 +378,9 @@ impl Tracker {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::tracker::Tracker;
+  /// use logosky::utils::tracker::Limiter;
   ///
-  /// let mut tracker = Tracker::new();
+  /// let mut tracker = Limiter::new();
   /// tracker.token_mut().increase();
   /// assert_eq!(tracker.token().tokens(), 1);
   /// ```
@@ -387,9 +394,9 @@ impl Tracker {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::tracker::Tracker;
+  /// use logosky::utils::tracker::Limiter;
   ///
-  /// let tracker = Tracker::new();
+  /// let tracker = Limiter::new();
   /// assert_eq!(tracker.recursion().depth(), 0);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -402,9 +409,9 @@ impl Tracker {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::tracker::Tracker;
+  /// use logosky::utils::tracker::Limiter;
   ///
-  /// let mut tracker = Tracker::new();
+  /// let mut tracker = Limiter::new();
   /// tracker.recursion_mut().increase();
   /// assert_eq!(tracker.recursion().depth(), 1);
   /// ```
@@ -420,9 +427,9 @@ impl Tracker {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::tracker::Tracker;
+  /// use logosky::utils::tracker::Limiter;
   ///
-  /// let mut tracker = Tracker::new();
+  /// let mut tracker = Limiter::new();
   /// tracker.increase_token();
   /// assert_eq!(tracker.token().tokens(), 1);
   /// ```
@@ -438,9 +445,9 @@ impl Tracker {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::tracker::Tracker;
+  /// use logosky::utils::tracker::Limiter;
   ///
-  /// let mut tracker = Tracker::new();
+  /// let mut tracker = Limiter::new();
   /// tracker.increase_recursion();
   /// assert_eq!(tracker.recursion().depth(), 1);
   /// ```
@@ -456,9 +463,9 @@ impl Tracker {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::tracker::Tracker;
+  /// use logosky::utils::tracker::Limiter;
   ///
-  /// let mut tracker = Tracker::new();
+  /// let mut tracker = Limiter::new();
   /// tracker.increase_recursion();
   /// tracker.decrease_recursion();
   /// assert_eq!(tracker.recursion().depth(), 0);
@@ -479,10 +486,10 @@ impl Tracker {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::tracker::Tracker;
+  /// use logosky::utils::tracker::Limiter;
   /// use logosky::utils::token_tracker::TokenLimiter;
   ///
-  /// let mut tracker = Tracker::with_token_tracker(
+  /// let mut tracker = Limiter::with_token_tracker(
   ///     TokenLimiter::with_limitation(3)
   /// );
   ///
@@ -505,6 +512,184 @@ impl Tracker {
   }
 }
 
-impl State for Tracker {
+impl State for Limiter {
   type Error = LimitExceeded;
+}
+
+impl RecursionTracker for Limiter {
+  type Error = LimitExceeded;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase(&mut self) {
+    self.recursion_tracker.increase();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn decrease(&mut self) {
+    self.recursion_tracker.decrease();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn check(&self) -> Result<(), Self::Error> {
+    self.recursion_tracker.check().map_err(Into::into)
+  }
+}
+
+impl TokenTracker for Limiter {
+  type Error = LimitExceeded;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase(&mut self) {
+    self.token_tracker.increase();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn check(&self) -> Result<(), Self::Error> {
+    self.token_tracker.check().map_err(Into::into)
+  }
+}
+
+/// A tracker that combines both token and recursion tracking.
+pub trait Tracker {
+  /// The error type returned when either limit is exceeded.
+  type Error;
+
+  /// Increases the token count.
+  fn increase_token(&mut self);
+
+  /// Increases the recursion depth.
+  fn increase_recursion(&mut self);
+
+  /// Decreases the recursion depth.
+  fn decrease_recursion(&mut self);
+
+  /// Checks if any of the limits have been exceeded.
+  fn check(&self) -> Result<(), Self::Error>;
+
+  /// Increase the token count and decrease recursion depth.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_decrease_recursion(&mut self) {
+    self.increase_token();
+    self.decrease_recursion();
+  }
+
+  /// Increases the token count and decreases recursion depth and checks limits.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_decrease_recursion_and_check(&mut self) -> Result<(), Self::Error> {
+    self.increase_token_and_decrease_recursion();
+    self.check()
+  }
+
+  /// Increases the token count and checks limits.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_check(&mut self) -> Result<(), Self::Error> {
+    self.increase_token();
+    self.check()
+  }
+
+  /// Increases the token count and recursion depth, then checks limits.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_both(&mut self) {
+    self.increase_token();
+    self.increase_recursion();
+  }
+
+  /// Increase the token count, decrease recursion depth, then checks limits.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_both_and_check(&mut self) -> Result<(), Self::Error> {
+    self.increase_both();
+    self.check()
+  }
+}
+
+impl Tracker for Limiter {
+  type Error = LimitExceeded;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token(&mut self) {
+    self.increase_token();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_recursion(&mut self) {
+    self.increase_recursion();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn decrease_recursion(&mut self) {
+    self.decrease_recursion();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_check(&mut self) -> Result<(), Self::Error> {
+    self.increase_token();
+    <Self as TokenTracker>::check(self)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_decrease_recursion_and_check(&mut self) -> Result<(), Self::Error> {
+    self.increase_token();
+    self.decrease_recursion();
+    <Self as TokenTracker>::check(self)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn check(&self) -> Result<(), Self::Error> {
+    self.check()
+  }
+}
+
+impl<'a, T> Tracker for Lexer<'a, T>
+where
+  T: Logos<'a>,
+  T::Extras: Tracker,
+{
+  type Error = <T::Extras as Tracker>::Error;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token(&mut self) {
+    self.extras.increase_token();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_recursion(&mut self) {
+    self.extras.increase_recursion();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn decrease_recursion(&mut self) {
+    self.extras.decrease_recursion();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn check(&self) -> Result<(), Self::Error> {
+    self.extras.check()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_check(&mut self) -> Result<(), Self::Error> {
+    self.extras.increase_token_and_check()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_both(&mut self) {
+    self.extras.increase_both();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_both_and_check(&mut self) -> Result<(), Self::Error> {
+    self.extras.increase_both_and_check()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_decrease_recursion(&mut self) {
+    self.extras.increase_token_and_decrease_recursion();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_decrease_recursion_and_check(&mut self) -> Result<(), Self::Error> {
+    self
+      .extras
+      .increase_token_and_decrease_recursion_and_check()
+  }
 }

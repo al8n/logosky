@@ -1,4 +1,3 @@
-use chumsky::container::Container;
 use derive_more::{From, Into};
 
 use std::vec::Vec;
@@ -134,7 +133,8 @@ impl<'a, T, const N: usize> core::iter::IntoIterator for &'a SmallVec<T, N> {
   }
 }
 
-impl<T, const N: usize> Container<T> for SmallVec<T, N> {
+#[cfg(feature = "chumsky")]
+impl<T, const N: usize> chumsky::container::Container<T> for SmallVec<T, N> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn with_capacity(n: usize) -> Self {
     Self::with_capacity(n)
