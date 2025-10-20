@@ -48,8 +48,7 @@ impl TokenLimitExceeded {
   ///     println!("Processed {} tokens", error.tokens());
   /// }
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn tokens(&self) -> usize {
     self.0.tokens()
   }
@@ -70,8 +69,7 @@ impl TokenLimitExceeded {
   ///     println!("Maximum tokens allowed: {}", error.limitation());
   /// }
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn limitation(&self) -> usize {
     self.0.limitation()
   }
@@ -202,8 +200,7 @@ impl TokenLimiter {
   /// assert_eq!(limiter.limitation(), usize::MAX);
   /// assert_eq!(limiter.tokens(), 0);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new() -> Self {
     Self {
       max: usize::MAX,
@@ -221,8 +218,7 @@ impl TokenLimiter {
   /// let limiter = TokenLimiter::with_limitation(1000);
   /// assert_eq!(limiter.limitation(), 1000);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_limitation(max: usize) -> Self {
     Self { max, current: 0 }
   }
@@ -239,8 +235,7 @@ impl TokenLimiter {
   /// limiter.increase();
   /// assert_eq!(limiter.tokens(), 2);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn tokens(&self) -> usize {
     self.current
   }
@@ -260,8 +255,7 @@ impl TokenLimiter {
   /// limiter.increase();
   /// assert_eq!(limiter.tokens(), 1);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn increase(&mut self) {
     self.current += 1;
   }
@@ -276,8 +270,7 @@ impl TokenLimiter {
   /// let limiter = TokenLimiter::with_limitation(500);
   /// assert_eq!(limiter.limitation(), 500);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn limitation(&self) -> usize {
     self.max
   }
@@ -296,8 +289,7 @@ impl TokenLimiter {
   /// limiter.increase_token();
   /// assert_eq!(limiter.tokens(), 1);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn increase_token(&mut self) {
     self.increase();
   }
@@ -324,8 +316,7 @@ impl TokenLimiter {
   /// limiter.increase();
   /// assert!(limiter.check().is_err()); // Exceeded!
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn check(&self) -> Result<(), TokenLimitExceeded> {
     if self.tokens() > self.limitation() {
       Err(TokenLimitExceeded(*self))

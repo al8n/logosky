@@ -172,8 +172,7 @@ where
   T: Token<'a>,
   <T::Logos as Logos<'a>>::Extras: Clone,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn clone(&self) -> Self {
     Self {
       input: self.input,
@@ -197,8 +196,7 @@ where
   <T::Logos as Logos<'a>>::Source: core::fmt::Debug,
   <T::Logos as Logos<'a>>::Extras: core::fmt::Debug,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     f.debug_struct("TokenStream")
       .field("input", &self.input)
@@ -213,8 +211,7 @@ where
   <T::Logos as Logos<'a>>::Extras: Default,
 {
   /// Creates a new lexer from the given input.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn new(input: &'a <T::Logos as Logos<'a>>::Source) -> Self {
     Self::with_state(input, <T::Logos as Logos<'a>>::Extras::default())
   }
@@ -222,8 +219,7 @@ where
 
 impl<'a, T: Token<'a>> TokenStream<'a, T> {
   /// Creates a new lexer from the given input and state.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_state(
     input: &'a <T::Logos as Logos<'a>>::Source,
     state: <T::Logos as Logos<'a>>::Extras,
@@ -238,22 +234,19 @@ impl<'a, T: Token<'a>> TokenStream<'a, T> {
 
 impl<'a, T: Token<'a>> TokenStream<'a, T> {
   /// Returns a reference to the input.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn input(&self) -> &<T::Logos as Logos<'a>>::Source {
     self.input
   }
 
   /// Returns an iterator over the tokens of the lexer.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn iter(&mut self) -> iter::Iter<'a, '_, T> {
     iter::Iter::new(self)
   }
 
   /// Consumes the lexer and returns an iterator over the tokens of the lexer.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn into_iter(self) -> iter::IntoIter<'a, T> {
     iter::IntoIter::new(self)
   }
@@ -274,20 +267,17 @@ where
 
   type Cache = Self;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn begin(self) -> (Self::Cursor, Self::Cache) {
     (0, self)
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn cursor_location(cursor: &Self::Cursor) -> usize {
     *cursor
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   unsafe fn next_maybe(
     this: &mut Self::Cache,
     cursor: &mut Self::Cursor,
@@ -301,8 +291,7 @@ where
     })
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   unsafe fn span(_: &mut Self::Cache, range: Range<&Self::Cursor>) -> Self::Span {
     utils::Span::new(*range.start, *range.end)
   }
@@ -313,8 +302,7 @@ where
   T: Token<'a>,
   <T::Logos as Logos<'a>>::Extras: Copy,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   unsafe fn next(cache: &mut Self::Cache, cursor: &mut Self::Cursor) -> Option<Self::Token> {
     unsafe { <Self as Input<'a>>::next_maybe(cache, cursor) }
   }
@@ -325,8 +313,7 @@ where
   T: Token<'a>,
   <T::Logos as Logos<'a>>::Extras: Copy,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   unsafe fn span_from(
     cache: &mut Self::Cache,
     range: core::ops::RangeFrom<&Self::Cursor>,
@@ -343,14 +330,12 @@ where
 {
   type Slice = <<T::Logos as Logos<'a>>::Source as logos::Source>::Slice<'a>;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn full_slice(cache: &mut Self::Cache) -> Self::Slice {
     unsafe { cache.input.slice_unchecked(0..cache.input.len()) }
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   unsafe fn slice(cache: &mut Self::Cache, range: Range<&Self::Cursor>) -> Self::Slice {
     unsafe {
       <<T::Logos as Logos<'a>>::Source as logos::Source>::slice_unchecked(
@@ -360,8 +345,7 @@ where
     }
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   unsafe fn slice_from(
     cache: &mut Self::Cache,
     from: core::ops::RangeFrom<&Self::Cursor>,
@@ -477,8 +461,7 @@ pub trait Tokenizer<'a, T: Token<'a>>:
   /// This method is implemented as a call to [`collect_trivias()`](Tokenizer::collect_trivias)
   /// with `()` as the container type, which means it doesn't allocate and simply
   /// consumes trivia tokens without storing them.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn skip_trivias<E>() -> impl Parser<'a, Self, (), E> + Clone
   where
     Self: Sized + 'a,
@@ -545,8 +528,7 @@ pub trait Tokenizer<'a, T: Token<'a>>:
   /// When using `()` as the container type, this method doesn't allocate and simply
   /// skips over trivia tokens. This makes it equivalent to [`skip_trivias()`](Tokenizer::skip_trivias)
   /// in terms of performance.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn collect_trivias<C, E>() -> impl Parser<'a, Self, C, E> + Clone
   where
     Self: Sized + 'a,

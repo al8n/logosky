@@ -185,8 +185,7 @@ pub struct UnexpectedEnd<Hint> {
 }
 
 impl<Hint: Default> Default for UnexpectedEnd<Hint> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn default() -> Self {
     Self {
       name: None,
@@ -199,8 +198,7 @@ impl<Hint> core::fmt::Display for UnexpectedEnd<Hint>
 where
   Hint: core::fmt::Display,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self.name() {
       Some(name) => write!(f, "unexpected end of {name}, expected {}", self.hint),
@@ -240,60 +238,52 @@ impl UnexpectedEnd<CharacterHint> {
 
 impl<Hint> UnexpectedEnd<Hint> {
   /// Creates a new unexpected end with the given hint.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new(hint: Hint) -> Self {
     Self { name: None, hint }
   }
 
   /// Creates a new unexpected end with the given name and hint.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn maybe_name(name: Option<Cow<'static, str>>, hint: Hint) -> Self {
     Self { name, hint }
   }
 
   /// Creates a new unexpected end with the given name and hint.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_name(name: Cow<'static, str>, hint: Hint) -> Self {
     Self::maybe_name(Some(name), hint)
   }
 
   /// Creates a new unexpected end with the given hint.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_hint(hint: Hint) -> Self {
     Self { name: None, hint }
   }
 
   /// Sets the name.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn set_name(&mut self, name: impl Into<Cow<'static, str>>) -> &mut Self {
     self.name = Some(name.into());
     self
   }
 
   /// Updates the name.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn update_name(&mut self, name: Option<impl Into<Cow<'static, str>>>) -> &mut Self {
     self.name = name.map(Into::into);
     self
   }
 
   /// Clear the name.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn clear_name(&mut self) -> &mut Self {
     self.name = None;
     self
   }
 
   /// Returns the name, if any.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn name(&self) -> Option<&str> {
     match self.name.as_ref() {
       Some(name) => match name {
@@ -305,22 +295,19 @@ impl<Hint> UnexpectedEnd<Hint> {
   }
 
   /// Returns the hint.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn hint(&self) -> &Hint {
     &self.hint
   }
 
   /// Replace the hint, returning the old one.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn replace_hint(&mut self, new: Hint) -> Hint {
     core::mem::replace(&mut self.hint, new)
   }
 
   /// Maps the hint to another type.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn map_hint<F, NewHint>(self, f: F) -> UnexpectedEnd<NewHint>
   where
     F: FnOnce(Hint) -> NewHint,
@@ -332,8 +319,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   }
 
   /// Reconstructs the error with a new (optional) name and a transformed hint.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn reconstruct<F, NewHint>(
     self,
     name: Option<impl Into<Cow<'static, str>>>,
@@ -346,8 +332,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   }
 
   /// Reconstructs the error with a new name and a transformed hint.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn reconstruct_with_name<F, NewHint>(
     self,
     name: impl Into<Cow<'static, str>>,
@@ -360,8 +345,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   }
 
   /// Reconstructs the error with a transformed hint.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn reconstruct_without_name<F, NewHint>(self, f: F) -> UnexpectedEnd<NewHint>
   where
     F: FnOnce(Hint) -> NewHint,
@@ -370,8 +354,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   }
 
   /// Consumes the unexpected end and returns the name and the hint.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_components(self) -> (Option<Cow<'static, str>>, Hint) {
     (self.name, self.hint)
   }
@@ -385,8 +368,7 @@ pub type UnexpectedEot = UnexpectedEnd<TokenHint>;
 pub type UnexpectedEos = UnexpectedEnd<CharacterHint>;
 
 impl<Hint> From<Hint> for UnexpectedEnd<Hint> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn from(hint: Hint) -> Self {
     Self::new(hint)
   }

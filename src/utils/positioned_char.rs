@@ -85,22 +85,19 @@ pub struct PositionedChar<Char> {
 
 impl<Char> PositionedChar<Char> {
   /// Create a new positioned character with position 0.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new(char: Char) -> Self {
     Self::with_position(char, 0)
   }
 
   /// Create a new positioned character with the given position.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_position(char: Char, position: usize) -> Self {
     Self { char, position }
   }
 
   /// Get the character.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn char(&self) -> Char
   where
     Char: Copy,
@@ -109,45 +106,39 @@ impl<Char> PositionedChar<Char> {
   }
 
   /// Get the reference to the character.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn char_ref(&self) -> &Char {
     &self.char
   }
 
   /// Get a mutable reference to the character.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn char_mut(&mut self) -> &mut Char {
     &mut self.char
   }
 
   /// Get the position.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn position(&self) -> usize {
     self.position
   }
 
   /// Set the position, returning a mutable reference of the positioned character.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn set_position(&mut self, position: usize) -> &mut Self {
     self.position = position;
     self
   }
 
   /// Bump the position by `n`,  returning a mutable reference of the positioned character.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn bump_position(&mut self, n: usize) -> &mut Self {
     self.position += n;
     self
   }
 
   /// Converts the positioned character to a reference.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_ref(&self) -> PositionedChar<&Char> {
     PositionedChar {
       char: &self.char,
@@ -156,8 +147,7 @@ impl<Char> PositionedChar<Char> {
   }
 
   /// Converts the positioned character to a mutable reference.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_mut(&mut self) -> PositionedChar<&mut Char> {
     PositionedChar {
       char: &mut self.char,
@@ -166,8 +156,7 @@ impl<Char> PositionedChar<Char> {
   }
 
   /// Maps the character to another character, returning a new positioned character.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn map<NewChar, F>(self, f: F) -> PositionedChar<NewChar>
   where
     F: FnOnce(Char) -> NewChar,
@@ -179,16 +168,14 @@ impl<Char> PositionedChar<Char> {
   }
 
   /// Consumes the positioned character, returning the character and its position.
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_components(self) -> (Char, usize) {
     (self.char, self.position)
   }
 }
 
 impl<Char: core::fmt::Display> core::fmt::Display for PositionedChar<Char> {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     write!(f, "{}", self.char)
   }

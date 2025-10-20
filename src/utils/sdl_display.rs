@@ -74,8 +74,7 @@ pub trait DisplaySDL: sealed::Sealed {
 impl<T: DisplaySDL + ?Sized> DisplaySDL for &T {
   type Options = T::Options;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>, options: &Self::Options) -> core::fmt::Result {
     <T as DisplaySDL>::fmt(*self, f, options)
   }
@@ -172,8 +171,7 @@ pub trait DisplayCompact {
   /// let compact = value.display(&options);
   /// println!("{}", compact);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn display<'a>(&'a self, options: &'a Self::Options) -> CompactDisplay<'a, Self> {
     CompactDisplay { t: self, options }
   }
@@ -182,8 +180,7 @@ pub trait DisplayCompact {
 impl<T: DisplayCompact + ?Sized> DisplayCompact for &T {
   type Options = T::Options;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>, options: &Self::Options) -> core::fmt::Result {
     (*self).fmt(f, options)
   }
@@ -290,8 +287,7 @@ pub trait DisplayPretty {
   /// let pretty = value.display(&0); // 0 indentation
   /// println!("{}", pretty);
   /// ```
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn display<'a>(&'a self, options: &'a Self::Options) -> PrettyDisplay<'a, Self> {
     PrettyDisplay { t: self, options }
   }
@@ -300,8 +296,7 @@ pub trait DisplayPretty {
 impl<T: DisplayPretty + ?Sized> DisplayPretty for &T {
   type Options = T::Options;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>, options: &Self::Options) -> core::fmt::Result {
     (*self).fmt(f, options)
   }
@@ -342,8 +337,7 @@ impl<T> core::fmt::Display for CompactDisplay<'_, T>
 where
   T: DisplayCompact + ?Sized,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.t.fmt(f, self.options)
   }
@@ -357,14 +351,12 @@ where
 {
   type Options = T::Options;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>, options: &Self::Options) -> core::fmt::Result {
     self.t.fmt(f, options)
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn display<'a>(&'a self, options: &'a Self::Options) -> impl core::fmt::Display + 'a {
     self.t.display(options)
   }
@@ -412,8 +404,7 @@ impl<T> core::fmt::Display for PrettyDisplay<'_, T>
 where
   T: DisplayPretty + ?Sized,
 {
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     self.t.fmt(f, self.options)
   }
@@ -427,14 +418,12 @@ where
 {
   type Options = T::Options;
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>, options: &Self::Options) -> core::fmt::Result {
     self.t.fmt(f, options)
   }
 
-  #[cfg_attr(test, inline)]
-  #[cfg_attr(not(test), inline(always))]
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn display<'a>(&'a self, options: &'a Self::Options) -> impl core::fmt::Display + 'a {
     self.t.display(options)
   }
