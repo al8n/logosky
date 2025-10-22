@@ -4,7 +4,7 @@ pub use token_mismatch::*;
 
 use crate::cst::CstNode;
 
-use derive_more::{IsVariant, Unwrap, TryUnwrap};
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 
 mod incomplete;
 mod node_mismatch;

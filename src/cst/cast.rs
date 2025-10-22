@@ -1,6 +1,4 @@
-use crate::cst::CstToken;
-
-use super::{CstNode, Language, SyntaxNode, SyntaxNodeChildren};
+use super::{CstNode, CstNodeChildren, Language, SyntaxNode};
 
 /// Returns the first child of a specific typed node type.
 ///
@@ -54,8 +52,8 @@ pub fn child<N: CstNode>(parent: &SyntaxNode<N::Language>) -> Option<N> {
 ///     .find(|p| p.name() == "self");
 /// ```
 #[inline]
-pub fn children<N: CstNode>(parent: &SyntaxNode<N::Language>) -> SyntaxNodeChildren<N> {
-  SyntaxNodeChildren::new(parent)
+pub fn children<N: CstNode>(parent: &SyntaxNode<N::Language>) -> CstNodeChildren<N> {
+  CstNodeChildren::new(parent)
 }
 
 /// Returns the first token child with the specified syntax kind.
@@ -84,14 +82,13 @@ pub fn children<N: CstNode>(parent: &SyntaxNode<N::Language>) -> SyntaxNodeChild
 /// }
 /// ```
 #[inline]
-pub fn token<T: CstToken>(
-  parent: &SyntaxNode<T::Language>,
-  kind: &<T::Language as Language>::Kind,
-) -> Option<T> {
+pub fn token<L: Language>(parent: &SyntaxNode<L>, kind: &L::Kind) -> Option<rowan::SyntaxToken<L>> {
   parent
     .children_with_tokens()
-    .find_map(|t| match t.into_token() {
-      Some(tok) if tok.kind().eq(kind) => T::try_cast_token(tok).ok(),
-      _ => None,
+    .filter_map(|child| {
+      child
+        .into_token()
+        .and_then(|t| t.kind().eq(kind).then_some(t))
     })
+    .next()
 }

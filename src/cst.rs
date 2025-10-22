@@ -869,7 +869,9 @@ pub trait CstToken: CstElement {
   /// // Unwrap if you're sure it's the right type
   /// let plus = PlusToken::try_cast_token(syntax_token).unwrap();
   /// ```
-  fn try_cast_token(syntax: SyntaxToken<Self::Language>) -> Result<Self, error::CstTokenMismatch<Self>>
+  fn try_cast_token(
+    syntax: SyntaxToken<Self::Language>,
+  ) -> Result<Self, error::CstTokenMismatch<Self>>
   where
     Self: Sized;
 
@@ -1161,7 +1163,7 @@ pub trait CstNode: CstElement {
 
 /// An iterator over typed CST children of a particular node type.
 ///
-/// `SyntaxNodeChildren` filters and casts child nodes to a specific typed node type,
+/// `CstNodeChildren` filters and casts child nodes to a specific typed node type,
 /// skipping any children that cannot be cast to the target type.
 ///
 /// # Type Parameters
@@ -1183,11 +1185,11 @@ pub trait CstNode: CstElement {
 /// ```
 #[derive(Debug, Clone, From, Into)]
 #[repr(transparent)]
-pub struct SyntaxNodeChildren<N: CstNode> {
+pub struct CstNodeChildren<N: CstNode> {
   inner: rowan::SyntaxNodeChildren<N::Language>,
 }
 
-impl<N: CstNode> SyntaxNodeChildren<N> {
+impl<N: CstNode> CstNodeChildren<N> {
   #[inline]
   fn new(parent: &SyntaxNode<N::Language>) -> Self {
     Self {
@@ -1217,7 +1219,7 @@ impl<N: CstNode> SyntaxNodeChildren<N> {
   }
 }
 
-impl<N: CstNode> Iterator for SyntaxNodeChildren<N> {
+impl<N: CstNode> Iterator for CstNodeChildren<N> {
   type Item = N;
 
   #[inline]
