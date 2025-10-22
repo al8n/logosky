@@ -632,29 +632,6 @@ pub trait CstElement: core::fmt::Debug {
   /// The language of the syntax tree.
   type Language: Language;
 
-  /// The component type of this syntax element.
-  /// Usually the type is an enum representing different variants.
-  /// This type is used for error reporting.
-  type Component: core::fmt::Display + core::fmt::Debug + Clone + PartialEq + Eq + core::hash::Hash;
-
-  /// The number of components in this syntax element, represented as a type-level unsigned integer.
-  ///
-  /// Uses `typenum` to represent the count at the type level, avoiding the need for
-  /// unstable `generic_const_exprs` feature.
-  ///
-  /// # Examples
-  ///
-  /// ```rust,ignore
-  /// use logosky::cst::CstElement;
-  /// use typenum::U2; // For an element with 2 components
-  ///
-  /// impl CstElement for MyElement {
-  ///     type Components = U2;
-  ///     // ...
-  /// }
-  /// ```
-  type COMPONENTS: generic_array::ArrayLength + core::fmt::Debug + core::fmt::Display + Eq + core::hash::Hash;
-
   /// The syntax kind of this CST element.
   ///
   /// For enum elements representing multiple variants, this can be a marker value
@@ -892,7 +869,7 @@ pub trait CstToken: CstElement {
   /// // Unwrap if you're sure it's the right type
   /// let plus = PlusToken::try_cast_token(syntax_token).unwrap();
   /// ```
-  fn try_cast_token(syntax: SyntaxToken<Self::Language>) -> Result<Self, error::CastTokenError<Self>>
+  fn try_cast_token(syntax: SyntaxToken<Self::Language>) -> Result<Self, error::CstTokenMismatch<Self>>
   where
     Self: Sized;
 
@@ -1067,6 +1044,29 @@ pub trait CstToken: CstElement {
 /// }
 /// ```
 pub trait CstNode: CstElement {
+  /// The component type of this syntax element.
+  /// Usually the type is an enum representing different variants.
+  /// This type is used for error reporting.
+  type Component: core::fmt::Display + core::fmt::Debug + Clone + PartialEq + Eq + core::hash::Hash;
+
+  /// The number of components in this syntax element, represented as a type-level unsigned integer.
+  ///
+  /// Uses `typenum` to represent the count at the type level, avoiding the need for
+  /// unstable `generic_const_exprs` feature.
+  ///
+  /// # Examples
+  ///
+  /// ```rust,ignore
+  /// use logosky::cst::CstElement;
+  /// use typenum::U2; // For an element with 2 components
+  ///
+  /// impl CstElement for MyElement {
+  ///     type Components = U2;
+  ///     // ...
+  /// }
+  /// ```
+  type COMPONENTS: generic_array::ArrayLength + core::fmt::Debug + Eq + core::hash::Hash;
+
   /// Attempts to cast the given syntax node to this CST node.
   ///
   /// Returns an error if the node's kind doesn't match this type.
@@ -1078,7 +1078,7 @@ pub trait CstNode: CstElement {
   ///
   /// let identifier = IdentifierNode::try_cast_node(syntax_node)?;
   /// ```
-  fn try_cast_node(syntax: SyntaxNode<Self::Language>) -> Result<Self, error::CastNodeError<Self>>
+  fn try_cast_node(syntax: SyntaxNode<Self::Language>) -> Result<Self, error::SyntaxError<Self>>
   where
     Self: Sized;
 

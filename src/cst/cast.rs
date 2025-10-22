@@ -1,3 +1,5 @@
+use crate::cst::CstToken;
+
 use super::{CstNode, Language, SyntaxNode, SyntaxNodeChildren};
 
 /// Returns the first child of a specific typed node type.
@@ -82,10 +84,14 @@ pub fn children<N: CstNode>(parent: &SyntaxNode<N::Language>) -> SyntaxNodeChild
 /// }
 /// ```
 #[inline]
-pub fn token<L: Language>(parent: &SyntaxNode<L>, kind: &L::Kind) -> Option<rowan::SyntaxToken<L>> {
+pub fn token<T: CstToken>(
+  parent: &SyntaxNode<T::Language>,
+  kind: &<T::Language as Language>::Kind,
+) -> Option<T> {
   parent
     .children_with_tokens()
-    .by_kind(|k| k.eq(kind))
-    .filter_map(|it| it.into_token())
-    .next()
+    .find_map(|t| match t.into_token() {
+      Some(tok) if tok.kind().eq(kind) => T::try_cast_token(tok).ok(),
+      _ => None,
+    })
 }

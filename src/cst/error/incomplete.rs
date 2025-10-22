@@ -1,6 +1,6 @@
 use core::mem::MaybeUninit;
 
-use crate::cst::CstElement;
+use crate::cst::CstNode;
 use generic_array::{GenericArray, typenum::Unsigned};
 
 /// Represents an incomplete syntax element with missing components.
@@ -8,14 +8,14 @@ use generic_array::{GenericArray, typenum::Unsigned};
 /// This type stores the missing components as a set (no duplicates allowed).
 /// It always contains at least one component.
 #[derive(Debug)]
-pub struct IncompleteSyntax<C: CstElement> {
+pub struct IncompleteSyntax<C: CstNode> {
   len: usize,
   buf: GenericArray<MaybeUninit<C::Component>, C::COMPONENTS>,
 }
 
 impl<C> Clone for IncompleteSyntax<C>
 where
-  C: CstElement,
+  C: CstNode,
   C::Component: Clone,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -37,7 +37,7 @@ where
 
 impl<C> PartialEq for IncompleteSyntax<C>
 where
-  C: CstElement,
+  C: CstNode,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn eq(&self, other: &Self) -> bool {
@@ -48,15 +48,11 @@ where
   }
 }
 
-impl<C> Eq for IncompleteSyntax<C>
-where
-  C: CstElement,
-{
-}
+impl<C> Eq for IncompleteSyntax<C> where C: CstNode {}
 
 impl<C> core::hash::Hash for IncompleteSyntax<C>
 where
-  C: CstElement,
+  C: CstNode,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
@@ -64,21 +60,21 @@ where
   }
 }
 
-impl<C: CstElement> AsRef<[C::Component]> for IncompleteSyntax<C> {
+impl<C: CstNode> AsRef<[C::Component]> for IncompleteSyntax<C> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_ref(&self) -> &[C::Component] {
     self.as_slice()
   }
 }
 
-impl<C: CstElement> AsMut<[C::Component]> for IncompleteSyntax<C> {
+impl<C: CstNode> AsMut<[C::Component]> for IncompleteSyntax<C> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_mut(&mut self) -> &mut [C::Component] {
     self.as_mut_slice()
   }
 }
 
-impl<C: CstElement> IncompleteSyntax<C> {
+impl<C: CstNode> IncompleteSyntax<C> {
   /// Creates a new incomplete syntax element with the specified component.
   ///
   /// The buffer always contains at least one component.
@@ -87,7 +83,7 @@ impl<C: CstElement> IncompleteSyntax<C> {
     let mut buf = GenericArray::uninit();
 
     if C::COMPONENTS::USIZE == 0 {
-      panic!("IncompleteSyntax requires the COMPONENTS associated type of CstElement to be non-zero");
+      panic!("IncompleteSyntax requires the COMPONENTS associated type of CstNode to be non-zero");
     }
 
     // SAFETY: We are initializing the first element of the buffer.
@@ -165,13 +161,17 @@ impl<C: CstElement> IncompleteSyntax<C> {
   }
 }
 
-impl<C: CstElement> core::fmt::Display for IncompleteSyntax<C> {
+impl<C: CstNode> core::fmt::Display for IncompleteSyntax<C> {
   #[inline]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     let components = self.as_slice();
 
     if components.len() == 1 {
-      write!(f, "incomplete syntax element: component {} is missing", components[0])
+      write!(
+        f,
+        "incomplete syntax element: component {} is missing",
+        components[0]
+      )
     } else {
       write!(f, "incomplete syntax element: components ")?;
       for (i, component) in components.iter().enumerate() {
@@ -185,4 +185,4 @@ impl<C: CstElement> core::fmt::Display for IncompleteSyntax<C> {
   }
 }
 
-impl<C: CstElement> core::error::Error for IncompleteSyntax<C> {}
+impl<C: CstNode> core::error::Error for IncompleteSyntax<C> {}
