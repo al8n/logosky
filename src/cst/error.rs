@@ -51,5 +51,5 @@ pub enum SyntaxError<E: CstNode> {
   TokenMismatch(#[from] CstTokenMismatch<E>),
   /// The syntax node is incomplete and missing required child components.
   #[error(transparent)]
-  IncompleteSyntax(#[from] IncompleteSyntax<E>),
+  Incomplete(#[from] IncompleteSyntax<E>),
 }

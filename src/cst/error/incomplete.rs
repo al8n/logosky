@@ -93,6 +93,21 @@ impl<C: CstNode> IncompleteSyntax<C> {
     Self { len: 1, buf }
   }
 
+  /// Tries to create an incomplete syntax from an iterator of components.
+  ///
+  /// Returns `None` if the iterator yields no components or more components than the buffer can hold.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn from_iter(iter: impl IntoIterator<Item = C::Component>) -> Option<Self> {
+    let mut instance = Self {
+      len: 0,
+      buf: GenericArray::uninit(),
+    };
+    for component in iter {
+      instance.try_push(component)?;
+    }
+    instance.len().ne(&0).then_some(instance)
+  }
+
   /// Returns the number of components in the incomplete syntax element.
   ///
   /// The length is always at least 1.

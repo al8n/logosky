@@ -1183,10 +1183,19 @@ pub trait CstNode: CstElement {
 /// let params = cast::children::<Parameter>(&function_node.syntax())
 ///     .by_kind(|k| k == SyntaxKind::Parameter);
 /// ```
-#[derive(Debug, Clone, From, Into)]
+#[derive(Debug, From, Into)]
 #[repr(transparent)]
 pub struct CstNodeChildren<N: CstNode> {
   inner: rowan::SyntaxNodeChildren<N::Language>,
+}
+
+impl<N: CstNode> Clone for CstNodeChildren<N> {
+  #[inline]
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
 }
 
 impl<N: CstNode> CstNodeChildren<N> {
