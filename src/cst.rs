@@ -121,7 +121,7 @@
 //!         kind == Self::KIND
 //!     }
 //!
-//!     fn try_cast(syntax: SyntaxNode<Self::Language>) -> Result<Self, error::CstNodeMismatch<Self>> {
+//!     fn try_cast_node(syntax: SyntaxNode<Self::Language>) -> Result<Self, error::CstNodeMismatch<Self>> {
 //!         if Self::can_cast(syntax.kind()) {
 //!             Ok(Self { syntax })
 //!         } else {
@@ -145,6 +145,8 @@ use core::{cell::RefCell, marker::PhantomData};
 use crate::{Logos, LosslessToken, Source, Tokenizer, chumsky};
 use derive_more::{From, Into};
 use rowan::{GreenNodeBuilder, Language, SyntaxNode, SyntaxToken};
+
+pub use generic_array::typenum;
 
 /// A builder for constructing concrete syntax trees.
 ///
@@ -630,6 +632,29 @@ pub trait CstElement: core::fmt::Debug {
   /// The language of the syntax tree.
   type Language: Language;
 
+  /// The component type of this syntax element.
+  /// Usually the type is an enum representing different variants.
+  /// This type is used for error reporting.
+  type Component: core::fmt::Display + core::fmt::Debug + Clone + PartialEq + Eq + core::hash::Hash;
+
+  /// The number of components in this syntax element, represented as a type-level unsigned integer.
+  ///
+  /// Uses `typenum` to represent the count at the type level, avoiding the need for
+  /// unstable `generic_const_exprs` feature.
+  ///
+  /// # Examples
+  ///
+  /// ```rust,ignore
+  /// use logosky::cst::CstElement;
+  /// use typenum::U2; // For an element with 2 components
+  ///
+  /// impl CstElement for MyElement {
+  ///     type Components = U2;
+  ///     // ...
+  /// }
+  /// ```
+  type COMPONENTS: generic_array::ArrayLength + core::fmt::Debug + core::fmt::Display + Eq + core::hash::Hash;
+
   /// The syntax kind of this CST element.
   ///
   /// For enum elements representing multiple variants, this can be a marker value
@@ -692,7 +717,7 @@ pub trait CstElement: core::fmt::Debug {
   ///
   /// // Check before casting
   /// if Comma::can_cast(token.kind()) {
-  ///     let comma = Comma::try_cast(token).unwrap();
+  ///     let comma = Comma::try_cast_node(token).unwrap();
   /// }
   /// ```
   fn can_cast(kind: <Self::Language as Language>::Kind) -> bool
@@ -721,7 +746,7 @@ pub trait CstElement: core::fmt::Debug {
 ///
 /// To implement `CstToken`, you need to:
 /// 1. Implement [`CstElement`] to define the token's kind and casting logic
-/// 2. Implement [`try_cast()`](Self::try_cast) to convert from untyped tokens
+/// 2. Implement [`try_cast_token()`](Self::try_cast_token) to convert from untyped tokens
 /// 3. Implement [`syntax()`](Self::syntax) to access the underlying token
 /// 4. Optionally override [`text()`](Self::text) if custom text extraction is needed
 ///
@@ -748,7 +773,7 @@ pub trait CstElement: core::fmt::Debug {
 /// }
 ///
 /// impl CstToken for Comma {
-///     fn try_cast(
+///     fn try_cast_token(
 ///         syntax: SyntaxToken<Self::Language>
 ///     ) -> Result<Self, error::CstTokenMismatch<Self>> {
 ///         if Self::can_cast(syntax.kind()) {
@@ -791,7 +816,7 @@ pub trait CstElement: core::fmt::Debug {
 /// }
 ///
 /// impl CstToken for BinaryOperator {
-///     fn try_cast(
+///     fn try_cast_token(
 ///         syntax: SyntaxToken<Self::Language>
 ///     ) -> Result<Self, error::CstTokenMismatch<Self>> {
 ///         match syntax.kind() {
@@ -820,7 +845,7 @@ pub trait CstElement: core::fmt::Debug {
 /// use logosky::cst::{CstToken, cast};
 ///
 /// // Cast from untyped token
-/// let comma = Comma::try_cast(syntax_token)?;
+/// let comma = Comma::try_cast_token(syntax_token)?;
 ///
 /// // Access token text
 /// assert_eq!(comma.text(), ",");
@@ -859,15 +884,15 @@ pub trait CstToken: CstElement {
   /// use logosky::cst::CstToken;
   ///
   /// // Try to cast a token
-  /// match Comma::try_cast(syntax_token) {
+  /// match Comma::try_cast_token(syntax_token) {
   ///     Ok(comma) => println!("Found comma at: {:?}", comma.syntax().text_range()),
   ///     Err(e) => eprintln!("Not a comma: {}", e),
   /// }
   ///
   /// // Unwrap if you're sure it's the right type
-  /// let plus = PlusToken::try_cast(syntax_token).unwrap();
+  /// let plus = PlusToken::try_cast_token(syntax_token).unwrap();
   /// ```
-  fn try_cast(syntax: SyntaxToken<Self::Language>) -> Result<Self, error::CstTokenMismatch<Self>>
+  fn try_cast_token(syntax: SyntaxToken<Self::Language>) -> Result<Self, error::CastTokenError<Self>>
   where
     Self: Sized;
 
@@ -943,7 +968,7 @@ pub trait CstToken: CstElement {
 /// 1. Define a struct wrapping [`SyntaxNode<Language>`](SyntaxNode)
 /// 2. Specify the [`KIND`](Self::KIND) constant
 /// 3. Implement [`can_cast()`](Self::can_cast) to check if a kind matches
-/// 4. Implement [`try_cast()`](Self::try_cast) to convert from untyped nodes
+/// 4. Implement [`try_cast_node()`](Self::try_cast_node) to convert from untyped nodes
 /// 5. Implement [`syntax()`](Self::syntax) to access the underlying node
 ///
 /// # Examples
@@ -967,7 +992,7 @@ pub trait CstToken: CstElement {
 ///         kind == Self::KIND
 ///     }
 ///
-///     fn try_cast(
+///     fn try_cast_node(
 ///         syntax: SyntaxNode<Self::Language>
 ///     ) -> Result<Self, error::CstNodeMismatch<Self>> {
 ///         if Self::can_cast(syntax.kind()) {
@@ -989,7 +1014,7 @@ pub trait CstToken: CstElement {
 /// use logosky::cst::CstNode;
 ///
 /// // Try to cast an untyped node
-/// let identifier = IdentifierNode::try_cast(syntax_node)?;
+/// let identifier = IdentifierNode::try_cast_node(syntax_node)?;
 ///
 /// // Access the source text
 /// let text = identifier.source_string();
@@ -1021,7 +1046,7 @@ pub trait CstToken: CstElement {
 ///         )
 ///     }
 ///
-///     fn try_cast(
+///     fn try_cast_node(
 ///         syntax: SyntaxNode<Self::Language>
 ///     ) -> Result<Self, error::CstNodeMismatch<Self>> {
 ///         match syntax.kind() {
@@ -1051,9 +1076,9 @@ pub trait CstNode: CstElement {
   /// ```rust,ignore
   /// use logosky::cst::Node;
   ///
-  /// let identifier = IdentifierNode::try_cast(syntax_node)?;
+  /// let identifier = IdentifierNode::try_cast_node(syntax_node)?;
   /// ```
-  fn try_cast(syntax: SyntaxNode<Self::Language>) -> Result<Self, error::CstNodeMismatch<Self>>
+  fn try_cast_node(syntax: SyntaxNode<Self::Language>) -> Result<Self, error::CastNodeError<Self>>
   where
     Self: Sized;
 
@@ -1108,7 +1133,7 @@ pub trait CstNode: CstElement {
   where
     Self: Sized,
   {
-    Self::try_cast(self.syntax().clone_for_update()).unwrap()
+    Self::try_cast_node(self.syntax().clone_for_update()).unwrap()
   }
 
   /// Clones the subtree rooted at this CST node.
@@ -1130,7 +1155,7 @@ pub trait CstNode: CstElement {
   where
     Self: Sized,
   {
-    Self::try_cast(self.syntax().clone_subtree()).unwrap()
+    Self::try_cast_node(self.syntax().clone_subtree()).unwrap()
   }
 }
 
@@ -1197,7 +1222,7 @@ impl<N: CstNode> Iterator for SyntaxNodeChildren<N> {
 
   #[inline]
   fn next(&mut self) -> Option<N> {
-    self.inner.find_map(|t| N::try_cast(t).ok())
+    self.inner.find_map(|t| N::try_cast_node(t).ok())
   }
 }
 
@@ -1223,22 +1248,4 @@ impl<N: CstNode> Iterator for SyntaxNodeChildren<N> {
 pub mod cast;
 
 /// Error types for CST operations.
-///
-/// This module provides error types that can occur when working with CST nodes,
-/// primarily around type casting and node validation.
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// use logosky::cst::{Node, error};
-///
-/// match IdentifierNode::try_cast(syntax_node) {
-///     Ok(identifier) => println!("Got identifier: {}", identifier.source_string()),
-///     Err(mismatch) => {
-///         eprintln!("Expected {:?}, but found {:?}",
-///             mismatch.expected(),
-///             mismatch.found().kind());
-///     }
-/// }
-/// ```
 pub mod error;

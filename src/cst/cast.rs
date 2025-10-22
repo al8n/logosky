@@ -1,4 +1,4 @@
-use super::{Language, CstNode, SyntaxNode, SyntaxNodeChildren};
+use super::{CstNode, Language, SyntaxNode, SyntaxNodeChildren};
 
 /// Returns the first child of a specific typed node type.
 ///
@@ -24,7 +24,7 @@ use super::{Language, CstNode, SyntaxNode, SyntaxNodeChildren};
 /// ```
 #[inline]
 pub fn child<N: CstNode>(parent: &SyntaxNode<N::Language>) -> Option<N> {
-  parent.children().find_map(|t| N::try_cast(t).ok())
+  parent.children().find_map(|t| N::try_cast_node(t).ok())
 }
 
 /// Returns an iterator over all children of a specific typed node type.

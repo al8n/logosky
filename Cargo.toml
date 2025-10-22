@@ -16,7 +16,7 @@ default = ["std"]
 alloc = []
 std = ["thiserror/default", "bytes?/default", "hipstr?/default", "bstr?/default"]
 
-rowan = ["dep:rowan", "std"]
+rowan = ["dep:rowan", "std", "generic-array"]
 
 either = ["dep:either"]
 among = ["dep:among"]
@@ -43,7 +43,9 @@ logos = { version = "0.15", default-features = false, features = [
 ] }
 thiserror = { version = "2", default-features = false }
 
+
 rowan = { version = "0.16", optional = true }
+generic-array = { version = "1", default-features = false, optional = true }
 
 among = { version = "0.1", default-features = false, optional = true }
 bstr = { version = "1", default-features = false, optional = true }

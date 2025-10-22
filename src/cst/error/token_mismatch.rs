@@ -1,9 +1,10 @@
-use super::super::{Language, CstToken};
+use super::super::{CstElement, Language};
+use derive_more::{From, Into};
 use rowan::SyntaxToken;
 
 /// An error indicating a mismatch between expected and actual syntax token kinds.
 ///
-/// This error occurs when attempting to cast a [`SyntaxToken`] to a typed [`CstToken`]
+/// This error occurs when attempting to cast a [`SyntaxToken`] to a typed [`CstToken`](crate::cst::CstToken)
 /// type, but the token's kind doesn't match the expected kind for that type. This is the
 /// token-equivalent of [`CstNodeMismatch`](super::CstNodeMismatch).
 ///
@@ -34,7 +35,7 @@ use rowan::SyntaxToken;
 /// ```rust,ignore
 /// use logosky::cst::{CstToken, error};
 ///
-/// let result = Colon::try_cast(syntax_token);
+/// let result = Colon::try_cast_token(syntax_token);
 ///
 /// match result {
 ///     Ok(colon) => {
@@ -57,7 +58,7 @@ use rowan::SyntaxToken;
 /// use logosky::cst::error::CstTokenMismatch;
 ///
 /// // Try to cast to a comma first
-/// let result = Comma::try_cast(syntax_token);
+/// let result = Comma::try_cast_token(syntax_token);
 ///
 /// let separator = match result {
 ///     Ok(comma) => Separator::Comma(comma),
@@ -66,7 +67,7 @@ use rowan::SyntaxToken;
 ///         let (expected_kind, original_token) = mismatch.into_components();
 ///
 ///         // Try casting to a semicolon instead
-///         match Semicolon::try_cast(original_token) {
+///         match Semicolon::try_cast_token(original_token) {
 ///             Ok(semicolon) => Separator::Semicolon(semicolon),
 ///             Err(e) => return Err(e.into()),
 ///         }
@@ -81,7 +82,7 @@ use rowan::SyntaxToken;
 ///
 /// // Check before casting to avoid errors
 /// let token = if Comma::can_cast(syntax_token.kind()) {
-///     Comma::try_cast(syntax_token).unwrap()
+///     Comma::try_cast_token(syntax_token).unwrap()
 /// } else {
 ///     // Handle unexpected token gracefully
 ///     return Err(ParseError::ExpectedComma {
@@ -100,32 +101,42 @@ use rowan::SyntaxToken;
 ///     token: SyntaxToken<MyLanguage>
 /// ) -> Result<Punctuation, error::CstTokenMismatch<Punctuation>> {
 ///     // Try casting - error automatically propagates with ?
-///     let punct = Punctuation::try_cast(token)?;
+///     let punct = Punctuation::try_cast_token(token)?;
 ///     Ok(punct)
 /// }
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, derive_more::Display)]
-#[display(
-    "syntax token mismatch: expected syntax token of kind {}, but found syntax token of kind {}",
-    expected,
-    found.kind()
-  )]
-pub struct CstTokenMismatch<N: CstToken> {
-  expected: <N::Language as Language>::Kind,
+#[derive(Debug, Clone, PartialEq, Eq, Hash, From, Into)]
+pub struct CstTokenMismatch<N: CstElement> {
   found: SyntaxToken<N::Language>,
+}
+
+impl<N> core::fmt::Display for CstTokenMismatch<N>
+where
+  N: CstElement,
+  <N::Language as Language>::Kind: core::fmt::Display,
+{
+  #[inline]
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(
+      f,
+      "syntax token mismatch: expected syntax token of kind {}, but found syntax token of kind {}",
+      N::KIND,
+      self.found.kind()
+    )
+  }
 }
 
 impl<N> core::error::Error for CstTokenMismatch<N>
 where
-  N: CstToken + core::fmt::Debug,
+  N: CstElement + core::fmt::Debug,
   <N::Language as Language>::Kind: core::fmt::Display,
 {
 }
 
-impl<N: CstToken> CstTokenMismatch<N> {
+impl<N: CstElement> CstTokenMismatch<N> {
   /// Creates a new syntax token mismatch error.
   ///
-  /// This constructor is typically called by [`CstToken::try_cast()`](crate::cst::CstToken::try_cast)
+  /// This constructor is typically called by [`CstToken::try_cast_token()`](crate::cst::CstToken::try_cast_token)
   /// implementations when a cast fails. You rarely need to call this directly.
   ///
   /// # Arguments
@@ -138,9 +149,9 @@ impl<N: CstToken> CstTokenMismatch<N> {
   /// ```rust,ignore
   /// use logosky::cst::error::CstTokenMismatch;
   ///
-  /// // Typically used in try_cast implementations
+  /// // Typically used in try_cast_token implementations
   /// impl CstToken for Comma {
-  ///     fn try_cast(syntax: SyntaxToken<Self::Language>)
+  ///     fn try_cast_token(syntax: SyntaxToken<Self::Language>)
   ///         -> Result<Self, CstTokenMismatch<Self>>
   ///     {
   ///         if Self::can_cast(syntax.kind()) {
@@ -153,11 +164,8 @@ impl<N: CstToken> CstTokenMismatch<N> {
   /// }
   /// ```
   #[inline]
-  pub const fn new(
-    expected: <N::Language as Language>::Kind,
-    found: SyntaxToken<N::Language>,
-  ) -> Self {
-    Self { expected, found }
+  pub const fn new(found: SyntaxToken<N::Language>) -> Self {
+    Self { found }
   }
 
   /// Returns the expected syntax token kind.
@@ -171,7 +179,7 @@ impl<N: CstToken> CstTokenMismatch<N> {
   /// ```rust,ignore
   /// use logosky::cst::CstToken;
   ///
-  /// if let Err(mismatch) = Comma::try_cast(token) {
+  /// if let Err(mismatch) = Comma::try_cast_token(token) {
   ///     println!("Expected kind: {:?}", mismatch.expected());
   ///     // Output: Expected kind: Comma
   /// }
@@ -182,7 +190,7 @@ impl<N: CstToken> CstTokenMismatch<N> {
   /// ```rust,ignore
   /// use logosky::cst::CstToken;
   ///
-  /// match Colon::try_cast(token) {
+  /// match Colon::try_cast_token(token) {
   ///     Ok(colon) => { /* ... */ }
   ///     Err(e) => {
   ///         eprintln!(
@@ -195,8 +203,8 @@ impl<N: CstToken> CstTokenMismatch<N> {
   /// }
   /// ```
   #[inline]
-  pub const fn expected(&self) -> &<N::Language as Language>::Kind {
-    &self.expected
+  pub const fn expected(&self) -> <N::Language as Language>::Kind {
+    N::KIND
   }
 
   /// Returns a reference to the syntax token that was found.
@@ -209,7 +217,7 @@ impl<N: CstToken> CstTokenMismatch<N> {
   /// ```rust,ignore
   /// use logosky::cst::CstToken;
   ///
-  /// if let Err(mismatch) = Semicolon::try_cast(token) {
+  /// if let Err(mismatch) = Semicolon::try_cast_token(token) {
   ///     let found = mismatch.found();
   ///     println!("Found kind: {:?}", found.kind());
   ///     println!("Found text: {}", found.text());
@@ -222,7 +230,7 @@ impl<N: CstToken> CstTokenMismatch<N> {
   /// ```rust,ignore
   /// use logosky::cst::CstToken;
   ///
-  /// match RBrace::try_cast(token) {
+  /// match RBrace::try_cast_token(token) {
   ///     Ok(brace) => { /* ... */ }
   ///     Err(e) => {
   ///         let found = e.found();
@@ -261,13 +269,13 @@ impl<N: CstToken> CstTokenMismatch<N> {
   /// use logosky::cst::CstToken;
   ///
   /// // Try to cast to a comma first, then try semicolon
-  /// let result = Comma::try_cast(syntax_token);
+  /// let result = Comma::try_cast_token(syntax_token);
   ///
   /// let separator = match result {
   ///     Ok(comma) => comma,
   ///     Err(mismatch) => {
   ///         let (_, token) = mismatch.into_components();
-  ///         Semicolon::try_cast(token)?
+  ///         Semicolon::try_cast_token(token)?
   ///     }
   /// };
   /// ```
@@ -277,7 +285,7 @@ impl<N: CstToken> CstTokenMismatch<N> {
   /// ```rust,ignore
   /// use logosky::cst::error::CstTokenMismatch;
   ///
-  /// let result = Colon::try_cast(token);
+  /// let result = Colon::try_cast_token(token);
   ///
   /// if let Err(mismatch) = result {
   ///     let (expected, found) = mismatch.into_components();
@@ -307,16 +315,16 @@ impl<N: CstToken> CstTokenMismatch<N> {
   ///     token: SyntaxToken<MyLanguage>
   /// ) -> Result<Punctuation, ParseError> {
   ///     // Try each variant in order
-  ///     Comma::try_cast(token.clone())
+  ///     Comma::try_cast_token(token.clone())
   ///         .map(Punctuation::Comma)
   ///         .or_else(|e| {
   ///             let (_, token) = e.into_components();
-  ///             Semicolon::try_cast(token)
+  ///             Semicolon::try_cast_token(token)
   ///                 .map(Punctuation::Semicolon)
   ///         })
   ///         .or_else(|e| {
   ///             let (_, token) = e.into_components();
-  ///             Colon::try_cast(token)
+  ///             Colon::try_cast_token(token)
   ///                 .map(Punctuation::Colon)
   ///         })
   ///         .map_err(|e| ParseError::from(e))
@@ -324,6 +332,6 @@ impl<N: CstToken> CstTokenMismatch<N> {
   /// ```
   #[inline]
   pub fn into_components(self) -> (<N::Language as Language>::Kind, SyntaxToken<N::Language>) {
-    (self.expected, self.found)
+    (N::KIND, self.found)
   }
 }

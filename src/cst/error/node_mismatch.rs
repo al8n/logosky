@@ -1,21 +1,18 @@
-use super::super::{Language, CstNode};
+use super::super::{CstElement, Language};
+use derive_more::{From, Into};
 use rowan::SyntaxNode;
 
 /// An error indicating a mismatch between expected and actual syntax node kinds.
 ///
-/// This error occurs when attempting to cast a [`SyntaxNode`] to a typed [`Node`]
+/// This error occurs when attempting to cast a [`SyntaxNode`] to a typed [`CstNode`](crate::cst::CstNode)
 /// type, but the node's kind doesn't match the expected kind for that type.
-///
-/// # Type Parameters
-///
-/// - `N`: The typed [`CstNode`] type that was expected
 ///
 /// # Examples
 ///
 /// ```rust,ignore
 /// use logosky::cst::{CstNode, error};
 ///
-/// let result = IdentifierNode::try_cast(syntax_node);
+/// let result = IdentifierNode::try_cast_node(syntax_node);
 ///
 /// match result {
 ///     Ok(identifier) => {
@@ -36,7 +33,7 @@ use rowan::SyntaxNode;
 /// ```rust,ignore
 /// use logosky::cst::error::CstNodeMismatch;
 ///
-/// let result = Expression::try_cast(syntax_node);
+/// let result = Expression::try_cast_node(syntax_node);
 ///
 /// let node = match result {
 ///     Ok(expr) => expr,
@@ -44,29 +41,38 @@ use rowan::SyntaxNode;
 ///         // Recover the original syntax node
 ///         let (expected_kind, original_node) = mismatch.into_components();
 ///         // Try a different type
-///         Statement::try_cast(original_node)?
+///         Statement::try_cast_node(original_node)?
 ///     }
 /// };
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, derive_more::Display)]
-#[display(
-    "syntax node mismatch: expected syntax node of kind {}, but found syntax node of kind {}",
-    expected,
-    found.kind()
-  )]
-pub struct CstNodeMismatch<N: CstNode> {
-  expected: <N::Language as Language>::Kind,
+#[derive(Debug, Clone, PartialEq, Eq, Hash, From, Into)]
+pub struct CstNodeMismatch<N: CstElement> {
   found: SyntaxNode<N::Language>,
+}
+
+impl<N: CstElement> core::fmt::Display for CstNodeMismatch<N>
+where
+  <N::Language as Language>::Kind: core::fmt::Display,
+{
+  #[inline]
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(
+      f,
+      "syntax node mismatch: expected syntax node of kind {}, but found syntax node of kind {}",
+      N::KIND,
+      self.found.kind()
+    )
+  }
 }
 
 impl<N> core::error::Error for CstNodeMismatch<N>
 where
-  N: CstNode + core::fmt::Debug,
+  N: CstElement + core::fmt::Debug,
   <N::Language as Language>::Kind: core::fmt::Display,
 {
 }
 
-impl<N: CstNode> CstNodeMismatch<N> {
+impl<N: CstElement> CstNodeMismatch<N> {
   /// Creates a new syntax node mismatch error.
   ///
   /// # Examples
@@ -80,11 +86,8 @@ impl<N: CstNode> CstNodeMismatch<N> {
   /// );
   /// ```
   #[inline]
-  pub const fn new(
-    expected: <N::Language as Language>::Kind,
-    found: SyntaxNode<N::Language>,
-  ) -> Self {
-    Self { expected, found }
+  pub const fn new(found: SyntaxNode<N::Language>) -> Self {
+    Self { found }
   }
 
   /// Returns the expected syntax node kind.
@@ -94,13 +97,13 @@ impl<N: CstNode> CstNodeMismatch<N> {
   /// ```rust,ignore
   /// use logosky::cst::Node;
   ///
-  /// if let Err(mismatch) = IdentifierNode::try_cast(node) {
+  /// if let Err(mismatch) = IdentifierNode::try_cast_node(node) {
   ///     println!("Expected kind: {:?}", mismatch.expected());
   /// }
   /// ```
   #[inline]
-  pub const fn expected(&self) -> &<N::Language as Language>::Kind {
-    &self.expected
+  pub const fn expected(&self) -> <N::Language as Language>::Kind {
+    N::KIND
   }
 
   /// Returns a reference to the syntax node that was found.
@@ -110,7 +113,7 @@ impl<N: CstNode> CstNodeMismatch<N> {
   /// ```rust,ignore
   /// use logosky::cst::CstNode;
   ///
-  /// if let Err(mismatch) = IdentifierNode::try_cast(node) {
+  /// if let Err(mismatch) = IdentifierNode::try_cast_node(node) {
   ///     println!("Found kind: {:?}", mismatch.found().kind());
   ///     println!("Found text: {}", mismatch.found().text());
   /// }
@@ -130,16 +133,16 @@ impl<N: CstNode> CstNodeMismatch<N> {
   /// ```rust,ignore
   /// use logosky::cst::CstNode;
   ///
-  /// let result = IdentifierNode::try_cast(syntax_node);
+  /// let result = IdentifierNode::try_cast_node(syntax_node);
   ///
   /// if let Err(mismatch) = result {
   ///     let (expected, node) = mismatch.into_components();
   ///     // Try casting to a different type
-  ///     let keyword = KeywordNode::try_cast(node)?;
+  ///     let keyword = KeywordNode::try_cast_node(node)?;
   /// }
   /// ```
   #[inline]
   pub fn into_components(self) -> (<N::Language as Language>::Kind, SyntaxNode<N::Language>) {
-    (self.expected, self.found)
+    (N::KIND, self.found)
   }
 }
