@@ -1,6 +1,25 @@
-use std::borrow::Cow;
-
 use derive_more::Display;
+
+#[cfg(not(any(feature = "std", feature = "alloc")))]
+type Message = &'static str;
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+type Message = std::borrow::Cow<'static, str>;
+
+
+struct Inner;
+
+impl Inner {
+  #[cfg(not(any(feature = "std", feature = "alloc")))]
+  const fn const_new(msg: &'static str) -> Message {
+    msg
+  }
+
+  #[cfg(any(feature = "std", feature = "alloc"))]
+  const fn const_new(msg: &'static str) -> Message {
+    std::borrow::Cow::Borrowed(msg)
+  }
+}
 
 /// A zero-sized marker indicating the parser expected more bytes when the file ended.
 ///
@@ -180,7 +199,7 @@ pub struct CharacterHint;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnexpectedEnd<Hint> {
-  name: Option<Cow<'static, str>>,
+  name: Option<Message>,
   hint: Hint,
 }
 
@@ -215,7 +234,7 @@ impl<Hint> core::error::Error for UnexpectedEnd<Hint> where
 impl UnexpectedEnd<FileHint> {
   /// A constant representing an unexpected **end of file** (EOF).
   pub const EOF: Self = Self {
-    name: Some(Cow::Borrowed("file")),
+    name: Some(Inner::const_new("file")),
     hint: FileHint,
   };
 }
@@ -223,7 +242,7 @@ impl UnexpectedEnd<FileHint> {
 impl UnexpectedEnd<TokenHint> {
   /// A constant representing an unexpected **end of token stream** (EOT).
   pub const EOT: Self = Self {
-    name: Some(Cow::Borrowed("token stream")),
+    name: Some(Inner::const_new("token stream")),
     hint: TokenHint,
   };
 }
@@ -231,7 +250,7 @@ impl UnexpectedEnd<TokenHint> {
 impl UnexpectedEnd<CharacterHint> {
   /// A constant representing an unexpected **end of string** (EOS).
   pub const EOS: Self = Self {
-    name: Some(Cow::Borrowed("string")),
+    name: Some(Inner::const_new("string")),
     hint: CharacterHint,
   };
 }
@@ -264,7 +283,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// assert_eq!(error.name(), Some("string"));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn maybe_name(name: Option<Cow<'static, str>>, hint: Hint) -> Self {
+  pub const fn maybe_name(name: Option<Message>, hint: Hint) -> Self {
     Self { name, hint }
   }
 
@@ -280,7 +299,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// assert_eq!(error.name(), Some("block"));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_name(name: Cow<'static, str>, hint: Hint) -> Self {
+  pub const fn with_name(name: Message, hint: Hint) -> Self {
     Self::maybe_name(Some(name), hint)
   }
 
@@ -311,7 +330,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// assert_eq!(error.name(), Some("expression"));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_name(&mut self, name: impl Into<Cow<'static, str>>) -> &mut Self {
+  pub fn set_name(&mut self, name: impl Into<Message>) -> &mut Self {
     self.name = Some(name.into());
     self
   }
@@ -329,7 +348,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// assert_eq!(error.name(), Some("new"));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn update_name(&mut self, name: Option<impl Into<Cow<'static, str>>>) -> &mut Self {
+  pub fn update_name(&mut self, name: Option<impl Into<Message>>) -> &mut Self {
     self.name = name.map(Into::into);
     self
   }
@@ -363,14 +382,31 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// assert_eq!(error.name(), Some("file"));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
+  #[cfg(any(feature = "std", feature = "alloc"))]
   pub const fn name(&self) -> Option<&str> {
     match self.name.as_ref() {
       Some(name) => match name {
-        Cow::Borrowed(borrowed) => Some(borrowed),
-        Cow::Owned(owned) => Some(owned.as_str()),
+        Message::Borrowed(borrowed) => Some(borrowed),
+        Message::Owned(owned) => Some(owned.as_str()),
       },
       None => None,
     }
+  }
+
+  /// Returns the name, if any.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::UnexpectedEnd;
+  ///
+  /// let error = UnexpectedEnd::EOF;
+  /// assert_eq!(error.name(), Some("file"));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  #[cfg(not(any(feature = "std", feature = "alloc")))]
+  pub const fn name(&self) -> Option<&'static str> {
+    self.name
   }
 
   /// Returns the hint.
@@ -441,7 +477,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn reconstruct<F, NewHint>(
     self,
-    name: Option<impl Into<Cow<'static, str>>>,
+    name: Option<impl Into<Message>>,
     f: F,
   ) -> UnexpectedEnd<NewHint>
   where
@@ -464,7 +500,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn reconstruct_with_name<F, NewHint>(
     self,
-    name: impl Into<Cow<'static, str>>,
+    name: impl Into<Message>,
     f: F,
   ) -> UnexpectedEnd<NewHint>
   where
@@ -505,7 +541,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// assert_eq!(name, Some("file".into()));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn into_components(self) -> (Option<Cow<'static, str>>, Hint) {
+  pub fn into_components(self) -> (Option<Message>, Hint) {
     (self.name, self.hint)
   }
 }

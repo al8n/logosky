@@ -2,9 +2,11 @@ use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use logos::Lexer;
 
 use crate::{
-  TokenStream,
   utils::{Span, Spanned},
 };
+
+#[cfg(feature = "chumsky")]
+use crate::TokenStream;
 
 pub use logos::Logos;
 
@@ -535,6 +537,8 @@ pub trait LosslessToken<'a>: Token<'a> {
 pub trait TokenExt<'a>: Token<'a> {
   /// Returns a lexer for the token type from the given input.
   #[cfg_attr(not(tarpaulin), inline(always))]
+  #[cfg(feature = "chumsky")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
   fn lexer(input: &'a <Self::Logos as Logos<'a>>::Source) -> TokenStream<'a, Self>
   where
     <Self::Logos as Logos<'a>>::Extras: Default,
@@ -544,6 +548,8 @@ pub trait TokenExt<'a>: Token<'a> {
 
   /// Returns a lexer for the token type from the given input.
   #[cfg_attr(not(tarpaulin), inline(always))]
+  #[cfg(feature = "chumsky")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
   fn lexer_with_state(
     input: &'a <Self::Logos as Logos<'a>>::Source,
     state: <Self::Logos as Logos<'a>>::Extras,

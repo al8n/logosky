@@ -1,6 +1,7 @@
 use core::mem::MaybeUninit;
 
 use crate::cst::CstNode;
+
 use generic_array::{GenericArray, typenum::Unsigned};
 
 /// Represents an incomplete syntax element with missing components.
@@ -97,6 +98,7 @@ impl<C: CstNode> IncompleteSyntax<C> {
   ///
   /// Returns `None` if the iterator yields no components or more components than the buffer can hold.
   #[cfg_attr(not(tarpaulin), inline(always))]
+  #[allow(clippy::should_implement_trait)]
   pub fn from_iter(iter: impl IntoIterator<Item = C::Component>) -> Option<Self> {
     let mut instance = Self {
       len: 0,
