@@ -5,11 +5,14 @@ use chumsky::{
   prelude::*,
 };
 
+use core::ops::Range;
+
+use crate::utils;
+
 use super::*;
 
 /// Iterators for [`TokenStream`]
 pub mod iter;
-
 
 /// A zero-copy token stream adapter that bridges Logos and Chumsky.
 ///

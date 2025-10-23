@@ -1,9 +1,7 @@
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use logos::Lexer;
 
-use crate::{
-  utils::{Span, Spanned},
-};
+use crate::utils::{Span, Spanned};
 
 #[cfg(feature = "chumsky")]
 use crate::TokenStream;

@@ -36,14 +36,14 @@ pub mod cst;
 /// Common utilities for working with tokens and lexers.
 pub mod utils;
 
-mod punct;
 mod keyword;
+mod punct;
 
 #[doc(hidden)]
 pub mod __private {
-  pub use super::{lexer::token, utils};
   #[cfg(feature = "chumsky")]
   pub use super::lexer::Tokenizer;
+  pub use super::{lexer::token, utils};
 
   #[cfg(feature = "chumsky")]
   #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
@@ -51,5 +51,5 @@ pub mod __private {
   pub use logos;
 
   #[cfg(any(feature = "std", feature = "alloc"))]
-  pub use std::{boxed::Box, vec::Vec, string::String};
+  pub use std::{boxed::Box, string::String, vec::Vec};
 }

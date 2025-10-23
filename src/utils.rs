@@ -145,6 +145,7 @@ pub struct Span {
   end: usize,
 }
 
+#[cfg(feature = "chumsky")]
 impl chumsky::span::Span for Span {
   type Context = ();
 

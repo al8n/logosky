@@ -1,16 +1,11 @@
-use core::ops::Range;
-
 pub use source::Source;
 pub use token::{Lexed, Logos, LosslessToken, Token, TokenExt};
-
-use crate::utils;
 
 /// The token related structures and traits
 pub mod token;
 
 /// The source related structures and traits
 pub mod source;
-
 
 #[cfg(feature = "chumsky")]
 #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]

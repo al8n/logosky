@@ -1,5 +1,3 @@
-
-
 /// Defines the punctuators.
 ///
 /// # Examples

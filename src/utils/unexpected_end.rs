@@ -6,7 +6,6 @@ type Message = &'static str;
 #[cfg(any(feature = "std", feature = "alloc"))]
 type Message = std::borrow::Cow<'static, str>;
 
-
 struct Inner;
 
 impl Inner {
