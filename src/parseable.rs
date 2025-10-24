@@ -206,6 +206,7 @@ where
   }
 }
 
+#[cfg(any(feature = "std", feature = "alloc"))]
 macro_rules! wrapper_parser {
   ($($ty:ty),+$(,)?) => {
     $(
@@ -241,6 +242,7 @@ macro_rules! wrapper_parser {
   };
 }
 
+#[cfg(any(feature = "std", feature = "alloc"))]
 wrapper_parser! {
   std::boxed::Box<D>,
   std::rc::Rc<D>,

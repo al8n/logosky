@@ -1,6 +1,6 @@
 [package]
 name = "logosky"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2024"
 repository = "https://github.com/al8n/logosky"
 homepage = "https://github.com/al8n/logosky"
@@ -14,9 +14,10 @@ keywords = ["lexer", "parser", "logos", "chumsky", "combinator"]
 [features]
 default = ["std"]
 alloc = []
-std = ["thiserror/default", "bytes?/default", "hipstr?/default", "bstr?/default"]
+std = ["thiserror/default", "bytes?/default", "hipstr?/default", "bstr?/default", "chumsky?/default"]
 
-rowan = ["dep:rowan", "std"]
+chumsky = ["dep:chumsky"]
+rowan = ["dep:rowan", "std", "generic-array"]
 
 either = ["dep:either"]
 among = ["dep:among"]
@@ -27,7 +28,6 @@ smallvec = ["dep:smallvec"]
 
 [dependencies]
 ascii = { version = "1", default-features = false }
-chumsky = { version = "0.11", default-features = false }
 derive_more = { version = "2", default-features = false, features = [
   "display",
   "deref",
@@ -41,9 +41,13 @@ derive_more = { version = "2", default-features = false, features = [
 logos = { version = "0.15", default-features = false, features = [
   "export_derive",
 ] }
+paste = "1"
 thiserror = { version = "2", default-features = false }
 
+chumsky = { version = "0.11", default-features = false, optional = true }
+
 rowan = { version = "0.16", optional = true }
+generic-array = { version = "1", default-features = false, optional = true }
 
 among = { version = "0.1", default-features = false, optional = true }
 bstr = { version = "1", default-features = false, optional = true }
