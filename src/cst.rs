@@ -628,15 +628,12 @@ pub trait Parseable<'a, I, T, Error> {
 /// println!("Token kind: {}", element_kind(&comma));
 /// println!("Node kind: {}", element_kind(&expr));
 /// ```
-pub trait CstElement: core::fmt::Debug {
-  /// The language of the syntax tree.
-  type Language: Language;
-
+pub trait CstElement<Lang: Language>: core::fmt::Debug {
   /// The syntax kind of this CST element.
   ///
   /// For enum elements representing multiple variants, this can be a marker value
   /// that is not directly used for casting but serves as documentation.
-  const KIND: <Self::Language as Language>::Kind;
+  const KIND: Lang::Kind;
 
   /// Returns `true` if the given kind can be cast to this CST element.
   ///
@@ -697,7 +694,7 @@ pub trait CstElement: core::fmt::Debug {
   ///     let comma = Comma::try_cast_node(token).unwrap();
   /// }
   /// ```
-  fn can_cast(kind: <Self::Language as Language>::Kind) -> bool
+  fn can_cast(kind: Lang::Kind) -> bool
   where
     Self: Sized;
 }
@@ -844,7 +841,7 @@ pub trait CstElement: core::fmt::Debug {
 ///     println!("Function is async");
 /// }
 /// ```
-pub trait CstToken: CstElement {
+pub trait CstToken<Lang: Language>: CstElement<Lang> {
   /// Attempts to cast the given syntax token to this typed token.
   ///
   /// Returns an error if the token's kind doesn't match this type.
@@ -869,9 +866,7 @@ pub trait CstToken: CstElement {
   /// // Unwrap if you're sure it's the right type
   /// let plus = PlusToken::try_cast_token(syntax_token).unwrap();
   /// ```
-  fn try_cast_token(
-    syntax: SyntaxToken<Self::Language>,
-  ) -> Result<Self, error::CstTokenMismatch<Self>>
+  fn try_cast_token(syntax: SyntaxToken<Lang>) -> Result<Self, error::CstTokenMismatch<Self, Lang>>
   where
     Self: Sized;
 
@@ -896,7 +891,7 @@ pub trait CstToken: CstElement {
   /// // Get next sibling
   /// let next = comma.syntax().next_sibling_or_token();
   /// ```
-  fn syntax(&self) -> &SyntaxToken<Self::Language>;
+  fn syntax(&self) -> &SyntaxToken<Lang>;
 
   /// Returns the source text of this token.
   ///
@@ -917,7 +912,10 @@ pub trait CstToken: CstElement {
   /// let number: NumberToken = ...;
   /// let value: i32 = number.text().parse()?;
   /// ```
-  fn text(&self) -> &str {
+  fn text(&self) -> &str
+  where
+    Lang: 'static,
+  {
     self.syntax().text()
   }
 }
@@ -1045,7 +1043,7 @@ pub trait CstToken: CstElement {
 ///     }
 /// }
 /// ```
-pub trait CstNode: CstElement {
+pub trait CstNode<Lang: Language>: CstElement<Lang> {
   /// The component type of this syntax element.
   /// Usually the type is an enum representing different variants.
   /// This type is used for error reporting.
@@ -1080,7 +1078,7 @@ pub trait CstNode: CstElement {
   ///
   /// let identifier = IdentifierNode::try_cast_node(syntax_node)?;
   /// ```
-  fn try_cast_node(syntax: SyntaxNode<Self::Language>) -> Result<Self, error::SyntaxError<Self>>
+  fn try_cast_node(syntax: SyntaxNode<Lang>) -> Result<Self, error::SyntaxError<Self, Lang>>
   where
     Self: Sized;
 
@@ -1097,7 +1095,7 @@ pub trait CstNode: CstElement {
   /// let parent = node.syntax().parent();
   /// let children = node.syntax().children();
   /// ```
-  fn syntax(&self) -> &SyntaxNode<Self::Language>;
+  fn syntax(&self) -> &SyntaxNode<Lang>;
 
   /// Returns the source string of this CST node.
   ///
@@ -1185,24 +1183,27 @@ pub trait CstNode: CstElement {
 /// ```
 #[derive(Debug, From, Into)]
 #[repr(transparent)]
-pub struct CstNodeChildren<N: CstNode> {
-  inner: rowan::SyntaxNodeChildren<N::Language>,
+pub struct CstNodeChildren<N, Lang: Language> {
+  inner: rowan::SyntaxNodeChildren<Lang>,
+  _m: PhantomData<N>,
 }
 
-impl<N: CstNode> Clone for CstNodeChildren<N> {
+impl<N, Lang: Language> Clone for CstNodeChildren<N, Lang> {
   #[inline]
   fn clone(&self) -> Self {
     Self {
       inner: self.inner.clone(),
+      _m: PhantomData,
     }
   }
 }
 
-impl<N: CstNode> CstNodeChildren<N> {
+impl<N, Lang: Language> CstNodeChildren<N, Lang> {
   #[inline]
-  fn new(parent: &SyntaxNode<N::Language>) -> Self {
+  fn new(parent: &SyntaxNode<Lang>) -> Self {
     Self {
       inner: parent.children(),
+      _m: PhantomData,
     }
   }
 
@@ -1220,15 +1221,19 @@ impl<N: CstNode> CstNodeChildren<N> {
   /// let binary_exprs = cast::children::<Expression>(&node)
   ///     .by_kind(|k| k == SyntaxKind::BinaryExpr);
   /// ```
-  pub fn by_kind<F>(self, f: F) -> impl Iterator<Item = SyntaxNode<N::Language>>
+  pub fn by_kind<F>(self, f: F) -> impl Iterator<Item = SyntaxNode<Lang>>
   where
-    F: Fn(<N::Language as Language>::Kind) -> bool,
+    F: Fn(Lang::Kind) -> bool,
   {
     self.inner.by_kind(f)
   }
 }
 
-impl<N: CstNode> Iterator for CstNodeChildren<N> {
+impl<N, Lang> Iterator for CstNodeChildren<N, Lang>
+where
+  N: CstNode<Lang>,
+  Lang: Language,
+{
   type Item = N;
 
   #[inline]

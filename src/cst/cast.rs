@@ -23,7 +23,7 @@ use super::{CstNode, CstNodeChildren, Language, SyntaxNode};
 /// let expr = cast::child::<Expression>(&statement_syntax)?;
 /// ```
 #[inline]
-pub fn child<N: CstNode>(parent: &SyntaxNode<N::Language>) -> Option<N> {
+pub fn child<N: CstNode<Lang>, Lang: Language>(parent: &SyntaxNode<Lang>) -> Option<N> {
   parent.children().find_map(|t| N::try_cast_node(t).ok())
 }
 
@@ -52,7 +52,9 @@ pub fn child<N: CstNode>(parent: &SyntaxNode<N::Language>) -> Option<N> {
 ///     .find(|p| p.name() == "self");
 /// ```
 #[inline]
-pub fn children<N: CstNode>(parent: &SyntaxNode<N::Language>) -> CstNodeChildren<N> {
+pub fn children<N: CstNode<Lang>, Lang: Language>(
+  parent: &SyntaxNode<Lang>,
+) -> CstNodeChildren<N, Lang> {
   CstNodeChildren::new(parent)
 }
 

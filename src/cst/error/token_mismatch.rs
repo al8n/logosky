@@ -106,14 +106,15 @@ use rowan::SyntaxToken;
 /// }
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, From, Into)]
-pub struct CstTokenMismatch<N: CstElement> {
-  found: SyntaxToken<N::Language>,
+pub struct CstTokenMismatch<N, Lang: Language> {
+  found: SyntaxToken<Lang>,
+  _m: core::marker::PhantomData<N>,
 }
 
-impl<N> core::fmt::Display for CstTokenMismatch<N>
+impl<N, Lang: Language> core::fmt::Display for CstTokenMismatch<N, Lang>
 where
-  N: CstElement,
-  <N::Language as Language>::Kind: core::fmt::Display,
+  N: CstElement<Lang>,
+  Lang::Kind: core::fmt::Display,
 {
   #[inline]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -126,14 +127,14 @@ where
   }
 }
 
-impl<N> core::error::Error for CstTokenMismatch<N>
+impl<N, Lang: Language> core::error::Error for CstTokenMismatch<N, Lang>
 where
-  N: CstElement + core::fmt::Debug,
-  <N::Language as Language>::Kind: core::fmt::Display,
+  N: CstElement<Lang> + core::fmt::Debug,
+  Lang::Kind: core::fmt::Display,
 {
 }
 
-impl<N: CstElement> CstTokenMismatch<N> {
+impl<N, Lang: Language> CstTokenMismatch<N, Lang> {
   /// Creates a new syntax token mismatch error.
   ///
   /// This constructor is typically called by [`CstToken::try_cast_token()`](crate::cst::CstToken::try_cast_token)
@@ -164,8 +165,11 @@ impl<N: CstElement> CstTokenMismatch<N> {
   /// }
   /// ```
   #[inline]
-  pub const fn new(found: SyntaxToken<N::Language>) -> Self {
-    Self { found }
+  pub const fn new(found: SyntaxToken<Lang>) -> Self {
+    Self {
+      found,
+      _m: core::marker::PhantomData,
+    }
   }
 
   /// Returns the expected syntax token kind.
@@ -203,7 +207,10 @@ impl<N: CstElement> CstTokenMismatch<N> {
   /// }
   /// ```
   #[inline]
-  pub const fn expected(&self) -> <N::Language as Language>::Kind {
+  pub const fn expected(&self) -> Lang::Kind
+  where
+    N: CstElement<Lang>,
+  {
     N::KIND
   }
 
@@ -245,7 +252,7 @@ impl<N: CstElement> CstTokenMismatch<N> {
   /// }
   /// ```
   #[inline]
-  pub const fn found(&self) -> &SyntaxToken<N::Language> {
+  pub const fn found(&self) -> &SyntaxToken<Lang> {
     &self.found
   }
 
@@ -331,7 +338,10 @@ impl<N: CstElement> CstTokenMismatch<N> {
   /// }
   /// ```
   #[inline]
-  pub fn into_components(self) -> (<N::Language as Language>::Kind, SyntaxToken<N::Language>) {
+  pub fn into_components(self) -> (Lang::Kind, SyntaxToken<Lang>)
+  where
+    N: CstElement<Lang>,
+  {
     (N::KIND, self.found)
   }
 }

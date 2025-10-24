@@ -1,5 +1,6 @@
 pub use incomplete::*;
 pub use node_mismatch::*;
+use rowan::Language;
 pub use token_mismatch::*;
 
 use crate::cst::CstNode;
@@ -42,14 +43,14 @@ mod token_mismatch;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, IsVariant, Unwrap, TryUnwrap, thiserror::Error)]
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
-pub enum SyntaxError<E: CstNode> {
+pub enum SyntaxError<E: CstNode<Lang>, Lang: Language> {
   /// The syntax node's kind doesn't match the expected CST node type.
   #[error(transparent)]
-  NodeMismatch(#[from] CstNodeMismatch<E>),
+  NodeMismatch(#[from] CstNodeMismatch<E, Lang>),
   /// The syntax token kind doesn't match the expected CST token type.
   #[error(transparent)]
-  TokenMismatch(#[from] CstTokenMismatch<E>),
+  TokenMismatch(#[from] CstTokenMismatch<E, Lang>),
   /// The syntax node is incomplete and missing required child components.
   #[error(transparent)]
-  Incomplete(#[from] IncompleteSyntax<E>),
+  Incomplete(#[from] IncompleteSyntax<E, Lang>),
 }

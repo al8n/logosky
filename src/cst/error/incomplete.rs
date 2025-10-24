@@ -3,21 +3,23 @@ use core::mem::MaybeUninit;
 use crate::cst::CstNode;
 
 use generic_array::{GenericArray, typenum::Unsigned};
+use rowan::Language;
 
 /// Represents an incomplete syntax element with missing components.
 ///
 /// This type stores the missing components as a set (no duplicates allowed).
 /// It always contains at least one component.
 #[derive(Debug)]
-pub struct IncompleteSyntax<C: CstNode> {
+pub struct IncompleteSyntax<C: CstNode<Lang>, Lang: Language> {
   len: usize,
   buf: GenericArray<MaybeUninit<C::Component>, C::COMPONENTS>,
 }
 
-impl<C> Clone for IncompleteSyntax<C>
+impl<C, Lang> Clone for IncompleteSyntax<C, Lang>
 where
-  C: CstNode,
+  C: CstNode<Lang>,
   C::Component: Clone,
+  Lang: Language,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn clone(&self) -> Self {
@@ -36,9 +38,10 @@ where
   }
 }
 
-impl<C> PartialEq for IncompleteSyntax<C>
+impl<C, Lang> PartialEq for IncompleteSyntax<C, Lang>
 where
-  C: CstNode,
+  C: CstNode<Lang>,
+  Lang: Language,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn eq(&self, other: &Self) -> bool {
@@ -49,11 +52,17 @@ where
   }
 }
 
-impl<C> Eq for IncompleteSyntax<C> where C: CstNode {}
-
-impl<C> core::hash::Hash for IncompleteSyntax<C>
+impl<C, Lang> Eq for IncompleteSyntax<C, Lang>
 where
-  C: CstNode,
+  C: CstNode<Lang>,
+  Lang: Language,
+{
+}
+
+impl<C, Lang> core::hash::Hash for IncompleteSyntax<C, Lang>
+where
+  C: CstNode<Lang>,
+  Lang: Language,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
@@ -61,21 +70,33 @@ where
   }
 }
 
-impl<C: CstNode> AsRef<[C::Component]> for IncompleteSyntax<C> {
+impl<C, Lang> AsRef<[C::Component]> for IncompleteSyntax<C, Lang>
+where
+  C: CstNode<Lang>,
+  Lang: Language,
+{
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_ref(&self) -> &[C::Component] {
     self.as_slice()
   }
 }
 
-impl<C: CstNode> AsMut<[C::Component]> for IncompleteSyntax<C> {
+impl<C, Lang> AsMut<[C::Component]> for IncompleteSyntax<C, Lang>
+where
+  C: CstNode<Lang>,
+  Lang: Language,
+{
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_mut(&mut self) -> &mut [C::Component] {
     self.as_mut_slice()
   }
 }
 
-impl<C: CstNode> IncompleteSyntax<C> {
+impl<C, Lang> IncompleteSyntax<C, Lang>
+where
+  C: CstNode<Lang>,
+  Lang: Language,
+{
   /// Creates a new incomplete syntax element with the specified component.
   ///
   /// The buffer always contains at least one component.
@@ -178,7 +199,11 @@ impl<C: CstNode> IncompleteSyntax<C> {
   }
 }
 
-impl<C: CstNode> core::fmt::Display for IncompleteSyntax<C> {
+impl<C, Lang> core::fmt::Display for IncompleteSyntax<C, Lang>
+where
+  C: CstNode<Lang>,
+  Lang: Language,
+{
   #[inline]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     let components = self.as_slice();
@@ -202,4 +227,9 @@ impl<C: CstNode> core::fmt::Display for IncompleteSyntax<C> {
   }
 }
 
-impl<C: CstNode> core::error::Error for IncompleteSyntax<C> {}
+impl<C, Lang> core::error::Error for IncompleteSyntax<C, Lang>
+where
+  C: CstNode<Lang>,
+  Lang: Language,
+{
+}

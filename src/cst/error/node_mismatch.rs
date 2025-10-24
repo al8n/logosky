@@ -46,13 +46,14 @@ use rowan::SyntaxNode;
 /// };
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, From, Into)]
-pub struct CstNodeMismatch<N: CstElement> {
-  found: SyntaxNode<N::Language>,
+pub struct CstNodeMismatch<N, Lang: Language> {
+  found: SyntaxNode<Lang>,
+  _m: core::marker::PhantomData<N>,
 }
 
-impl<N: CstElement> core::fmt::Display for CstNodeMismatch<N>
+impl<N: CstElement<Lang>, Lang: Language> core::fmt::Display for CstNodeMismatch<N, Lang>
 where
-  <N::Language as Language>::Kind: core::fmt::Display,
+  Lang::Kind: core::fmt::Display,
 {
   #[inline]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -65,14 +66,14 @@ where
   }
 }
 
-impl<N> core::error::Error for CstNodeMismatch<N>
+impl<N: CstElement<Lang>, Lang: Language> core::error::Error for CstNodeMismatch<N, Lang>
 where
-  N: CstElement + core::fmt::Debug,
-  <N::Language as Language>::Kind: core::fmt::Display,
+  N: CstElement<Lang> + core::fmt::Debug,
+  Lang::Kind: core::fmt::Display,
 {
 }
 
-impl<N: CstElement> CstNodeMismatch<N> {
+impl<N, Lang: Language> CstNodeMismatch<N, Lang> {
   /// Creates a new syntax node mismatch error.
   ///
   /// # Examples
@@ -86,8 +87,11 @@ impl<N: CstElement> CstNodeMismatch<N> {
   /// );
   /// ```
   #[inline]
-  pub const fn new(found: SyntaxNode<N::Language>) -> Self {
-    Self { found }
+  pub const fn new(found: SyntaxNode<Lang>) -> Self {
+    Self {
+      found,
+      _m: core::marker::PhantomData,
+    }
   }
 
   /// Returns the expected syntax node kind.
@@ -102,7 +106,10 @@ impl<N: CstElement> CstNodeMismatch<N> {
   /// }
   /// ```
   #[inline]
-  pub const fn expected(&self) -> <N::Language as Language>::Kind {
+  pub const fn expected(&self) -> Lang::Kind
+  where
+    N: CstElement<Lang>,
+  {
     N::KIND
   }
 
@@ -119,7 +126,7 @@ impl<N: CstElement> CstNodeMismatch<N> {
   /// }
   /// ```
   #[inline]
-  pub const fn found(&self) -> &SyntaxNode<N::Language> {
+  pub const fn found(&self) -> &SyntaxNode<Lang> {
     &self.found
   }
 
@@ -142,7 +149,10 @@ impl<N: CstElement> CstNodeMismatch<N> {
   /// }
   /// ```
   #[inline]
-  pub fn into_components(self) -> (<N::Language as Language>::Kind, SyntaxNode<N::Language>) {
+  pub fn into_components(self) -> (Lang::Kind, SyntaxNode<Lang>)
+  where
+    N: CstElement<Lang>,
+  {
     (N::KIND, self.found)
   }
 }
