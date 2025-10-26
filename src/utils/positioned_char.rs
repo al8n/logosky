@@ -1,3 +1,5 @@
+use super::{Span, CharLen};
+
 /// A character paired with its byte position in the source input.
 ///
 /// `PositionedChar` combines a character (or character-like value) with the byte offset
@@ -158,6 +160,27 @@ impl<Char> PositionedChar<Char> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn position(&self) -> usize {
     self.position
+  }
+
+  /// Returns the span covers this positioned character.
+  ///
+  /// ## Example
+  /// 
+  /// ```rust
+  /// use logosky::utils::{PositionedChar, Span};
+  /// 
+  /// 
+  /// let pc = PositionedChar::with_position('x', 42);
+  /// assert_eq!(pc.span(), Span::new(42, 43));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn span(&self) -> Span
+  where
+    Char: CharLen,
+  {
+    let start = self.position();
+    let end = start + self.char_ref().len();
+    Span::new(start, end)
   }
 
   /// Set the position, returning a mutable reference of the positioned character.

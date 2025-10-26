@@ -2,7 +2,7 @@ use logos::{Logos, Source};
 
 use super::{
   Token, Tokenizer,
-  utils::{AsSpan, IntoSpan, Span, Spanned},
+  utils::{Span, Spanned},
 };
 
 /// A trait for types that can be parsed from a token stream using Chumsky parsers.
@@ -229,9 +229,9 @@ macro_rules! wrapper_parser {
         }
       }
 
-      impl<D> AsSpan<Span> for $ty
+      impl<D> $crate::utils::AsSpan<Span> for $ty
       where
-        D: AsSpan<Span>,
+        D: $crate::utils::AsSpan<Span>,
       {
         #[cfg_attr(not(tarpaulin), inline(always))]
         fn as_span(&self) -> &Span {
@@ -249,9 +249,10 @@ wrapper_parser! {
   std::sync::Arc<D>,
 }
 
-impl<D> IntoSpan<Span> for std::boxed::Box<D>
+#[cfg(any(feature = "std", feature = "alloc"))]
+impl<D> crate::utils::IntoSpan<Span> for std::boxed::Box<D>
 where
-  D: IntoSpan<Span>,
+  D: crate::utils::IntoSpan<Span>,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn into_span(self) -> Span {
@@ -259,6 +260,7 @@ where
   }
 }
 
+#[cfg(any(feature = "std", feature = "alloc"))]
 impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for std::vec::Vec<D>
 where
   D: Parseable<'a, I, T, Error>,

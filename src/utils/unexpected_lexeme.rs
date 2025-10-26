@@ -1,6 +1,20 @@
-use derive_more::{From, IsVariant, TryUnwrap, Unwrap};
+use derive_more::{Display, From, IsVariant, TryUnwrap, Unwrap};
 
 use super::{PositionedChar, Span};
+
+/// An enumeration of line terminator types.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, IsVariant, Display)]
+pub enum LineTerminator {
+  /// A newline character (`\n`).
+  #[display("\\n")]
+  NewLine,
+  /// A carriage return character (`\r`).
+  #[display("\\r")]
+  CarriageReturn,
+  /// A carriage return followed by a newline (`\r\n`).
+  #[display("\\r\\n")]
+  CarriageReturnNewLine,
+}
 
 /// A compact, zero-copy description of a lexeme in source code.
 ///
@@ -105,6 +119,19 @@ pub enum Lexeme<Char> {
   Span(Span),
 }
 
+impl<Char> core::fmt::Display for Lexeme<Char>
+where
+  Char: super::human_display::DisplayHuman,
+{
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self {
+      Self::Char(pc) => write!(f, "'{}' at {}", pc.char_ref().display(), pc.position()),
+      Self::Span(span) => write!(f, "{}", span),
+    }
+  }
+}
+
 impl<Char> Lexeme<Char> {
   /// Maps the character type to another type if this is a [`Char`](Lexeme::Char) variant.
   ///
@@ -188,10 +215,7 @@ impl<Char> Lexeme<Char> {
     Char: CharLen,
   {
     match self {
-      Self::Char(pc) => {
-        let pos = pc.position();
-        Span::from(pos..(pos + pc.char_ref().len()))
-      }
+      Self::Char(pc) => pc.span(),
       Self::Span(r) => *r,
     }
   }
