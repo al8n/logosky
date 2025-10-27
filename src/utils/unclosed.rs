@@ -78,7 +78,7 @@ impl<Delimiter> Unclosed<Delimiter> {
   /// assert_eq!(unclosed.delimiter(), '[');
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn delimiter(&mut self) -> Delimiter
+  pub const fn delimiter(&self) -> Delimiter
   where
     Delimiter: Copy,
   {
