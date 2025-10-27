@@ -24,7 +24,7 @@ among = ["dep:among"]
 hipstr = ["dep:hipstr"]
 bytes = ["dep:bytes", "chumsky/bytes"]
 bstr = ["dep:bstr"]
-smallvec = ["dep:smallvec"]
+smallvec = ["dep:smallvec", "alloc"]
 
 [dependencies]
 ascii = { version = "1", default-features = false }
