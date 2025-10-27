@@ -63,7 +63,7 @@ impl<Char> UnexpectedSuffix<Char> {
   /// ```rust
   /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme};
   ///
-  /// let error = UnexpectedSuffix::from_suffix(
+  /// let error: UnexpectedSuffix<char> = UnexpectedSuffix::from_suffix(
   ///   Span::new(0, 5),
   ///   Span::new(5, 10)
   /// );
