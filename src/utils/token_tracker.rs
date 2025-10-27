@@ -1,3 +1,5 @@
+use logos::{Lexer, Logos};
+
 use crate::State;
 
 /// Error returned when token count exceeds the configured limit.
@@ -328,4 +330,50 @@ impl TokenLimiter {
 
 impl State for TokenLimiter {
   type Error = TokenLimitExceeded;
+}
+
+/// A token tracker trait.
+pub trait TokenTracker {
+  /// The error type returned when the token limit is exceeded.
+  type Error;
+
+  /// Increases the token count by one.
+  fn increase(&mut self);
+
+  /// Checks if the token limit has been exceeded.
+  fn check(&self) -> Result<(), Self::Error>
+  where
+    Self: Sized;
+}
+
+impl TokenTracker for TokenLimiter {
+  type Error = TokenLimitExceeded;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase(&mut self) {
+    self.increase();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn check(&self) -> Result<(), Self::Error> {
+    self.check()
+  }
+}
+
+impl<'a, T> TokenTracker for Lexer<'a, T>
+where
+  T: Logos<'a>,
+  T::Extras: TokenTracker,
+{
+  type Error = <T::Extras as TokenTracker>::Error;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase(&mut self) {
+    self.extras.increase();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn check(&self) -> Result<(), Self::Error> {
+    self.extras.check()
+  }
 }

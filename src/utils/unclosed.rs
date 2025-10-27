@@ -1,4 +1,3 @@
-
 use super::Span;
 
 /// Unclosed delimiter information.
@@ -14,17 +13,12 @@ where
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    write!(
-      f,
-      "unclosed delimiter '{}'",
-      self.delimiter
-    )
+    write!(f, "unclosed delimiter '{}'", self.delimiter)
   }
 }
 
-impl<Delimiter> core::error::Error for Unclosed<Delimiter>
-where
-  Delimiter: core::fmt::Display + core::fmt::Debug,
+impl<Delimiter> core::error::Error for Unclosed<Delimiter> where
+  Delimiter: core::fmt::Display + core::fmt::Debug
 {
 }
 
@@ -59,12 +53,12 @@ impl<Delimiter> Unclosed<Delimiter> {
   }
 
   /// Returns a reference to the unclosed delimiter.
-  /// 
+  ///
   /// ## Examples
-  /// 
+  ///
   /// ```rust
   /// use logosky::utils::{Unclosed, Span};
-  /// 
+  ///
   /// let unclosed = Unclosed::new(Span::new(5, 10), '{');
   /// assert_eq!(unclosed.delimiter_ref(), &'{');
   /// ```
@@ -74,12 +68,12 @@ impl<Delimiter> Unclosed<Delimiter> {
   }
 
   /// Returns the unclosed delimiter.
-  /// 
+  ///
   /// ## Examples
-  /// 
+  ///
   /// ```rust
   /// use logosky::utils::{Unclosed, Span};
-  /// 
+  ///
   /// let unclosed = Unclosed::new(Span::new(5, 10), '[');
   /// assert_eq!(unclosed.delimiter(), '[');
   /// ```

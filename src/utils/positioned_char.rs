@@ -1,4 +1,4 @@
-use super::{Span, CharLen};
+use super::{CharLen, Span};
 
 /// A character paired with its byte position in the source input.
 ///
@@ -165,11 +165,11 @@ impl<Char> PositionedChar<Char> {
   /// Returns the span covers this positioned character.
   ///
   /// ## Example
-  /// 
+  ///
   /// ```rust
   /// use logosky::utils::{PositionedChar, Span};
-  /// 
-  /// 
+  ///
+  ///
   /// let pc = PositionedChar::with_position('x', 42);
   /// assert_eq!(pc.span(), Span::new(42, 43));
   /// ```

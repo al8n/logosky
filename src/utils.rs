@@ -1,9 +1,9 @@
 use core::ops::Range;
 
 pub use positioned_char::*;
+pub use unclosed::*;
 pub use unexpected_end::*;
 pub use unexpected_lexeme::*;
-pub use unclosed::*;
 
 /// Trackers for preventing infinite recursion in parsers.
 pub mod recursion_tracker;
@@ -31,9 +31,9 @@ mod to_equivalent;
 pub mod container;
 
 mod positioned_char;
+mod unclosed;
 mod unexpected_end;
 mod unexpected_lexeme;
-mod unclosed;
 
 /// A lightweight span representing a range of positions in source input.
 ///
