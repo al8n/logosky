@@ -564,6 +564,27 @@ pub trait Tracker {
   /// Checks if any of the limits have been exceeded.
   fn check(&self) -> Result<(), Self::Error>;
 
+  /// Increase the token count and decrease recursion depth.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_decrease_recursion(&mut self) {
+    self.increase_token();
+    self.decrease_recursion();
+  }
+
+  /// Increases the token count and decreases recursion depth and checks limits.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_decrease_recursion_and_check(&mut self) -> Result<(), Self::Error> {
+    self.increase_token_and_decrease_recursion();
+    self.check()
+  }
+
+  /// Increases the token count and checks limits.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_check(&mut self) -> Result<(), Self::Error> {
+    self.increase_token();
+    self.check()
+  }
+
   /// Increases the token count and recursion depth, then checks limits.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn increase_both(&mut self) {
@@ -595,6 +616,19 @@ impl Tracker for Limiter {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn decrease_recursion(&mut self) {
     self.decrease_recursion();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_check(&mut self) -> Result<(), Self::Error> {
+    self.increase_token();
+    <Self as TokenTracker>::check(self)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_decrease_recursion_and_check(&mut self) -> Result<(), Self::Error> {
+    self.increase_token();
+    self.decrease_recursion();
+    <Self as TokenTracker>::check(self)
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -631,6 +665,11 @@ where
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_check(&mut self) -> Result<(), Self::Error> {
+    self.extras.increase_token_and_check()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn increase_both(&mut self) {
     self.extras.increase_both();
   }
@@ -638,5 +677,17 @@ where
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn increase_both_and_check(&mut self) -> Result<(), Self::Error> {
     self.extras.increase_both_and_check()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_decrease_recursion(&mut self) {
+    self.extras.increase_token_and_decrease_recursion();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_token_and_decrease_recursion_and_check(&mut self) -> Result<(), Self::Error> {
+    self
+      .extras
+      .increase_token_and_decrease_recursion_and_check()
   }
 }
