@@ -1,6 +1,7 @@
 use logos::Logos;
 use logosky::{
-  chumsky::Parseable, Token, TokenExt,
+  Token, TokenExt,
+  chumsky::Parseable,
   utils::{AsSpan, IntoSpan, Span, Spanned},
 };
 
