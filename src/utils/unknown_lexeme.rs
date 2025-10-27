@@ -1,24 +1,8 @@
-use derive_more::{Display, IsVariant};
-
 use super::{CharLen, Lexeme, PositionedChar, Span};
-
-/// An enumeration of line terminator types.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, IsVariant, Display)]
-pub enum LineTerminator {
-  /// A newline character (`\n`).
-  #[display("\\n")]
-  NewLine,
-  /// A carriage return character (`\r`).
-  #[display("\\r")]
-  CarriageReturn,
-  /// A carriage return followed by a newline (`\r\n`).
-  #[display("\\r\\n")]
-  CarriageReturnNewLine,
-}
 
 /// A zero-copy error structure combining an unexpected lexeme with a diagnostic hint.
 ///
-/// `UnexpectedLexeme` pairs a [`Lexeme`] (identifying what went wrong) with a hint
+/// `UnknownLexeme` pairs a [`Lexeme`] (identifying what went wrong) with a hint
 /// (describing what was expected instead). This structure is designed for building
 /// rich, informative error messages without allocating strings.
 ///
@@ -40,8 +24,8 @@ pub enum LineTerminator {
 ///
 /// # Deref Behavior
 ///
-/// `UnexpectedLexeme` implements `Deref` to `Lexeme<Char>`, so you can call all
-/// `Lexeme` methods directly on an `UnexpectedLexeme` instance.
+/// `UnknownLexeme` implements `Deref` to `Lexeme<Char>`, so you can call all
+/// `Lexeme` methods directly on an `UnknownLexeme` instance.
 ///
 /// # Use Cases
 ///
@@ -55,9 +39,9 @@ pub enum LineTerminator {
 /// ## Basic Error with String Hint
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+/// use logosky::utils::{UnknownLexeme, PositionedChar};
 ///
-/// let error = UnexpectedLexeme::from_char(
+/// let error = UnknownLexeme::from_char(
 ///     PositionedChar::with_position('!', 42),
 ///     "expected letter or digit"
 /// );
@@ -70,7 +54,7 @@ pub enum LineTerminator {
 /// ## With Token Kind Hint
 ///
 /// ```rust,ignore
-/// use logosky::utils::{UnexpectedLexeme, Span};
+/// use logosky::utils::{UnknownLexeme, Span};
 ///
 /// #[derive(Debug, Clone)]
 /// enum Expected {
@@ -78,7 +62,7 @@ pub enum LineTerminator {
 ///     OneOf(Vec<TokenKind>),
 /// }
 ///
-/// let error = UnexpectedLexeme::from_span(
+/// let error = UnknownLexeme::from_span(
 ///     Span::new(10, 15),
 ///     Expected::OneOf(vec![TokenKind::Semicolon, TokenKind::Comma])
 /// );
@@ -93,9 +77,9 @@ pub enum LineTerminator {
 /// ## Mapping Hints
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+/// use logosky::utils::{UnknownLexeme, PositionedChar};
 ///
-/// let error = UnexpectedLexeme::from_char(
+/// let error = UnknownLexeme::from_char(
 ///     PositionedChar::with_position('x', 5),
 ///     "number"
 /// );
@@ -109,9 +93,9 @@ pub enum LineTerminator {
 /// ## Accessing Lexeme via Deref
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+/// use logosky::utils::{UnknownLexeme, PositionedChar};
 ///
-/// let error = UnexpectedLexeme::from_char(
+/// let error = UnknownLexeme::from_char(
 ///     PositionedChar::with_position('!', 10),
 ///     "identifier"
 /// );
@@ -122,12 +106,12 @@ pub enum LineTerminator {
 /// assert_eq!(span.start(), 10);
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct UnexpectedLexeme<Char, Hint> {
+pub struct UnknownLexeme<Char, Hint> {
   lexeme: Lexeme<Char>,
   hint: Hint,
 }
 
-impl<Char, Hint> core::ops::Deref for UnexpectedLexeme<Char, Hint> {
+impl<Char, Hint> core::ops::Deref for UnknownLexeme<Char, Hint> {
   type Target = Lexeme<Char>;
 
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -136,23 +120,23 @@ impl<Char, Hint> core::ops::Deref for UnexpectedLexeme<Char, Hint> {
   }
 }
 
-impl<Char, Hint> core::ops::DerefMut for UnexpectedLexeme<Char, Hint> {
+impl<Char, Hint> core::ops::DerefMut for UnknownLexeme<Char, Hint> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.lexeme
   }
 }
 
-impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
-  /// Creates a new `UnexpectedLexeme` from a lexeme and hint.
+impl<Char, Hint> UnknownLexeme<Char, Hint> {
+  /// Creates a new `UnknownLexeme` from a lexeme and hint.
   ///
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, Lexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, Lexeme, PositionedChar};
   ///
   /// let lexeme = Lexeme::from(PositionedChar::with_position('!', 5));
-  /// let error = UnexpectedLexeme::new(lexeme, "identifier");
+  /// let error = UnknownLexeme::new(lexeme, "identifier");
   ///
   /// assert_eq!(*error.hint(), "identifier");
   /// ```
@@ -166,9 +150,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('$', 42),
   ///     "alphanumeric character"
   /// );
@@ -188,9 +172,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, Span};
+  /// use logosky::utils::{UnknownLexeme, Span};
   ///
-  /// let error: UnexpectedLexeme<char, _> = UnexpectedLexeme::from_span_const(
+  /// let error: UnknownLexeme<char, _> = UnknownLexeme::from_span_const(
   ///     Span::new(10, 15),
   ///     "semicolon"
   /// );
@@ -207,9 +191,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::UnexpectedLexeme;
+  /// use logosky::utils::UnknownLexeme;
   ///
-  /// let error: UnexpectedLexeme<char, _> = UnexpectedLexeme::from_span(10..15, "closing brace");
+  /// let error: UnknownLexeme<char, _> = UnknownLexeme::from_span(10..15, "closing brace");
   ///
   /// assert!(error.is_span());
   /// assert_eq!(error.unwrap_span().start(), 10);
@@ -224,9 +208,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('x', 5),
   ///     "digit"
   /// );
@@ -243,9 +227,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('x', 5),
   ///     "expected digit"
   /// );
@@ -262,9 +246,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar};
   ///
-  /// let mut error = UnexpectedLexeme::from_char(
+  /// let mut error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('x', 5),
   ///     "digit"
   /// );
@@ -282,9 +266,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar};
   ///
-  /// let mut error = UnexpectedLexeme::from_char(
+  /// let mut error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('x', 5),
   ///     String::from("digit")
   /// );
@@ -302,9 +286,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('!', 10),
   ///     "identifier"
   /// );
@@ -323,9 +307,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('!', 10),
   ///     "identifier"
   /// );
@@ -343,9 +327,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('!', 10),
   ///     "identifier"
   /// );
@@ -365,9 +349,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('€', 5),
   ///     "ASCII character"
   /// );
@@ -388,9 +372,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar, Span};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar, Span};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('x', 10),
   ///     "digit"
   /// );
@@ -410,9 +394,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('a', 5),
   ///     "digit"
   /// );
@@ -422,11 +406,11 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// assert_eq!(*upper.hint(), "digit");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn map_char<F, NewChar>(self, f: F) -> UnexpectedLexeme<NewChar, Hint>
+  pub fn map_char<F, NewChar>(self, f: F) -> UnknownLexeme<NewChar, Hint>
   where
     F: FnMut(Char) -> NewChar,
   {
-    UnexpectedLexeme {
+    UnknownLexeme {
       lexeme: self.lexeme.map(f),
       hint: self.hint,
     }
@@ -437,9 +421,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('!', 5),
   ///     "digit"
   /// );
@@ -448,11 +432,11 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// assert_eq!(detailed.hint(), "expected digit");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn map_hint<F, NewHint>(self, f: F) -> UnexpectedLexeme<Char, NewHint>
+  pub fn map_hint<F, NewHint>(self, f: F) -> UnknownLexeme<Char, NewHint>
   where
     F: FnOnce(Hint) -> NewHint,
   {
-    UnexpectedLexeme {
+    UnknownLexeme {
       lexeme: self.lexeme,
       hint: f(self.hint),
     }
@@ -463,9 +447,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('a', 5),
   ///     "number"
   /// );
@@ -479,12 +463,12 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// assert_eq!(transformed.hint(), "expected number");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn map<F, NewChar, G, NewHint>(self, f: F, g: G) -> UnexpectedLexeme<NewChar, NewHint>
+  pub fn map<F, NewChar, G, NewHint>(self, f: F, g: G) -> UnknownLexeme<NewChar, NewHint>
   where
     F: FnMut(Char) -> NewChar,
     G: FnOnce(Hint) -> NewHint,
   {
-    UnexpectedLexeme {
+    UnknownLexeme {
       lexeme: self.lexeme.map(f),
       hint: g(self.hint),
     }
@@ -497,9 +481,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::utils::{UnknownLexeme, PositionedChar};
   ///
-  /// let mut error = UnexpectedLexeme::from_char(
+  /// let mut error = UnknownLexeme::from_char(
   ///     PositionedChar::with_position('x', 5),
   ///     "digit"
   /// );

@@ -179,7 +179,7 @@ impl<Char> PositionedChar<Char> {
     Char: CharLen,
   {
     let start = self.position();
-    let end = start + self.char_ref().len();
+    let end = start + self.char_ref().char_len();
     Span::new(start, end)
   }
 
