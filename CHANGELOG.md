@@ -1,28 +1,136 @@
 # UNRELEASED
 
-# 0.3.0 (October 21st, 2025)
+# 0.3.0 (October 27th, 2025)
+
+## Breaking Changes
+
+- **Chumsky is now optional**: The `chumsky` dependency is now behind the `chumsky` feature flag (enabled by default with `std` feature)
+  - Use `default-features = false` if you only need the lexer functionality
+  - Renamed `parseable.rs` → `chumsky.rs` to better reflect the optional nature
 
 ## New Features
 
-- **CST (Concrete Syntax Tree) support**: Added new `cst` module with rowan integration (requires `rowan` feature)
+### No-alloc Support
+
+- **Zero-allocation mode**: LogoSky now supports `no_std` + `no_alloc` environments
+  - Core lexer and utility types work without heap allocation
+  - `alloc` feature enables collection-based utilities
+  - `std` feature enables full error handling and format support
+
+### Macros for Token Types
+
+- **`keyword!` macro**: Define keyword tokens with zero boilerplate
+  ```rust
+  keyword! {
+    (Let, "LET", "let"),
+    (Const, "CONST", "const"),
+  }
+  ```
+  - Automatically implements common traits (`Debug`, `Clone`, `PartialEq`, etc.)
+  - Generic over span type `S` and optional content `C`
+  - Provides `AsRef<str>` and `Borrow<str>` implementations
+
+- **`punctuator!` macro**: Define punctuation tokens with minimal code
+  ```rust
+  punctuator! {
+    (LParen, "L_PAREN", "("),
+    (RParen, "R_PAREN", ")"),
+  }
+  ```
+  - Similar ergonomics to `keyword!` macro
+  - Includes methods for accessing raw string literals
+
+### CST (Concrete Syntax Tree) Support
+
+- **CST module**: Added new `cst` module with rowan integration (requires `rowan` feature)
   - `SyntaxTreeBuilder<Lang>`: A builder for constructing syntax trees using rowan's GreenNodeBuilder
   - `Parseable<'a, I, T, Error>` trait: Enables types to be parsed from a tokenizer and produce CST nodes
-  - `Node` trait: The main trait for converting untyped `SyntaxNode` to typed CST nodes (zero-cost conversion)
+  - `CstElement`: Base trait for all typed CST elements (nodes and tokens)
+  - `CstNode`: Trait for typed CST nodes with zero-cost conversions from untyped `SyntaxNode`
+  - `CstToken`: Trait for typed CST tokens (terminal elements)
   - `SyntaxNodeChildren<N>` iterator: Iterate over children of a particular CST node type
-  - `cast` module: Utility functions for casting and accessing CST nodes
-    - `child<N>()`: Get the first child of a specific type
-    - `children<N>()`: Get all children of a specific type
-    - `token<L>()`: Get a token child with a specific kind
-  - `error` module: CST-specific error types
-    - `SyntaxNodeMismatch<N>`: Error when expected and actual syntax node kinds don't match
+
+- **CST cast utilities** (in `cst::cast` module):
+  - `child<N>()`: Get the first child of a specific type
+  - `children<N>()`: Get all children of a specific type
+  - `token<L>()`: Get a token child with a specific kind
+  - Type-safe casting with proper error handling
+
+- **CST error types** (in `cst::error` module):
+  - `Incomplete`: Error for incomplete CST constructions
+  - `CstNodeMismatch`: Type mismatch for CST nodes
+  - `CstTokenMismatch`: Type mismatch for CST tokens
+  - All error types include rich context for better diagnostics
+
+### New Utility Types
+
+- **`Lexeme<Char>`**: Zero-copy description of a lexeme in source code
+  - Represents either a single positioned character or a byte span
+  - Designed for error reporting without string allocation
+  - Provides `is_char()`, `is_span()`, `unwrap_char()`, `unwrap_span()` helpers
+
+- **`UnknownLexeme<Char, Knowledge>`**: Error structure for unrecognized lexemes
+  - Pairs an unrecognized lexeme with diagnostic knowledge
+  - Generic `Knowledge` parameter allows custom diagnostic types
+  - Implements `Deref` to `Lexeme` for convenient access
+  - Methods: `from_char()`, `from_span()`, `map_char()`, `map_hint()`, etc.
+
+- **`UnexpectedSuffix<Char>`**: Error for unexpected suffixes after valid tokens
+  - Tracks the valid token span and the unexpected suffix
+  - Useful for catching errors like `123abc` (invalid number literal)
+
+- **`Unclosed<Delimiter>`**: Error for unclosed delimiters
+  - Tracks the opening delimiter position
+  - Generic over delimiter type (char, string, custom enum, etc.)
+
+- **`RecursionLimiter`**: Stack overflow protection for recursive parsing
+  - Configurable recursion depth limit
+  - Returns `RecursionLimitExceeded` error when limit is reached
+  - Integrates with logos lexer via `State` trait
+
+- **`TokenTracker` / `TokenLimiter`**: Track the count of tokens yielded and enforce limits
+  - `TokenTracker`: Trait for tracking token counts during lexing/parsing
+  - `TokenLimiter`: Implementation that prevents DoS attacks by limiting total token count
+  - Configurable token limit with `TokenLimitExceeded` error
+  - Can be embedded in lexer state via `Extras`
+  - Useful for protecting against maliciously large or deeply nested inputs
+
+### Internal Improvements
+
+- **Module restructuring**:
+  - Split `lexer.rs` into `lexer/tokenizer.rs` for better organization
+  - Moved tokenizer iterator to `lexer/tokenizer/iter.rs`
+
+- **Enhanced `PositionedChar`**:
+  - Added more utility methods for character manipulation
+
+- **Improved `Tracker` utilities**:
+  - Enhanced position tracking capabilities
+  - Better integration with lexer state
 
 ## Dependencies
 
-- **Added**: `rowan = "0.16"` (optional, behind `rowan` feature flag)
+### Added
+
+- **`paste = "1"`**: For macro metaprogramming (required for `keyword!` and `punctuator!` macros)
+- **`rowan = "0.16"`** (optional, behind `rowan` feature flag): For CST support
+- **`generic-array = "1"`** (optional, with `rowan` feature): For fixed-size arrays in CST operations
+
+### Changed
+
+- **`chumsky`**: Now optional, enabled by `chumsky` feature (enabled by default with `std`)
 
 ## Features
 
-- **New feature flag**: `rowan` - Enables CST support with rowan integration (requires `std` feature)
+- **New feature flag**: `chumsky` - Enables parser combinator support (enabled by default with `std` feature)
+- **New feature flag**: `rowan` - Enables CST support with rowan integration (requires `std` and `generic-array`)
+- **Modified feature**: `smallvec` - Now requires `alloc` feature
+
+## Bug Fixes
+
+- Fixed formatting issues in documentation
+- Improved error message clarity in various utility types
+- Better handling of edge cases in lexer position tracking
 
 # 0.2.0 (October 20th, 2025)
 

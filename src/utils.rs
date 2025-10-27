@@ -1154,13 +1154,13 @@ pub trait CharLen: sealed::Sealed {
   ///
   /// // The trait is used internally by span()
   /// let ascii = Lexeme::from(PositionedChar::with_position('A', 0));
-  /// assert_eq!(ascii.span().char_len(), 1);
+  /// assert_eq!(ascii.span().len(), 1);
   ///
   /// let euro = Lexeme::from(PositionedChar::with_position('€', 0));
-  /// assert_eq!(euro.span().char_len(), 3);
+  /// assert_eq!(euro.span().len(), 3);
   ///
   /// let crab = Lexeme::from(PositionedChar::with_position('🦀', 0));
-  /// assert_eq!(crab.span().char_len(), 4);
+  /// assert_eq!(crab.span().len(), 4);
   /// ```
   fn char_len(&self) -> usize;
 }

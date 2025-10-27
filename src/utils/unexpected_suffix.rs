@@ -63,7 +63,7 @@ impl<Char> UnexpectedSuffix<Char> {
   /// ```rust
   /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme};
   ///
-  /// let error = UnexpectedSuffix::from_span(
+  /// let error = UnexpectedSuffix::from_suffix(
   ///   Span::new(0, 5),
   ///   Span::new(5, 10)
   /// );
@@ -81,10 +81,10 @@ impl<Char> UnexpectedSuffix<Char> {
   /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme, PositionedChar};
   ///
   /// let error = UnexpectedSuffix::new(
-  ///  Span::new(0, 5),
-  /// Lexeme::Char(PositionedChar::with_position('x', 5))
+  ///   Span::new(0, 5),
+  ///   Lexeme::Char(PositionedChar::with_position('x', 5))
   /// );
-  /// assert_eq!(error.full_span(), Span::new(0, 6));
+  /// assert_eq!(error.span(), Span::new(0, 6));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn span(&self) -> Span
