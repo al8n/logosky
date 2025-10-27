@@ -11,7 +11,7 @@
 use chumsky::prelude::*;
 use logos::Logos;
 use logosky::{
-  Lexed, Parseable, Token,
+  Lexed, chumsky::Parseable, Token,
   utils::{Span, Spanned},
 };
 

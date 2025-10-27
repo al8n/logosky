@@ -13,20 +13,8 @@ extern crate std;
 
 pub use logos;
 
-#[cfg(feature = "chumsky")]
-#[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
-pub use chumsky;
-
 pub use lexer::*;
-#[cfg(feature = "chumsky")]
-#[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
-pub use parseable::*;
-
 mod lexer;
-
-#[cfg(feature = "chumsky")]
-#[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
-mod parseable;
 
 /// Concrete Syntax Tree (CST) representations and utilities.
 #[cfg(feature = "rowan")]
@@ -35,6 +23,11 @@ pub mod cst;
 
 /// Common utilities for working with tokens and lexers.
 pub mod utils;
+
+/// Re-exports for chumsky integration.
+#[cfg(feature = "chumsky")]
+#[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
+pub mod chumsky;
 
 mod keyword;
 mod punct;

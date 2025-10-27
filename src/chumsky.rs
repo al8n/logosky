@@ -1,3 +1,5 @@
+pub use chumsky::*;
+
 use logos::{Logos, Source};
 
 use super::{Token, Tokenizer, utils::Spanned};
