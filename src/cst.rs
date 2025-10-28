@@ -147,6 +147,8 @@ use rowan::{GreenNodeBuilder, Language, SyntaxNode, SyntaxToken};
 
 pub use generic_array::typenum;
 
+use crate::utils::syntax::Syntax;
+
 /// A builder for constructing concrete syntax trees.
 ///
 /// `SyntaxTreeBuilder` wraps rowan's [`GreenNodeBuilder`] and provides a convenient
@@ -925,30 +927,7 @@ pub trait CstToken<Lang: Language>: CstElement<Lang> {
 ///     }
 /// }
 /// ```
-pub trait CstNode<Lang: Language>: CstElement<Lang> {
-  /// The component type of this syntax element.
-  /// Usually the type is an enum representing different variants.
-  /// This type is used for error reporting.
-  type Component: core::fmt::Display + core::fmt::Debug + Clone + PartialEq + Eq + core::hash::Hash;
-
-  /// The number of components in this syntax element, represented as a type-level unsigned integer.
-  ///
-  /// Uses `typenum` to represent the count at the type level, avoiding the need for
-  /// unstable `generic_const_exprs` feature.
-  ///
-  /// # Examples
-  ///
-  /// ```rust,ignore
-  /// use logosky::cst::CstElement;
-  /// use typenum::U2; // For an element with 2 components
-  ///
-  /// impl CstElement for MyElement {
-  ///     type Components = U2;
-  ///     // ...
-  /// }
-  /// ```
-  type COMPONENTS: generic_array::ArrayLength + core::fmt::Debug + Eq + core::hash::Hash;
-
+pub trait CstNode<Lang: Language>: CstElement<Lang> + Syntax {
   /// Attempts to cast the given syntax node to this CST node.
   ///
   /// Returns an error if the node's kind doesn't match this type.

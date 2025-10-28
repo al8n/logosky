@@ -1,13 +1,11 @@
-pub use incomplete::*;
 pub use node_mismatch::*;
 use rowan::Language;
 pub use token_mismatch::*;
 
-use crate::cst::CstNode;
+use crate::{cst::CstNode, utils::syntax::IncompleteSyntax};
 
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 
-mod incomplete;
 mod node_mismatch;
 mod token_mismatch;
 
@@ -52,5 +50,5 @@ pub enum SyntaxError<E: CstNode<Lang>, Lang: Language> {
   TokenMismatch(#[from] CstTokenMismatch<E, Lang>),
   /// The syntax node is incomplete and missing required child components.
   #[error(transparent)]
-  Incomplete(#[from] IncompleteSyntax<E, Lang>),
+  Incomplete(#[from] IncompleteSyntax<E>),
 }

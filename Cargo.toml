@@ -18,6 +18,7 @@ std = ["thiserror/default", "bytes?/default", "hipstr?/default", "bstr?/default"
 
 chumsky = ["dep:chumsky"]
 rowan = ["dep:rowan", "std", "generic-array"]
+generic-array = ["dep:generic-array"]
 
 either = ["dep:either"]
 among = ["dep:among"]

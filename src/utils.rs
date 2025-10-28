@@ -1,5 +1,6 @@
 use core::ops::Range;
 
+pub use incomplete_token::*;
 pub use lexeme::*;
 pub use positioned_char::*;
 pub use unclosed::*;
@@ -26,6 +27,11 @@ pub mod syntax_tree_display;
 
 pub use to_equivalent::*;
 
+/// Syntax definitions and traits.
+#[cfg(feature = "generic-array")]
+#[cfg_attr(docsrs, doc(cfg(feature = "generic-array")))]
+pub mod syntax;
+
 mod to_equivalent;
 
 /// A module for container types with small size optimizations.
@@ -33,6 +39,7 @@ mod to_equivalent;
 #[cfg_attr(docsrs, doc(cfg(feature = "smallvec")))]
 pub mod container;
 
+mod incomplete_token;
 mod lexeme;
 mod positioned_char;
 mod unclosed;
