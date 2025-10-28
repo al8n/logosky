@@ -2,12 +2,13 @@ use super::{Lexeme, PositionedChar, Span};
 
 /// An error indicating that an unexpected suffix was found after a valid token.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct UnexpectedSuffix<Char> {
+pub struct UnexpectedSuffix<Char, Knowledge> {
   token: Span,
   suffix: Lexeme<Char>,
+  knowledge: Option<Knowledge>,
 }
 
-impl<Char> UnexpectedSuffix<Char> {
+impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// Creates a new `UnexpectedSuffix` error with the span of the valid token and the unexpected suffix.
   ///
   /// ## Panics
@@ -30,7 +31,11 @@ impl<Char> UnexpectedSuffix<Char> {
       "suffix starts before token ends"
     );
 
-    Self { token, suffix }
+    Self {
+      token,
+      suffix,
+      knowledge: None,
+    }
   }
 
   /// Create a new `UnexpectedSuffix` error from the given token span and character with position.
@@ -51,6 +56,23 @@ impl<Char> UnexpectedSuffix<Char> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_char(token: Span, ch: PositionedChar<Char>) -> Self {
     Self::new(token, Lexeme::Char(ch))
+  }
+
+  /// Adds knowledge to the `UnexpectedSuffix` error.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_knowledge_const(mut self, knowledge: Knowledge) -> Self
+  where
+    Knowledge: Copy,
+  {
+    self.knowledge = Some(knowledge);
+    self
+  }
+
+  /// Adds knowledge to the `UnexpectedSuffix` error.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn with_knowledge(mut self, knowledge: Knowledge) -> Self {
+    self.knowledge = Some(knowledge);
+    self
   }
 
   /// Create a new `UnexpectedSuffix` error from the given token span and the suffix span
@@ -165,34 +187,54 @@ impl<Char> UnexpectedSuffix<Char> {
   }
 }
 
-impl<Char> core::fmt::Display for UnexpectedSuffix<Char>
+impl<Char, Knowledge> core::fmt::Display for UnexpectedSuffix<Char, Knowledge>
 where
   Char: super::human_display::DisplayHuman,
+  Knowledge: super::human_display::DisplayHuman,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match &self.suffix {
-      Lexeme::Char(positioned_char) => {
-        write!(
+      Lexeme::Char(positioned_char) => match &self.knowledge {
+        None => write!(
           f,
           "unexpected suffix '{}' at position {} found after {}",
           positioned_char.char_ref().display(),
           positioned_char.position(),
           self.token
-        )
-      }
-      Lexeme::Span(span) => {
-        write!(
+        ),
+        Some(knowledge) => {
+          write!(
+            f,
+            "unexpected suffix '{}' at position {} found after '{}'@({})",
+            positioned_char.char_ref().display(),
+            positioned_char.position(),
+            knowledge.display(),
+            self.token
+          )
+        }
+      },
+      Lexeme::Span(span) => match &self.knowledge {
+        Some(knowledge) => write!(
+          f,
+          "unexpected suffix at {} found after '{}'@({})",
+          span,
+          knowledge.display(),
+          self.token
+        ),
+        None => write!(
           f,
           "unexpected suffix at {} found after {}",
           span, self.token
-        )
-      }
+        ),
+      },
     }
   }
 }
 
-impl<Char> core::error::Error for UnexpectedSuffix<Char> where
-  Char: super::human_display::DisplayHuman + core::fmt::Debug
+impl<Char, Knowledge> core::error::Error for UnexpectedSuffix<Char, Knowledge>
+where
+  Char: super::human_display::DisplayHuman + core::fmt::Debug,
+  Knowledge: super::human_display::DisplayHuman + core::fmt::Debug,
 {
 }

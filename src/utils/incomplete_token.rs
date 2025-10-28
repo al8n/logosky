@@ -15,7 +15,7 @@ where
     match &self.knowledge {
       Some(knowledge) => write!(
         f,
-        "incomplete token {} at {}",
+        "incomplete {} token at {}",
         knowledge.display(),
         self.span
       ),
