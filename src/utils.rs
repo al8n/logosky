@@ -2,6 +2,7 @@ use core::ops::Range;
 
 pub use incomplete_token::*;
 pub use lexeme::*;
+pub use malformed_literal::*;
 pub use positioned_char::*;
 pub use unclosed::*;
 pub use unexpected_end::*;
@@ -41,6 +42,7 @@ pub mod container;
 
 mod incomplete_token;
 mod lexeme;
+mod malformed_literal;
 mod positioned_char;
 mod unclosed;
 mod unexpected_end;
