@@ -118,7 +118,7 @@ where
   }
 }
 
-/// TokenStream trait providing utilities for working with token streams.
+/// LogoStream trait providing utilities for working with token streams.
 ///
 /// This trait is automatically implemented for any type that implements Chumsky's
 /// [`SliceInput`] and [`ValueInput`] traits with the appropriate associated types.
@@ -137,9 +137,9 @@ where
 ///
 /// ```rust,ignore
 /// use chumsky::prelude::*;
-/// use logosky::{TokenStream, TokenStream, LosslessToken};
+/// use logosky::{LogoStream, LogoStream, LosslessToken};
 ///
-/// type MyStream<'a> = TokenStream<'a, MyToken>;
+/// type MyStream<'a> = LogoStream<'a, MyToken>;
 ///
 /// // Parser that skips leading trivia
 /// fn identifier_parser<'a>() -> impl Parser<'a, MyStream<'a>, String, extra::Err<EmptyErr>> {
@@ -164,7 +164,7 @@ where
 ///         })
 /// }
 /// ```
-pub trait TokenStream<'a, T: Token<'a>>:
+pub trait LogoStream<'a, T: Token<'a>>:
   SliceInput<'a> + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>
 {
   /// Returns a parser that skips over trivia tokens.
@@ -191,23 +191,23 @@ pub trait TokenStream<'a, T: Token<'a>>:
   ///
   /// ```rust,ignore
   /// use chumsky::prelude::*;
-  /// use logosky::TokenStream;
+  /// use logosky::LogoStream;
   ///
   /// // Skip trivia before parsing a number
-  /// let parser = MyTokenStream::skip_trivias()
+  /// let parser = MyLogoStream::skip_trivias()
   ///     .ignore_then(number_parser());
   ///
   /// // Parse multiple tokens with trivia in between
   /// let expr_parser = term_parser()
-  ///     .then_ignore(MyTokenStream::skip_trivias())
+  ///     .then_ignore(MyLogoStream::skip_trivias())
   ///     .then(operator_parser())
-  ///     .then_ignore(MyTokenStream::skip_trivias())
+  ///     .then_ignore(MyLogoStream::skip_trivias())
   ///     .then(term_parser());
   /// ```
   ///
   /// # Performance
   ///
-  /// This method is implemented as a call to [`collect_trivias()`](TokenStream::collect_trivias)
+  /// This method is implemented as a call to [`collect_trivias()`](LogoStream::collect_trivias)
   /// with `()` as the container type, which means it doesn't allocate and simply
   /// consumes trivia tokens without storing them.
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -247,10 +247,10 @@ pub trait TokenStream<'a, T: Token<'a>>:
   ///
   /// ```rust,ignore
   /// use chumsky::prelude::*;
-  /// use logosky::{TokenStream, utils::Spanned};
+  /// use logosky::{LogoStream, utils::Spanned};
   ///
   /// // Collect trivia into a Vec
-  /// let parser = MyTokenStream::collect_trivias::<Vec<Spanned<MyToken>>, _>()
+  /// let parser = MyLogoStream::collect_trivias::<Vec<Spanned<MyToken>>, _>()
   ///     .then(statement_parser())
   ///     .map(|(trivia, stmt)| {
   ///         // Process trivia: extract documentation, check formatting, etc.
@@ -261,7 +261,7 @@ pub trait TokenStream<'a, T: Token<'a>>:
   ///     });
   ///
   /// // Skip trivia without allocation by using () as container
-  /// let skip_parser = MyTokenStream::collect_trivias::<(), _>()
+  /// let skip_parser = MyLogoStream::collect_trivias::<(), _>()
   ///     .ignore_then(token_parser());
   /// ```
   ///
@@ -275,7 +275,7 @@ pub trait TokenStream<'a, T: Token<'a>>:
   /// # Performance
   ///
   /// When using `()` as the container type, this method doesn't allocate and simply
-  /// skips over trivia tokens. This makes it equivalent to [`skip_trivias()`](TokenStream::skip_trivias)
+  /// skips over trivia tokens. This makes it equivalent to [`skip_trivias()`](LogoStream::skip_trivias)
   /// in terms of performance.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn collect_trivias<C, E>() -> impl Parser<'a, Self, C, E> + Clone
@@ -303,7 +303,7 @@ pub trait TokenStream<'a, T: Token<'a>>:
   }
 }
 
-impl<'a, T, I> TokenStream<'a, T> for I
+impl<'a, T, I> LogoStream<'a, T> for I
 where
   I: SliceInput<'a> + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>,
   T: Token<'a>,

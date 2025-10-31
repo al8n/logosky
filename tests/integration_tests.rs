@@ -4,7 +4,7 @@ use chumsky::prelude::*;
 use logos::Logos;
 use logosky::{
   LosslessToken, Token, TokenExt,
-  chumsky::TokenStream,
+  chumsky::LogoStream,
   utils::{Span, Spanned},
 };
 
@@ -124,7 +124,7 @@ impl Expr {
 // Parser implementation
 fn calc_parser<'a, I, E>() -> impl Parser<'a, I, Spanned<Expr>, E> + Clone
 where
-  I: TokenStream<'a, CalcToken, Slice = &'a str> + 'a,
+  I: LogoStream<'a, CalcToken, Slice = &'a str> + 'a,
   E: extra::ParserExtra<'a, I, Error = EmptyErr> + 'a,
 {
   recursive(|expr| {

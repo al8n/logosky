@@ -4,7 +4,7 @@ use logos::{Logos, Source};
 
 use super::{Token, utils::Spanned};
 
-pub use tokenier::TokenStream;
+pub use tokenier::LogoStream;
 
 mod tokenier;
 
@@ -55,7 +55,7 @@ mod tokenier;
 ///
 /// impl<'a, I, T, Error> Parseable<'a, I, T, Error> for Expr
 /// where
-///     I: TokenStream<'a, T>,
+///     I: LogoStream<'a, T>,
 ///     T: Token<'a>,
 ///     Error: 'a,
 /// {
@@ -110,7 +110,7 @@ mod tokenier;
 ///
 /// impl<'a, I, T, Error> Parseable<'a, I, T, Error> for Statement
 /// where
-///     I: TokenStream<'a, T>,
+///     I: LogoStream<'a, T>,
 ///     T: Token<'a>,
 ///     Expr: Parseable<'a, I, T, Error>,
 ///     Declaration: Parseable<'a, I, T, Error>,
@@ -164,7 +164,7 @@ pub trait Parseable<'a, I, T, Error> {
   fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
   where
     Self: Sized + 'a,
-    I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+    I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a;
@@ -179,7 +179,7 @@ where
   where
     Self: Sized + 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-    I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+    I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
   {
@@ -199,7 +199,7 @@ where
   where
     Self: Sized + 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-    I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+    I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
   {
@@ -219,7 +219,7 @@ const _: () = {
         impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for $ty
         where
           D: Parseable<'a, I, T, Error>,
-          I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+          I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
           T: Token<'a>,
           Error: 'a,
         {
@@ -267,7 +267,7 @@ const _: () = {
   impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for std::vec::Vec<D>
   where
     D: Parseable<'a, I, T, Error>,
-    I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+    I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
   {
@@ -302,7 +302,7 @@ const _: () = {
     where
       Self: Sized + 'a,
       E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-      I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+      I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
       T: Token<'a>,
       Error: 'a,
     {
@@ -363,7 +363,7 @@ const _: () = {
     where
       Self: Sized + 'a,
       E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-      I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+      I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
       T: Token<'a>,
       Error: 'a,
     {

@@ -10,7 +10,7 @@
 
 use chumsky::prelude::*;
 use logos::Logos;
-use logosky::{Lexed, Token, Tokenizer, chumsky::TokenStream, utils::Spanned};
+use logosky::{Lexed, Token, Tokenizer, chumsky::LogoStream, utils::Spanned};
 
 // Step 1: Define the tokens using Logos
 #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
@@ -160,7 +160,7 @@ impl std::fmt::Display for Expr {
 // Step 5: Build the parser
 fn calc_parser<'a, I, E>() -> impl Parser<'a, I, Spanned<Expr>, E> + Clone
 where
-  I: TokenStream<'a, CalcToken<'a>, Slice = &'a str> + 'a,
+  I: LogoStream<'a, CalcToken<'a>, Slice = &'a str> + 'a,
   E: extra::ParserExtra<'a, I, Error = EmptyErr> + 'a,
 {
   recursive(|expr| {
