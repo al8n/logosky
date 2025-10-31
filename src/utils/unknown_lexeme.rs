@@ -1,3 +1,5 @@
+use crate::utils::human_display::DisplayHuman;
+
 use super::{CharLen, Lexeme, PositionedChar, Span};
 
 /// A zero-copy error structure combining an unrecognized lexeme with diagnostic knowledge.
@@ -48,7 +50,7 @@ use super::{CharLen, Lexeme, PositionedChar, Span};
 ///
 /// assert!(error.is_char());
 /// assert_eq!(error.lexeme().unwrap_char().position(), 42);
-/// assert_eq!(*error.hint(), "valid characters: letters, digits, or '_'");
+/// assert_eq!(*error.knowledge(), "valid characters: letters, digits, or '_'");
 /// ```
 ///
 /// ## With Token Kind Knowledge
@@ -68,7 +70,7 @@ use super::{CharLen, Lexeme, PositionedChar, Span};
 /// );
 ///
 /// // Use in error display
-/// match error.hint() {
+/// match error.knowledge() {
 ///     ValidTokens::Single(kind) => println!("Valid token: {:?}", kind),
 ///     ValidTokens::Multiple(kinds) => println!("Valid tokens: {:?}", kinds),
 /// }
@@ -85,9 +87,9 @@ use super::{CharLen, Lexeme, PositionedChar, Span};
 /// );
 ///
 /// // Transform the knowledge to a more detailed message
-/// let detailed = error.map_hint(|hint| format!("unrecognized character, valid: {}", hint));
+/// let detailed = error.map_knowledge(|knowledge| format!("unrecognized character, valid: {}", knowledge));
 ///
-/// assert_eq!(detailed.hint(), "unrecognized character, valid: digit");
+/// assert_eq!(detailed.knowledge(), "unrecognized character, valid: digit");
 /// ```
 ///
 /// ## Accessing Lexeme via Deref
@@ -108,7 +110,31 @@ use super::{CharLen, Lexeme, PositionedChar, Span};
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct UnknownLexeme<Char, Knowledge> {
   lexeme: Lexeme<Char>,
-  hint: Knowledge,
+  knowledge: Knowledge,
+}
+
+impl<Char, Knowledge> core::fmt::Display for UnknownLexeme<Char, Knowledge>
+where
+  Char: DisplayHuman,
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self.lexeme() {
+      Lexeme::Char(pc) => write!(
+        f,
+        "unknown character '{}' encountered at {}",
+        pc.char_ref().display(),
+        pc.position(),
+      ),
+      Lexeme::Span(span) => write!(f, "unknown lexeme encountered at {}", span),
+    }
+  }
+}
+
+impl<Char, Knowledge> core::error::Error for UnknownLexeme<Char, Knowledge>
+where
+  Char: DisplayHuman + core::fmt::Debug,
+  Knowledge: core::fmt::Debug,
+{
 }
 
 impl<Char, Knowledge> core::ops::Deref for UnknownLexeme<Char, Knowledge> {
@@ -138,11 +164,11 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// let lexeme = Lexeme::from(PositionedChar::with_position('§', 5));
   /// let error = UnknownLexeme::new(lexeme, "valid: identifier");
   ///
-  /// assert_eq!(*error.hint(), "valid: identifier");
+  /// assert_eq!(*error.knowledge(), "valid: identifier");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn new(lexeme: Lexeme<Char>, hint: Knowledge) -> Self {
-    Self { lexeme, hint }
+  pub const fn new(lexeme: Lexeme<Char>, knowledge: Knowledge) -> Self {
+    Self { lexeme, knowledge }
   }
 
   /// Constructs an error from a positioned character and diagnostic knowledge.
@@ -161,8 +187,8 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// assert_eq!(error.unwrap_char().position(), 42);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn from_char(pc: PositionedChar<Char>, hint: Knowledge) -> Self {
-    Self::new(Lexeme::Char(pc), hint)
+  pub const fn from_char(pc: PositionedChar<Char>, knowledge: Knowledge) -> Self {
+    Self::new(Lexeme::Char(pc), knowledge)
   }
 
   /// Constructs an error from a byte span and diagnostic knowledge (const version).
@@ -182,8 +208,8 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// assert!(error.is_span());
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn from_span_const(span: Span, hint: Knowledge) -> Self {
-    Self::new(Lexeme::Span(span), hint)
+  pub const fn from_span_const(span: Span, knowledge: Knowledge) -> Self {
+    Self::new(Lexeme::Span(span), knowledge)
   }
 
   /// Constructs an error from a byte span and diagnostic knowledge.
@@ -199,8 +225,8 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// assert_eq!(error.unwrap_span().start(), 10);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn from_span(span: impl Into<Span>, hint: Knowledge) -> Self {
-    Self::new(Lexeme::Span(span.into()), hint)
+  pub fn from_span(span: impl Into<Span>, knowledge: Knowledge) -> Self {
+    Self::new(Lexeme::Span(span.into()), knowledge)
   }
 
   /// Returns a reference to the lexeme.
@@ -234,11 +260,11 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   ///     "valid: digit"
   /// );
   ///
-  /// assert_eq!(*error.hint(), "valid: digit");
+  /// assert_eq!(*error.knowledge(), "valid: digit");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn hint(&self) -> &Knowledge {
-    &self.hint
+  pub const fn knowledge(&self) -> &Knowledge {
+    &self.knowledge
   }
 
   /// Returns a mutable reference to the lexeme.
@@ -273,15 +299,15 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   ///     String::from("valid: digit")
   /// );
   ///
-  /// error.hint_mut().push_str(" or letter");
-  /// assert_eq!(error.hint(), "valid: digit or letter");
+  /// error.knowledge_mut().push_str(" or letter");
+  /// assert_eq!(error.knowledge(), "valid: digit or letter");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn hint_mut(&mut self) -> &mut Knowledge {
-    &mut self.hint
+  pub const fn knowledge_mut(&mut self) -> &mut Knowledge {
+    &mut self.knowledge
   }
 
-  /// Consumes self and returns the lexeme and hint as a tuple.
+  /// Consumes self and returns the lexeme and knowledge as a tuple.
   ///
   /// # Example
   ///
@@ -293,13 +319,13 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   ///     "identifier"
   /// );
   ///
-  /// let (lexeme, hint) = error.into_components();
+  /// let (lexeme, knowledge) = error.into_components();
   /// assert!(lexeme.is_char());
-  /// assert_eq!(hint, "identifier");
+  /// assert_eq!(knowledge, "identifier");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_components(self) -> (Lexeme<Char>, Knowledge) {
-    (self.lexeme, self.hint)
+    (self.lexeme, self.knowledge)
   }
 
   /// Consumes self and returns only the lexeme.
@@ -322,7 +348,7 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
     self.lexeme
   }
 
-  /// Consumes self and returns only the hint.
+  /// Consumes self and returns only the knowledge.
   ///
   /// # Example
   ///
@@ -334,12 +360,12 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   ///     "identifier"
   /// );
   ///
-  /// let hint = error.into_hint();
-  /// assert_eq!(hint, "identifier");
+  /// let knowledge = error.into_knowledge();
+  /// assert_eq!(knowledge, "identifier");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn into_hint(self) -> Knowledge {
-    self.hint
+  pub fn into_knowledge(self) -> Knowledge {
+    self.knowledge
   }
 
   /// Returns the byte span covered by this lexeme using a custom length function.
@@ -389,7 +415,7 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
     self.lexeme.span()
   }
 
-  /// Maps the character type to another type, preserving the hint.
+  /// Maps the character type to another type, preserving the knowledge.
   ///
   /// # Example
   ///
@@ -403,7 +429,7 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   ///
   /// let upper = error.map_char(|c| c.to_ascii_uppercase());
   /// assert_eq!(upper.unwrap_char().char(), 'A');
-  /// assert_eq!(*upper.hint(), "digit");
+  /// assert_eq!(*upper.knowledge(), "digit");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn map_char<F, NewChar>(self, f: F) -> UnknownLexeme<NewChar, Knowledge>
@@ -412,7 +438,7 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   {
     UnknownLexeme {
       lexeme: self.lexeme.map(f),
-      hint: self.hint,
+      knowledge: self.knowledge,
     }
   }
 
@@ -428,17 +454,17 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   ///     "digit"
   /// );
   ///
-  /// let detailed = error.map_hint(|h| format!("unrecognized, valid: {}", h));
-  /// assert_eq!(detailed.hint(), "unrecognized, valid: digit");
+  /// let detailed = error.map_knowledge(|h| format!("unrecognized, valid: {}", h));
+  /// assert_eq!(detailed.knowledge(), "unrecognized, valid: digit");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn map_hint<F, NewKnowledge>(self, f: F) -> UnknownLexeme<Char, NewKnowledge>
+  pub fn map_knowledge<F, NewKnowledge>(self, f: F) -> UnknownLexeme<Char, NewKnowledge>
   where
     F: FnOnce(Knowledge) -> NewKnowledge,
   {
     UnknownLexeme {
       lexeme: self.lexeme,
-      hint: f(self.hint),
+      knowledge: f(self.knowledge),
     }
   }
 
@@ -460,7 +486,7 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// );
   ///
   /// assert_eq!(transformed.unwrap_char().char(), 'A');
-  /// assert_eq!(transformed.hint(), "unrecognized, valid: number");
+  /// assert_eq!(transformed.knowledge(), "unrecognized, valid: number");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn map<F, NewChar, G, NewKnowledge>(self, f: F, g: G) -> UnknownLexeme<NewChar, NewKnowledge>
@@ -470,7 +496,7 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   {
     UnknownLexeme {
       lexeme: self.lexeme.map(f),
-      hint: g(self.hint),
+      knowledge: g(self.knowledge),
     }
   }
 
