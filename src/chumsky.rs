@@ -1,9 +1,12 @@
+pub use chumsky::*;
+
 use logos::{Logos, Source};
 
-use super::{
-  Token, Tokenizer,
-  utils::{AsSpan, IntoSpan, Span, Spanned},
-};
+use super::{Token, utils::Spanned};
+
+pub use tokenier::LogoStream;
+
+mod tokenier;
 
 /// A trait for types that can be parsed from a token stream using Chumsky parsers.
 ///
@@ -21,7 +24,7 @@ use super::{
 /// # Type Parameters
 ///
 /// - `'a`: The lifetime of the input source
-/// - `I`: The input stream type (typically [`TokenStream<'a, T>`](crate::TokenStream))
+/// - `I`: The input stream type (typically [`Tokenizer<'a, T>`](crate::Tokenizer))
 /// - `T`: The token type being parsed
 /// - `Error`: The error type produced during parsing
 ///
@@ -52,7 +55,7 @@ use super::{
 ///
 /// impl<'a, I, T, Error> Parseable<'a, I, T, Error> for Expr
 /// where
-///     I: Tokenizer<'a, T>,
+///     I: LogoStream<'a, T>,
 ///     T: Token<'a>,
 ///     Error: 'a,
 /// {
@@ -107,7 +110,7 @@ use super::{
 ///
 /// impl<'a, I, T, Error> Parseable<'a, I, T, Error> for Statement
 /// where
-///     I: Tokenizer<'a, T>,
+///     I: LogoStream<'a, T>,
 ///     T: Token<'a>,
 ///     Expr: Parseable<'a, I, T, Error>,
 ///     Declaration: Parseable<'a, I, T, Error>,
@@ -152,7 +155,7 @@ pub trait Parseable<'a, I, T, Error> {
   /// let parser = MyType::parser::<extra::Err<MyError>>();
   ///
   /// // Use it to parse a token stream
-  /// let stream = TokenStream::new(input);
+  /// let stream = Tokenizer::new(input);
   /// match parser.parse(stream).into_result() {
   ///     Ok(value) => println!("Parsed: {:?}", value),
   ///     Err(errors) => println!("Parse errors: {:?}", errors),
@@ -161,7 +164,7 @@ pub trait Parseable<'a, I, T, Error> {
   fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
   where
     Self: Sized + 'a,
-    I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+    I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a;
@@ -176,7 +179,7 @@ where
   where
     Self: Sized + 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-    I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+    I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
   {
@@ -196,7 +199,7 @@ where
   where
     Self: Sized + 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-    I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+    I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
   {
@@ -206,81 +209,86 @@ where
   }
 }
 
-macro_rules! wrapper_parser {
-  ($($ty:ty),+$(,)?) => {
-    $(
-      impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for $ty
-      where
-        D: Parseable<'a, I, T, Error>,
-        I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
-        T: Token<'a>,
-        Error: 'a,
-      {
-        #[cfg_attr(not(tarpaulin), inline(always))]
-        fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
+#[cfg(any(feature = "std", feature = "alloc"))]
+const _: () = {
+  use crate::utils::Span;
+
+  macro_rules! wrapper_parser {
+    ($($ty:ty),+$(,)?) => {
+      $(
+        impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for $ty
         where
-          Self: Sized + 'a,
-          E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
+          D: Parseable<'a, I, T, Error>,
+          I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+          T: Token<'a>,
+          Error: 'a,
         {
-          use chumsky::Parser;
+          #[cfg_attr(not(tarpaulin), inline(always))]
+          fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
+          where
+            Self: Sized + 'a,
+            E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
+          {
+            use chumsky::Parser;
 
-          <D as Parseable<'a, I, T, Error>>::parser().map(<$ty>::from)
+            <D as Parseable<'a, I, T, Error>>::parser().map(<$ty>::from)
+          }
         }
-      }
 
-      impl<D> AsSpan<Span> for $ty
-      where
-        D: AsSpan<Span>,
-      {
-        #[cfg_attr(not(tarpaulin), inline(always))]
-        fn as_span(&self) -> &Span {
-          self.as_ref().as_span()
+        impl<D> $crate::utils::AsSpan<Span> for $ty
+        where
+          D: $crate::utils::AsSpan<Span>,
+        {
+          #[cfg_attr(not(tarpaulin), inline(always))]
+          fn as_span(&self) -> &Span {
+            self.as_ref().as_span()
+          }
         }
-      }
-    )*
-  };
-}
-
-wrapper_parser! {
-  std::boxed::Box<D>,
-  std::rc::Rc<D>,
-  std::sync::Arc<D>,
-}
-
-impl<D> IntoSpan<Span> for std::boxed::Box<D>
-where
-  D: IntoSpan<Span>,
-{
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn into_span(self) -> Span {
-    (*self).into_span()
+      )*
+    };
   }
-}
 
-impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for std::vec::Vec<D>
-where
-  D: Parseable<'a, I, T, Error>,
-  I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
-  T: Token<'a>,
-  Error: 'a,
-{
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
+  wrapper_parser! {
+    std::boxed::Box<D>,
+    std::rc::Rc<D>,
+    std::sync::Arc<D>,
+  }
+
+  impl<D> crate::utils::IntoSpan<Span> for std::boxed::Box<D>
   where
-    Self: Sized + 'a,
-    E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
+    D: crate::utils::IntoSpan<Span>,
   {
-    use chumsky::{IterParser, Parser};
-
-    <D as Parseable<'a, I, T, Error>>::parser()
-      .repeated()
-      .collect()
+    #[cfg_attr(not(tarpaulin), inline(always))]
+    fn into_span(self) -> Span {
+      (*self).into_span()
+    }
   }
-}
+
+  impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for std::vec::Vec<D>
+  where
+    D: Parseable<'a, I, T, Error>,
+    I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+    T: Token<'a>,
+    Error: 'a,
+  {
+    #[cfg_attr(not(tarpaulin), inline(always))]
+    fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
+    where
+      Self: Sized + 'a,
+      E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
+    {
+      use chumsky::{IterParser, Parser};
+
+      <D as Parseable<'a, I, T, Error>>::parser()
+        .repeated()
+        .collect()
+    }
+  }
+};
 
 #[cfg(feature = "either")]
 const _: () = {
-  use crate::utils::{AsSpan, IntoSpan};
+  use crate::utils::{AsSpan, IntoSpan, Span};
   use either::Either;
 
   impl<'a, L, R, I, T, Error> Parseable<'a, I, T, Error> for Either<L, R>
@@ -294,7 +302,7 @@ const _: () = {
     where
       Self: Sized + 'a,
       E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-      I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+      I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
       T: Token<'a>,
       Error: 'a,
     {
@@ -341,7 +349,7 @@ const _: () = {
 const _: () = {
   use among::Among;
 
-  use crate::utils::{AsSpan, IntoSpan};
+  use crate::utils::{AsSpan, IntoSpan, Span};
 
   impl<'a, L, M, R, I, T, Error> Parseable<'a, I, T, Error> for Among<L, M, R>
   where
@@ -355,7 +363,7 @@ const _: () = {
     where
       Self: Sized + 'a,
       E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-      I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+      I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
       T: Token<'a>,
       Error: 'a,
     {

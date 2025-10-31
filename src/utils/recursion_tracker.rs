@@ -1,3 +1,5 @@
+use logos::{Lexer, Logos};
+
 use crate::State;
 
 /// Error returned when recursion depth exceeds the configured limit.
@@ -269,4 +271,73 @@ impl RecursionLimiter {
 
 impl State for RecursionLimiter {
   type Error = RecursionLimitExceeded;
+}
+
+/// A recursion tracker trait.
+pub trait RecursionTracker {
+  /// The error type returned when the recursion limit is exceeded.
+  type Error;
+
+  /// Increases the recursion depth.
+  fn increase(&mut self);
+
+  /// Decreases the recursion depth.
+  fn decrease(&mut self);
+
+  /// Checks if the recursion limit has been exceeded.
+  fn check(&self) -> Result<(), Self::Error>;
+
+  /// Increases the recursion depth and checks the limit.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_and_check(&mut self) -> Result<(), Self::Error> {
+    self.increase();
+    self.check()
+  }
+}
+
+impl RecursionTracker for RecursionLimiter {
+  type Error = RecursionLimitExceeded;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase(&mut self) {
+    self.increase();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn decrease(&mut self) {
+    self.decrease();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn check(&self) -> Result<(), Self::Error> {
+    self.check()
+  }
+}
+
+impl<'a, T> RecursionTracker for Lexer<'a, T>
+where
+  T: Logos<'a>,
+  T::Extras: RecursionTracker,
+{
+  type Error = <T::Extras as RecursionTracker>::Error;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase(&mut self) {
+    self.extras.increase();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn decrease(&mut self) {
+    self.extras.decrease();
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn check(&self) -> Result<(), Self::Error> {
+    self.extras.check()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn increase_and_check(&mut self) -> Result<(), Self::Error> {
+    self.extras.increase_and_check()
+  }
 }
