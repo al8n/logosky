@@ -29,6 +29,10 @@ pub mod utils;
 #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
 pub mod chumsky;
 
+#[cfg(feature = "chumsky")]
+#[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
+pub use chumsky::LogoStream;
+
 mod keyword;
 mod punct;
 
