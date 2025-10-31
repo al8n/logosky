@@ -5,7 +5,7 @@ edition = "2024"
 repository = "https://github.com/al8n/logosky"
 homepage = "https://github.com/al8n/logosky"
 documentation = "https://docs.rs/logosky"
-description = "A seamless integration layer between Logos lexer and Chumsky parser combinator, providing zero-copy TokenStream adapter and Parseable trait for building robust parsers"
+description = "A seamless integration layer between Logos lexer and Chumsky parser combinator, providing zero-copy Tokenizer adapter and Parseable trait for building robust parsers"
 license = "MIT OR Apache-2.0"
 rust-version = "1.87"
 categories = ["parsing", "text-processing", "no-std"]
@@ -14,7 +14,13 @@ keywords = ["lexer", "parser", "logos", "chumsky", "combinator"]
 [features]
 default = ["std"]
 alloc = []
-std = ["thiserror/default", "bytes?/default", "hipstr?/default", "bstr?/default", "chumsky?/default"]
+std = [
+  "thiserror/default",
+  "bytes?/default",
+  "hipstr?/default",
+  "bstr?/default",
+  "chumsky?/default",
+]
 
 chumsky = ["dep:chumsky"]
 rowan = ["dep:rowan", "std", "generic-array"]
@@ -55,7 +61,9 @@ bstr = { version = "1", default-features = false, optional = true }
 bytes = { version = "1", default-features = false, optional = true }
 hipstr = { version = "0.8", default-features = false, optional = true }
 either = { version = "1", default-features = false, optional = true }
-smallvec = { version = "1", default-features = false, optional = true, features = ["const_new"] }
+smallvec = { version = "1", default-features = false, optional = true, features = [
+  "const_new",
+] }
 
 [dev-dependencies]
 criterion = "0.7"

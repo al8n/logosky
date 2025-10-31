@@ -5,7 +5,7 @@ use logosky::{
   utils::{AsSpan, IntoSpan, Span, Spanned},
 };
 
-type TokenStream<'a> = logosky::TokenStream<'a, SimpleToken>;
+type Tokenizer<'a> = logosky::Tokenizer<'a, SimpleToken>;
 
 // Define a simple token type for testing
 #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
@@ -213,7 +213,7 @@ mod token_stream_tests {
   #[test]
   fn test_token_stream_creation() {
     let input = "1 + 2";
-    let _stream = TokenStream::new(input);
+    let _stream = Tokenizer::new(input);
   }
 
   #[test]
@@ -225,7 +225,7 @@ mod token_stream_tests {
   #[test]
   fn test_token_stream_input() {
     let input = "123";
-    let stream = TokenStream::new(input);
+    let stream = Tokenizer::new(input);
     assert_eq!(stream.input(), input);
   }
 }
@@ -387,14 +387,14 @@ mod parseable_tests {
   #[derive(Debug, Clone, PartialEq)]
   struct Number(usize);
 
-  impl<'a, Error> Parseable<'a, TokenStream<'a>, SimpleToken, Error> for Number
+  impl<'a, Error> Parseable<'a, Tokenizer<'a>, SimpleToken, Error> for Number
   where
     Error: 'a,
   {
-    fn parser<E>() -> impl chumsky::Parser<'a, TokenStream<'a>, Self, E> + Clone
+    fn parser<E>() -> impl chumsky::Parser<'a, Tokenizer<'a>, Self, E> + Clone
     where
       Self: Sized + 'a,
-      E: chumsky::extra::ParserExtra<'a, TokenStream<'a>, Error = Error> + 'a,
+      E: chumsky::extra::ParserExtra<'a, Tokenizer<'a>, Error = Error> + 'a,
     {
       any()
         .filter(|tok: &logosky::Lexed<'_, SimpleToken>| {
@@ -408,9 +408,9 @@ mod parseable_tests {
   fn test_parseable_option() {
     // Test that Option<T> implements Parseable when T does
     let input = "42";
-    let stream = TokenStream::new(input);
+    let stream = Tokenizer::new(input);
 
-    let parser = <Option<Number> as Parseable<TokenStream<'_>, SimpleToken, _>>::parser::<
+    let parser = <Option<Number> as Parseable<Tokenizer<'_>, SimpleToken, _>>::parser::<
       extra::Err<EmptyErr>,
     >();
 
@@ -423,10 +423,10 @@ mod parseable_tests {
   fn test_parseable_vec() {
     // Test that Vec<T> implements Parseable when T does
     let input = "42 13";
-    let stream = TokenStream::new(input);
+    let stream = Tokenizer::new(input);
 
     let parser =
-      <Vec<Number> as Parseable<TokenStream<'_>, SimpleToken, _>>::parser::<extra::Err<EmptyErr>>();
+      <Vec<Number> as Parseable<Tokenizer<'_>, SimpleToken, _>>::parser::<extra::Err<EmptyErr>>();
 
     // The parser should successfully parse repeated numbers
     let result = parser.parse(stream);
@@ -437,9 +437,9 @@ mod parseable_tests {
   fn test_parseable_spanned() {
     // Test that Spanned<T> implements Parseable when T does
     let input = "42";
-    let stream = TokenStream::new(input);
+    let stream = Tokenizer::new(input);
 
-    let parser = <Spanned<Number> as Parseable<TokenStream<'_>, SimpleToken, _>>::parser::<
+    let parser = <Spanned<Number> as Parseable<Tokenizer<'_>, SimpleToken, _>>::parser::<
       extra::Err<EmptyErr>,
     >();
 

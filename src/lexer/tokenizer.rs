@@ -1,24 +1,24 @@
 use super::*;
 
-/// Iterators for [`TokenStream`]
+/// Iterators for [`Tokenizer`]
 pub mod iter;
 
 /// A zero-copy token stream adapter that bridges Logos and Chumsky.
 ///
-/// `TokenStream` is the core integration layer between [Logos](https://github.com/maciejhirsz/logos)
+/// `Tokenizer` is the core integration layer between [Logos](https://github.com/maciejhirsz/logos)
 /// lexical analysis and [Chumsky](https://github.com/zesterer/chumsky) parser combinators.
 /// It efficiently wraps a Logos token source and implements all necessary Chumsky input traits,
 /// allowing you to use Chumsky parsers directly on Logos tokens.
 ///
 /// # Zero-Copy Design
 ///
-/// `TokenStream` doesn't allocate or copy tokens. Instead, it maintains a cursor position
+/// `Tokenizer` doesn't allocate or copy tokens. Instead, it maintains a cursor position
 /// and calls Logos on-demand as the parser consumes tokens. This makes it efficient for
 /// large inputs and streaming scenarios.
 ///
 /// # State Management
 ///
-/// For stateful lexers (those with non-`()` `Extras`), `TokenStream` maintains the lexer
+/// For stateful lexers (those with non-`()` `Extras`), `Tokenizer` maintains the lexer
 /// state and passes it through token-by-token. This allows for context-sensitive lexing
 /// patterns.
 ///
@@ -40,7 +40,7 @@ pub mod iter;
 /// ## Basic Usage
 ///
 /// ```rust,ignore
-/// use logosky::{Token, TokenStream, TokenExt};
+/// use logosky::{Token, Tokenizer, TokenExt};
 /// use logos::Logos;
 /// use chumsky::prelude::*;
 ///
@@ -55,7 +55,7 @@ pub mod iter;
 ///
 /// // Create a token stream from input
 /// let input = "42 + 13";
-/// let stream = MyToken::lexer(input); // Returns TokenStream<'_, MyToken>
+/// let stream = MyToken::lexer(input); // Returns Tokenizer<'_, MyToken>
 ///
 /// // Use with Chumsky parsers
 /// let parser = any().repeated().collect::<Vec<_>>();
@@ -81,12 +81,12 @@ pub mod iter;
 ///
 /// let input = "{ { } }";
 /// let initial_state = LexerState::default();
-/// let stream = TokenStream::with_state(input, initial_state);
+/// let stream = Tokenizer::with_state(input, initial_state);
 /// ```
 ///
 /// ## Cloning and Backtracking
 ///
-/// TokenStream supports cloning (when the token type and extras are Clone/Copy),
+/// Tokenizer supports cloning (when the token type and extras are Clone/Copy),
 /// which is essential for Chumsky's backtracking:
 ///
 /// ```rust,ignore
@@ -99,13 +99,13 @@ pub mod iter;
 ///     alternative_parser.parse(checkpoint);
 /// }
 /// ```
-pub struct TokenStream<'a, T: Token<'a>> {
+pub struct Tokenizer<'a, T: Token<'a>> {
   pub(crate) input: &'a <T::Logos as Logos<'a>>::Source,
   pub(crate) state: <T::Logos as Logos<'a>>::Extras,
   pub(crate) cursor: usize,
 }
 
-impl<'a, T> Clone for TokenStream<'a, T>
+impl<'a, T> Clone for Tokenizer<'a, T>
 where
   T: Token<'a>,
   <T::Logos as Logos<'a>>::Extras: Clone,
@@ -120,7 +120,7 @@ where
   }
 }
 
-impl<'a, T> Copy for TokenStream<'a, T>
+impl<'a, T> Copy for Tokenizer<'a, T>
 where
   T: Token<'a> + Copy,
   <T::Logos as Logos<'a>>::Extras: Copy,
@@ -128,7 +128,7 @@ where
 {
 }
 
-impl<'a, T> core::fmt::Debug for TokenStream<'a, T>
+impl<'a, T> core::fmt::Debug for Tokenizer<'a, T>
 where
   T: Token<'a>,
   <T::Logos as Logos<'a>>::Source: core::fmt::Debug,
@@ -136,14 +136,14 @@ where
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    f.debug_struct("TokenStream")
+    f.debug_struct("Tokenizer")
       .field("input", &self.input)
       .field("state", &self.state)
       .finish()
   }
 }
 
-impl<'a, T> TokenStream<'a, T>
+impl<'a, T> Tokenizer<'a, T>
 where
   T: Token<'a>,
   <T::Logos as Logos<'a>>::Extras: Default,
@@ -155,7 +155,7 @@ where
   }
 }
 
-impl<'a, T: Token<'a>> TokenStream<'a, T> {
+impl<'a, T: Token<'a>> Tokenizer<'a, T> {
   /// Creates a new lexer from the given input and state.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_state(
@@ -170,7 +170,7 @@ impl<'a, T: Token<'a>> TokenStream<'a, T> {
   }
 }
 
-impl<'a, T: Token<'a>> TokenStream<'a, T> {
+impl<'a, T: Token<'a>> Tokenizer<'a, T> {
   /// Returns a reference to the input.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn input(&self) -> &<T::Logos as Logos<'a>>::Source {

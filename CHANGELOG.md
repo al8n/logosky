@@ -184,7 +184,7 @@ impl LosslessToken<'_> for MyToken {
 use logosky::Tokenizer;
 
 // Skip all leading trivia before parsing a token
-let parser = MyTokenStream::skip_trivias()
+let parser = MyTokenizer::skip_trivias()
   .ignore_then(my_token_parser);
 ```
 
@@ -194,6 +194,6 @@ let parser = MyTokenStream::skip_trivias()
 use logosky::Tokenizer;
 
 // Collect trivia tokens into a Vec
-let parser = MyTokenStream::collect_trivias::<Vec<_>, _>()
+let parser = MyTokenizer::collect_trivias::<Vec<_>, _>()
   .then(my_token_parser);
 ```

@@ -7,11 +7,11 @@ use ::chumsky::{
 
 use core::ops::Range;
 
-use crate::{Lexed, LosslessToken, State, TokenStream, utils};
+use crate::{Lexed, LosslessToken, State, Tokenizer, utils};
 
 use super::*;
 
-impl<'a, T> Input<'a> for TokenStream<'a, T>
+impl<'a, T> Input<'a> for Tokenizer<'a, T>
 where
   T: Token<'a>,
   <T::Logos as Logos<'a>>::Extras: Copy,
@@ -56,7 +56,7 @@ where
   }
 }
 
-impl<'a, T> ValueInput<'a> for TokenStream<'a, T>
+impl<'a, T> ValueInput<'a> for Tokenizer<'a, T>
 where
   T: Token<'a>,
   <T::Logos as Logos<'a>>::Extras: Copy,
@@ -67,7 +67,7 @@ where
   }
 }
 
-impl<'a, T> ExactSizeInput<'a> for TokenStream<'a, T>
+impl<'a, T> ExactSizeInput<'a> for Tokenizer<'a, T>
 where
   T: Token<'a>,
   <T::Logos as Logos<'a>>::Extras: Copy,
@@ -81,7 +81,7 @@ where
   }
 }
 
-impl<'a, T> SliceInput<'a> for TokenStream<'a, T>
+impl<'a, T> SliceInput<'a> for Tokenizer<'a, T>
 where
   T: Token<'a>,
   <T::Logos as Logos<'a>>::Extras: Copy,
@@ -118,7 +118,7 @@ where
   }
 }
 
-/// Tokenizer trait providing utilities for working with token streams.
+/// TokenStream trait providing utilities for working with token streams.
 ///
 /// This trait is automatically implemented for any type that implements Chumsky's
 /// [`SliceInput`] and [`ValueInput`] traits with the appropriate associated types.
@@ -137,7 +137,7 @@ where
 ///
 /// ```rust,ignore
 /// use chumsky::prelude::*;
-/// use logosky::{TokenStream, Tokenizer, LosslessToken};
+/// use logosky::{TokenStream, TokenStream, LosslessToken};
 ///
 /// type MyStream<'a> = TokenStream<'a, MyToken>;
 ///
@@ -164,7 +164,7 @@ where
 ///         })
 /// }
 /// ```
-pub trait Tokenizer<'a, T: Token<'a>>:
+pub trait TokenStream<'a, T: Token<'a>>:
   SliceInput<'a> + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>
 {
   /// Returns a parser that skips over trivia tokens.
@@ -191,7 +191,7 @@ pub trait Tokenizer<'a, T: Token<'a>>:
   ///
   /// ```rust,ignore
   /// use chumsky::prelude::*;
-  /// use logosky::Tokenizer;
+  /// use logosky::TokenStream;
   ///
   /// // Skip trivia before parsing a number
   /// let parser = MyTokenStream::skip_trivias()
@@ -207,7 +207,7 @@ pub trait Tokenizer<'a, T: Token<'a>>:
   ///
   /// # Performance
   ///
-  /// This method is implemented as a call to [`collect_trivias()`](Tokenizer::collect_trivias)
+  /// This method is implemented as a call to [`collect_trivias()`](TokenStream::collect_trivias)
   /// with `()` as the container type, which means it doesn't allocate and simply
   /// consumes trivia tokens without storing them.
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -247,7 +247,7 @@ pub trait Tokenizer<'a, T: Token<'a>>:
   ///
   /// ```rust,ignore
   /// use chumsky::prelude::*;
-  /// use logosky::{Tokenizer, utils::Spanned};
+  /// use logosky::{TokenStream, utils::Spanned};
   ///
   /// // Collect trivia into a Vec
   /// let parser = MyTokenStream::collect_trivias::<Vec<Spanned<MyToken>>, _>()
@@ -275,7 +275,7 @@ pub trait Tokenizer<'a, T: Token<'a>>:
   /// # Performance
   ///
   /// When using `()` as the container type, this method doesn't allocate and simply
-  /// skips over trivia tokens. This makes it equivalent to [`skip_trivias()`](Tokenizer::skip_trivias)
+  /// skips over trivia tokens. This makes it equivalent to [`skip_trivias()`](TokenStream::skip_trivias)
   /// in terms of performance.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn collect_trivias<C, E>() -> impl Parser<'a, Self, C, E> + Clone
@@ -303,7 +303,7 @@ pub trait Tokenizer<'a, T: Token<'a>>:
   }
 }
 
-impl<'a, T, I> Tokenizer<'a, T> for I
+impl<'a, T, I> TokenStream<'a, T> for I
 where
   I: SliceInput<'a> + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>,
   T: Token<'a>,

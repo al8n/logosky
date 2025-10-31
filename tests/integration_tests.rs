@@ -4,11 +4,11 @@ use chumsky::prelude::*;
 use logos::Logos;
 use logosky::{
   LosslessToken, Token, TokenExt,
-  chumsky::Tokenizer,
+  chumsky::TokenStream,
   utils::{Span, Spanned},
 };
 
-type TokenStream<'a> = logosky::TokenStream<'a, CalcToken>;
+type Tokenizer<'a> = logosky::Tokenizer<'a, CalcToken>;
 
 // A more complete example: a simple calculator language
 #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
@@ -124,7 +124,7 @@ impl Expr {
 // Parser implementation
 fn calc_parser<'a, I, E>() -> impl Parser<'a, I, Spanned<Expr>, E> + Clone
 where
-  I: Tokenizer<'a, CalcToken, Slice = &'a str> + 'a,
+  I: TokenStream<'a, CalcToken, Slice = &'a str> + 'a,
   E: extra::ParserExtra<'a, I, Error = EmptyErr> + 'a,
 {
   recursive(|expr| {
@@ -203,7 +203,7 @@ where
 #[test]
 fn test_simple_number() {
   let input = "42";
-  let stream = TokenStream::new(input);
+  let stream = Tokenizer::new(input);
   let parser = calc_parser::<_, extra::Err<EmptyErr>>();
 
   let result = parser.parse(stream).into_result();
@@ -213,7 +213,7 @@ fn test_simple_number() {
 #[test]
 fn test_simple_addition() {
   let input = "1 + 2";
-  let stream = TokenStream::new(input);
+  let stream = Tokenizer::new(input);
   let parser = calc_parser::<_, extra::Err<EmptyErr>>();
 
   let result = parser.parse(stream).into_result();
@@ -228,7 +228,7 @@ fn test_simple_addition() {
 fn test_operator_precedence() {
   // Test that multiplication has higher precedence than addition
   let input = "1 + 2 * 3";
-  let stream = TokenStream::new(input);
+  let stream = Tokenizer::new(input);
   let parser = calc_parser::<_, extra::Err<EmptyErr>>();
 
   let result = parser.parse(stream).into_result();
@@ -238,7 +238,7 @@ fn test_operator_precedence() {
 #[test]
 fn test_parentheses() {
   let input = "(1 + 2) * 3";
-  let stream = TokenStream::new(input);
+  let stream = Tokenizer::new(input);
   let parser = calc_parser::<_, extra::Err<EmptyErr>>();
 
   let result = parser.parse(stream).into_result();
@@ -369,7 +369,7 @@ fn test_json_array_tokenization() {
 #[test]
 fn test_token_stream_clone() {
   let input = "1 + 2";
-  let stream = TokenStream::new(input);
+  let stream = Tokenizer::new(input);
   let _stream2 = stream.clone();
 
   // Both streams should be able to parse independently
@@ -381,7 +381,7 @@ fn test_token_stream_clone() {
 #[test]
 fn test_empty_input() {
   let input = "";
-  let stream = TokenStream::new(input);
+  let stream = Tokenizer::new(input);
   let parser = calc_parser::<_, extra::Err<EmptyErr>>();
 
   let result = parser.parse(stream).into_result();
@@ -395,9 +395,9 @@ fn test_whitespace_handling() {
   let input2 = "1 + 2";
   let input3 = "  1   +   2  ";
 
-  let stream1 = TokenStream::new(input1);
-  let stream2 = TokenStream::new(input2);
-  let stream3 = TokenStream::new(input3);
+  let stream1 = Tokenizer::new(input1);
+  let stream2 = Tokenizer::new(input2);
+  let stream3 = Tokenizer::new(input3);
 
   let parser = calc_parser::<_, extra::Err<EmptyErr>>();
 
@@ -415,7 +415,7 @@ fn test_whitespace_handling() {
 #[test]
 fn test_span_tracking() {
   let input = "123";
-  let stream = TokenStream::new(input);
+  let stream = Tokenizer::new(input);
 
   let parser = calc_parser::<_, extra::Err<EmptyErr>>();
   let result = parser.parse(stream).into_result();
@@ -431,7 +431,7 @@ fn test_span_tracking() {
 #[test]
 fn test_complex_expression() {
   let input = "((1 + 2) * 3 - 4) / 5";
-  let stream = TokenStream::new(input);
+  let stream = Tokenizer::new(input);
   let parser = calc_parser::<_, extra::Err<EmptyErr>>();
 
   let result = parser.parse(stream).into_result();
@@ -442,7 +442,7 @@ fn test_complex_expression() {
 #[test]
 fn test_str_source() {
   let input: &str = "1 + 2";
-  let stream = TokenStream::new(input);
+  let stream = Tokenizer::new(input);
   let parser = calc_parser::<_, extra::Err<EmptyErr>>();
 
   let result = parser.parse(stream).into_result();
@@ -499,7 +499,7 @@ fn test_bytes_source() {
   }
 
   let input: CustomSource<Bytes> = bytes::Bytes::from_static(b"1 + 2").into();
-  let mut lexer = logosky::TokenStream::<ByteToken>::new(&input);
+  let mut lexer = logosky::Tokenizer::<ByteToken>::new(&input);
   let mut token_count = 0;
   while let Some(token) = lexer.iter().next() {
     if token.is_token() {
@@ -563,7 +563,7 @@ impl From<StatefulTokens> for StatefulToken {
 fn test_stateful_lexing() {
   let input = "hello world foo bar";
   let state = CounterState { count: 0 };
-  let stream = logosky::TokenStream::<StatefulToken>::with_state(input, state);
+  let stream = logosky::Tokenizer::<StatefulToken>::with_state(input, state);
 
   // The stream should work with stateful lexers
   assert_eq!(stream.input(), input);
@@ -645,7 +645,7 @@ impl From<TriviaTokens> for TriviaToken {
   }
 }
 
-type TriviaStream<'a> = logosky::TokenStream<'a, TriviaToken>;
+type TriviaStream<'a> = logosky::Tokenizer<'a, TriviaToken>;
 
 #[test]
 fn test_skip_trivias_basic() {

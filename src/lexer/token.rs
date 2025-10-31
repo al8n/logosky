@@ -4,7 +4,7 @@ use logos::Lexer;
 use crate::utils::{Span, Spanned};
 
 #[cfg(feature = "chumsky")]
-use crate::TokenStream;
+use crate::Tokenizer;
 
 pub use logos::Logos;
 
@@ -173,7 +173,7 @@ impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, <T::Logos as Logos<'a>>:
 /// The core trait for token types used with LogoSky.
 ///
 /// `Token` defines the interface that all token types must implement to work with
-/// LogoSky's [`TokenStream`] and Chumsky parsers. It bridges the gap between Logos'
+/// LogoSky's [`Tokenizer`] and Chumsky parsers. It bridges the gap between Logos'
 /// lexical analysis and the structured token representation needed for parsing.
 ///
 /// # Design
@@ -280,7 +280,7 @@ impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, <T::Logos as Logos<'a>>:
 /// }
 ///
 /// // Note: From<Logos> implementation would need access to the lexer
-/// // to get the matched text, which typically happens in the TokenStream
+/// // to get the matched text, which typically happens in the Tokenizer
 /// ```
 ///
 /// ## Working with Bytes
@@ -537,11 +537,11 @@ pub trait TokenExt<'a>: Token<'a> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   #[cfg(feature = "chumsky")]
   #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
-  fn lexer(input: &'a <Self::Logos as Logos<'a>>::Source) -> TokenStream<'a, Self>
+  fn lexer(input: &'a <Self::Logos as Logos<'a>>::Source) -> Tokenizer<'a, Self>
   where
     <Self::Logos as Logos<'a>>::Extras: Default,
   {
-    TokenStream::new(input)
+    Tokenizer::new(input)
   }
 
   /// Returns a lexer for the token type from the given input.
@@ -551,8 +551,8 @@ pub trait TokenExt<'a>: Token<'a> {
   fn lexer_with_state(
     input: &'a <Self::Logos as Logos<'a>>::Source,
     state: <Self::Logos as Logos<'a>>::Extras,
-  ) -> TokenStream<'a, Self> {
-    TokenStream::with_state(input, state)
+  ) -> Tokenizer<'a, Self> {
+    Tokenizer::with_state(input, state)
   }
 
   /// Lexes the next token from the given lexer, returning `None` if the input is exhausted.

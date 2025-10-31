@@ -16,7 +16,7 @@ use logosky::{
   utils::{Span, Spanned},
 };
 
-type TokenStream<'a> = logosky::TokenStream<'a, ConfigToken<'a>>;
+type Tokenizer<'a> = logosky::Tokenizer<'a, ConfigToken<'a>>;
 
 // Define tokens for a simple configuration language
 #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
@@ -89,10 +89,10 @@ struct Property {
 
 impl Property {
   // Property contains a nested Value, so we need to pass a parser for Value to address recursion problems.
-  fn parser_with<'a, E, P>(vp: P) -> impl Parser<'a, TokenStream<'a>, Self, E> + Clone
+  fn parser_with<'a, E, P>(vp: P) -> impl Parser<'a, Tokenizer<'a>, Self, E> + Clone
   where
-    P: Parser<'a, TokenStream<'a>, Value, E> + Clone + 'a,
-    E: chumsky::extra::ParserExtra<'a, TokenStream<'a>, Error = EmptyErr> + 'a,
+    P: Parser<'a, Tokenizer<'a>, Value, E> + Clone + 'a,
+    E: chumsky::extra::ParserExtra<'a, Tokenizer<'a>, Error = EmptyErr> + 'a,
   {
     // Parse identifier
     let identifier = any()
@@ -124,11 +124,11 @@ impl Property {
 }
 
 // Implement Parseable for Value
-impl<'a> Parseable<'a, TokenStream<'a>, ConfigToken<'a>, EmptyErr> for Value {
-  fn parser<E>() -> impl chumsky::Parser<'a, TokenStream<'a>, Self, E> + Clone
+impl<'a> Parseable<'a, Tokenizer<'a>, ConfigToken<'a>, EmptyErr> for Value {
+  fn parser<E>() -> impl chumsky::Parser<'a, Tokenizer<'a>, Self, E> + Clone
   where
     Self: Sized + 'a,
-    E: chumsky::extra::ParserExtra<'a, TokenStream<'a>, Error = EmptyErr> + 'a,
+    E: chumsky::extra::ParserExtra<'a, Tokenizer<'a>, Error = EmptyErr> + 'a,
   {
     recursive(|value| {
       // Parse string values
@@ -185,11 +185,11 @@ impl<'a> Parseable<'a, TokenStream<'a>, ConfigToken<'a>, EmptyErr> for Value {
   }
 }
 
-impl<'a> Parseable<'a, TokenStream<'a>, ConfigToken<'a>, EmptyErr> for Property {
-  fn parser<E>() -> impl chumsky::Parser<'a, TokenStream<'a>, Self, E> + Clone
+impl<'a> Parseable<'a, Tokenizer<'a>, ConfigToken<'a>, EmptyErr> for Property {
+  fn parser<E>() -> impl chumsky::Parser<'a, Tokenizer<'a>, Self, E> + Clone
   where
     Self: Sized + 'a,
-    E: chumsky::extra::ParserExtra<'a, TokenStream<'a>, Error = EmptyErr> + 'a,
+    E: chumsky::extra::ParserExtra<'a, Tokenizer<'a>, Error = EmptyErr> + 'a,
   {
     Property::parser_with(Value::parser())
   }
@@ -248,11 +248,10 @@ fn main() {
     println!("=== {} ===\n", name);
     println!("Input:\n{}\n", input);
 
-    let stream = TokenStream::<'_>::new(input);
-    let parser =
-      <Spanned<Property> as Parseable<TokenStream<'_>, ConfigToken<'_>, EmptyErr>>::parser::<
-        extra::Err<EmptyErr>,
-      >();
+    let stream = Tokenizer::<'_>::new(input);
+    let parser = <Spanned<Property> as Parseable<Tokenizer<'_>, ConfigToken<'_>, EmptyErr>>::parser::<
+      extra::Err<EmptyErr>,
+    >();
 
     match parser.parse(stream).into_result() {
       Ok(property) => {

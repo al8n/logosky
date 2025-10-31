@@ -4,7 +4,7 @@ use logos::{Logos, Source};
 
 use super::{Token, utils::Spanned};
 
-pub use tokenier::Tokenizer;
+pub use tokenier::TokenStream;
 
 mod tokenier;
 
@@ -24,7 +24,7 @@ mod tokenier;
 /// # Type Parameters
 ///
 /// - `'a`: The lifetime of the input source
-/// - `I`: The input stream type (typically [`TokenStream<'a, T>`](crate::TokenStream))
+/// - `I`: The input stream type (typically [`Tokenizer<'a, T>`](crate::Tokenizer))
 /// - `T`: The token type being parsed
 /// - `Error`: The error type produced during parsing
 ///
@@ -55,7 +55,7 @@ mod tokenier;
 ///
 /// impl<'a, I, T, Error> Parseable<'a, I, T, Error> for Expr
 /// where
-///     I: Tokenizer<'a, T>,
+///     I: TokenStream<'a, T>,
 ///     T: Token<'a>,
 ///     Error: 'a,
 /// {
@@ -110,7 +110,7 @@ mod tokenier;
 ///
 /// impl<'a, I, T, Error> Parseable<'a, I, T, Error> for Statement
 /// where
-///     I: Tokenizer<'a, T>,
+///     I: TokenStream<'a, T>,
 ///     T: Token<'a>,
 ///     Expr: Parseable<'a, I, T, Error>,
 ///     Declaration: Parseable<'a, I, T, Error>,
@@ -155,7 +155,7 @@ pub trait Parseable<'a, I, T, Error> {
   /// let parser = MyType::parser::<extra::Err<MyError>>();
   ///
   /// // Use it to parse a token stream
-  /// let stream = TokenStream::new(input);
+  /// let stream = Tokenizer::new(input);
   /// match parser.parse(stream).into_result() {
   ///     Ok(value) => println!("Parsed: {:?}", value),
   ///     Err(errors) => println!("Parse errors: {:?}", errors),
@@ -164,7 +164,7 @@ pub trait Parseable<'a, I, T, Error> {
   fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
   where
     Self: Sized + 'a,
-    I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+    I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a;
@@ -179,7 +179,7 @@ where
   where
     Self: Sized + 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-    I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+    I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
   {
@@ -199,7 +199,7 @@ where
   where
     Self: Sized + 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-    I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+    I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
   {
@@ -219,7 +219,7 @@ const _: () = {
         impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for $ty
         where
           D: Parseable<'a, I, T, Error>,
-          I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+          I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
           T: Token<'a>,
           Error: 'a,
         {
@@ -267,7 +267,7 @@ const _: () = {
   impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for std::vec::Vec<D>
   where
     D: Parseable<'a, I, T, Error>,
-    I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+    I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
     T: Token<'a>,
     Error: 'a,
   {
@@ -302,7 +302,7 @@ const _: () = {
     where
       Self: Sized + 'a,
       E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-      I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+      I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
       T: Token<'a>,
       Error: 'a,
     {
@@ -363,7 +363,7 @@ const _: () = {
     where
       Self: Sized + 'a,
       E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-      I: Tokenizer<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+      I: TokenStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
       T: Token<'a>,
       Error: 'a,
     {
