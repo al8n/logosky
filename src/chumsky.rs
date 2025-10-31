@@ -2,7 +2,11 @@ pub use chumsky::*;
 
 use logos::{Logos, Source};
 
-use super::{Token, Tokenizer, utils::Spanned};
+use super::{Token, utils::Spanned};
+
+pub use tokenier::Tokenizer;
+
+mod tokenier;
 
 /// A trait for types that can be parsed from a token stream using Chumsky parsers.
 ///

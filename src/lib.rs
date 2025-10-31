@@ -34,8 +34,6 @@ mod punct;
 
 #[doc(hidden)]
 pub mod __private {
-  #[cfg(feature = "chumsky")]
-  pub use super::lexer::Tokenizer;
   pub use super::{lexer::token, utils};
 
   #[cfg(feature = "chumsky")]

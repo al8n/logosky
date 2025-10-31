@@ -10,7 +10,7 @@
 
 use chumsky::prelude::*;
 use logos::Logos;
-use logosky::{Lexed, Token, TokenStream, Tokenizer, utils::Spanned};
+use logosky::{Lexed, Token, TokenStream, chumsky::Tokenizer, utils::Spanned};
 
 // Step 1: Define the tokens using Logos
 #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]

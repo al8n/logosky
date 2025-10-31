@@ -3,7 +3,8 @@
 use chumsky::prelude::*;
 use logos::Logos;
 use logosky::{
-  LosslessToken, Token, TokenExt, Tokenizer,
+  LosslessToken, Token, TokenExt,
+  chumsky::Tokenizer,
   utils::{Span, Spanned},
 };
 

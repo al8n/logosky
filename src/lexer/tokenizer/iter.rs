@@ -1,3 +1,5 @@
+use chumsky::input::Input;
+
 use super::*;
 
 /// An iterator over the tokens produced by a [`TokenStream`].
