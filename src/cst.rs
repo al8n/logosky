@@ -293,11 +293,11 @@ where
   ///
   /// See also: [`rowan::GreenNodeBuilder::start_node`]
   #[inline]
-  pub fn start_node(&self, kind: Lang::Kind)
-  where
-    Lang::Kind: Into<rowan::SyntaxKind>,
-  {
-    self.builder.borrow_mut().start_node(kind.into());
+  pub fn start_node(&self, kind: Lang::Kind) {
+    self
+      .builder
+      .borrow_mut()
+      .start_node(Lang::kind_to_raw(kind));
   }
 
   /// Starts a new node at a previously created checkpoint.
@@ -326,14 +326,11 @@ where
   ///
   /// See also: [`rowan::GreenNodeBuilder::start_node_at`]
   #[inline]
-  pub fn start_node_at(&self, checkpoint: rowan::Checkpoint, kind: Lang::Kind)
-  where
-    Lang::Kind: Into<rowan::SyntaxKind>,
-  {
+  pub fn start_node_at(&self, checkpoint: rowan::Checkpoint, kind: Lang::Kind) {
     self
       .builder
       .borrow_mut()
-      .start_node_at(checkpoint, kind.into());
+      .start_node_at(checkpoint, Lang::kind_to_raw(kind));
   }
 
   /// Adds a token with the given kind and text to the current node.
@@ -352,11 +349,11 @@ where
   ///
   /// See also: [`rowan::GreenNodeBuilder::token`]
   #[inline]
-  pub fn token(&self, kind: Lang::Kind, text: &str)
-  where
-    Lang::Kind: Into<rowan::SyntaxKind>,
-  {
-    self.builder.borrow_mut().token(kind.into(), text);
+  pub fn token(&self, kind: Lang::Kind, text: &str) {
+    self
+      .builder
+      .borrow_mut()
+      .token(Lang::kind_to_raw(kind), text);
   }
 
   /// Finishes the current node started with [`start_node()`](Self::start_node)
