@@ -175,7 +175,7 @@ jobs:
         path: ~/.cargo
         key: ${{ runner.os }}-coverage-dotcargo
     - name: Run test
-      run: cargo test --all-features
+      run: cargo hack test --each-feature
   
   # sanitizer:
   #   name: sanitizer

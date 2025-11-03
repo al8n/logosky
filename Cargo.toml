@@ -69,6 +69,16 @@ smallvec = { version = "1", default-features = false, optional = true, features 
 criterion = "0.7"
 tempfile = "3"
 
+[[example]]
+name = "simple_parser"
+path = "examples/simple_parser.rs"
+required-features = ["chumsky", "std"]
+
+[[example]]
+name = "custom_parser"
+path = "examples/custom_parser.rs"
+required-features = ["chumsky", "std"]
+
 [profile.bench]
 opt-level = 3
 debug = false

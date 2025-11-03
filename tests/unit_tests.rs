@@ -1,3 +1,5 @@
+#![cfg(feature = "chumsky")]
+
 use logos::Logos;
 use logosky::{
   Token, TokenExt,

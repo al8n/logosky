@@ -1,4 +1,5 @@
 #![allow(warnings)]
+#![cfg(feature = "chumsky")]
 
 use chumsky::prelude::*;
 use logos::Logos;

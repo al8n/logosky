@@ -1,10 +1,12 @@
 use core::ops::Range;
 
 pub use expected::*;
+pub use generic_vec::GenericVec;
 pub use incomplete_token::*;
 pub use lexeme::*;
 pub use malformed_literal::*;
 pub use positioned_char::*;
+pub use to_equivalent::*;
 pub use unclosed::*;
 pub use unexpected_end::*;
 pub use unexpected_keyword::*;
@@ -30,14 +32,17 @@ pub mod sdl_display;
 /// A module for displaying in syntax trees.
 pub mod syntax_tree_display;
 
-pub use to_equivalent::*;
+/// Bounded, stack-allocated vectors for no-alloc environments.
+pub mod generic_vec;
 
 /// Syntax definitions and traits.
 #[cfg(feature = "generic-array")]
 #[cfg_attr(docsrs, doc(cfg(feature = "generic-array")))]
 pub mod syntax;
 
-mod to_equivalent;
+#[cfg(feature = "generic-array")]
+#[cfg_attr(docsrs, doc(cfg(feature = "generic-array")))]
+pub use generic_array::typenum;
 
 /// A module for container types with small size optimizations.
 #[cfg(feature = "smallvec")]
@@ -49,6 +54,7 @@ mod incomplete_token;
 mod lexeme;
 mod malformed_literal;
 mod positioned_char;
+mod to_equivalent;
 mod unclosed;
 mod unexpected_end;
 mod unexpected_keyword;

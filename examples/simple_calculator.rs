@@ -1,3 +1,5 @@
+#![cfg(feature = "chumsky")]
+
 //! A simple calculator that demonstrates basic usage of logosky.
 //!
 //! This example shows how to:

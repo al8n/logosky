@@ -1,3 +1,5 @@
+#![cfg(feature = "chumsky")]
+
 //! A custom parser example demonstrating the Parseable trait.
 //!
 //! This example shows how to:
