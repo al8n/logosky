@@ -1,24 +1,6 @@
 use derive_more::Display;
 
-#[cfg(not(any(feature = "std", feature = "alloc")))]
-type Message = &'static str;
-
-#[cfg(any(feature = "std", feature = "alloc"))]
-type Message = std::borrow::Cow<'static, str>;
-
-struct Inner;
-
-impl Inner {
-  #[cfg(not(any(feature = "std", feature = "alloc")))]
-  const fn const_new(msg: &'static str) -> Message {
-    msg
-  }
-
-  #[cfg(any(feature = "std", feature = "alloc"))]
-  const fn const_new(msg: &'static str) -> Message {
-    std::borrow::Cow::Borrowed(msg)
-  }
-}
+use super::Message;
 
 /// A zero-sized marker indicating the parser expected more bytes when the file ended.
 ///
@@ -91,7 +73,7 @@ pub struct CharacterHint;
 /// `UnexpectedEnd` represents situations where the parser or lexer expected more input
 /// but encountered the end of the stream instead (EOF, EOT, EOS, etc.). It's designed to:
 ///
-/// - Avoid allocations by using `Cow<'static, str>` for names
+/// - Avoid allocations by using [`Message`] for names
 /// - Provide natural-reading error messages
 /// - Be composable with custom hint types
 /// - Implement `Error` trait for standard error handling
@@ -106,7 +88,7 @@ pub struct CharacterHint;
 ///
 /// # Components
 ///
-/// 1. **Name** (`Option<Cow<'static, str>>`): What ended (e.g., "file", "block comment")
+/// 1. **Name** (`Option<Message>`): What ended (e.g., "file", "block comment")
 /// 2. **Hint** (generic `Hint`): What was expected next
 ///
 /// Together, these create error messages like:
@@ -116,7 +98,7 @@ pub struct CharacterHint;
 ///
 /// # Zero-Copy Design
 ///
-/// `UnexpectedEnd` uses `Cow<'static, str>` for the name field, which means:
+/// `UnexpectedEnd` uses [`Message`] for the name field, which means:
 /// - Static strings (`&'static str`) involve no allocation
 /// - Dynamic strings (`String`) are only allocated when necessary
 /// - Most common cases (EOF, EOT, EOS) use compile-time constants
@@ -233,7 +215,7 @@ impl<Hint> core::error::Error for UnexpectedEnd<Hint> where
 impl UnexpectedEnd<FileHint> {
   /// A constant representing an unexpected **end of file** (EOF).
   pub const EOF: Self = Self {
-    name: Some(Inner::const_new("file")),
+    name: Some(Message::from_static("file")),
     hint: FileHint,
   };
 }
@@ -241,7 +223,7 @@ impl UnexpectedEnd<FileHint> {
 impl UnexpectedEnd<TokenHint> {
   /// A constant representing an unexpected **end of token stream** (EOT).
   pub const EOT: Self = Self {
-    name: Some(Inner::const_new("token stream")),
+    name: Some(Message::from_static("token stream")),
     hint: TokenHint,
   };
 }
@@ -249,7 +231,7 @@ impl UnexpectedEnd<TokenHint> {
 impl UnexpectedEnd<CharacterHint> {
   /// A constant representing an unexpected **end of string** (EOS).
   pub const EOS: Self = Self {
-    name: Some(Inner::const_new("string")),
+    name: Some(Message::from_static("string")),
     hint: CharacterHint,
   };
 }
@@ -390,31 +372,11 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// assert_eq!(error.name(), Some("file"));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  #[cfg(any(feature = "std", feature = "alloc"))]
   pub const fn name(&self) -> Option<&str> {
-    match self.name.as_ref() {
-      Some(name) => match name {
-        Message::Borrowed(borrowed) => Some(borrowed),
-        Message::Owned(owned) => Some(owned.as_str()),
-      },
+    match &self.name {
+      Some(name) => Some(name.as_str()),
       None => None,
     }
-  }
-
-  /// Returns the name, if any.
-  ///
-  /// ## Example
-  ///
-  /// ```rust
-  /// use logosky::utils::UnexpectedEnd;
-  ///
-  /// let error = UnexpectedEnd::EOF;
-  /// assert_eq!(error.name(), Some("file"));
-  /// ```
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  #[cfg(not(any(feature = "std", feature = "alloc")))]
-  pub const fn name(&self) -> Option<&'static str> {
-    self.name
   }
 
   /// Returns the hint.

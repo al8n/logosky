@@ -129,6 +129,13 @@
 
 ### New Utility Types
 
+- **`Message`**: Feature-aware message container that seamlessly adapts between `&'static str`
+  in `no_std` + `no_alloc` builds and `Cow<'static, str>` when `alloc` or `std` is enabled
+  - Unified API with `new`, `from_static`, `from_string`, and zero-copy accessors
+  - Implements common conversion traits (`From`, `Into`, `AsRef`, `Borrow`, `AsMut`, `Deref`)
+    for ergonomic integration with existing error types
+  - Re-exported from `logosky::utils` for downstream use and backed by doctested examples
+
 - **`Errors<E, C>`**: Environment-adaptive error collection container
   - Automatically adapts to allocation environment:
     - **no_std (no alloc)**: Uses `GenericVec<E, 2>` with fixed capacity of 2 errors
