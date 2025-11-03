@@ -1,4 +1,4 @@
-#![cfg(feature = "chumsky")]
+#![cfg(all(feature = "chumsky", any(feature = "std", feature = "alloc")))]
 
 use logos::Logos;
 use logosky::{
