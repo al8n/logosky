@@ -259,10 +259,9 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ```rust
   ///
   /// # #[cfg(feature = "std")] {
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
-  /// use std::borrow::Cow;
+  /// use logosky::utils::{UnexpectedEnd, FileHint, Message};
   ///
-  /// let error = UnexpectedEnd::maybe_name(Some(Cow::Borrowed("string")), FileHint);
+  /// let error = UnexpectedEnd::maybe_name(Some(Message::from_static("string")), FileHint);
   /// assert_eq!(error.name(), Some("string"));
   /// # }
   /// ```
@@ -277,10 +276,9 @@ impl<Hint> UnexpectedEnd<Hint> {
   ///
   /// ```rust
   /// # #[cfg(feature = "std")] {
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
-  /// use std::borrow::Cow;
+  /// use logosky::utils::{UnexpectedEnd, FileHint, Message};
   ///
-  /// let error = UnexpectedEnd::with_name(Cow::Borrowed("block"), FileHint);
+  /// let error = UnexpectedEnd::with_name(Message::from_static("block"), FileHint);
   /// assert_eq!(error.name(), Some("block"));
   /// # }
   /// ```
@@ -327,10 +325,9 @@ impl<Hint> UnexpectedEnd<Hint> {
   ///
   /// ```rust
   /// # #[cfg(feature = "std")] {
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
-  /// use std::borrow::Cow;
+  /// use logosky::utils::{UnexpectedEnd, FileHint, Message};
   ///
-  /// let mut error = UnexpectedEnd::with_name(Cow::Borrowed("old"), FileHint);
+  /// let mut error = UnexpectedEnd::with_name(Message::from_static("old"), FileHint);
   /// error.update_name(Some("new"));
   /// assert_eq!(error.name(), Some("new"));
   /// # }
@@ -347,10 +344,9 @@ impl<Hint> UnexpectedEnd<Hint> {
   ///
   /// ```rust
   /// # #[cfg(feature = "std")] {
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
-  /// use std::borrow::Cow;
+  /// use logosky::utils::{UnexpectedEnd, FileHint, Message};
   ///
-  /// let mut error = UnexpectedEnd::with_name(Cow::Borrowed("block"), FileHint);
+  /// let mut error = UnexpectedEnd::with_name(Message::from_static("block"), FileHint);
   /// error.clear_name();
   /// assert_eq!(error.name(), None);
   /// # }
@@ -485,10 +481,9 @@ impl<Hint> UnexpectedEnd<Hint> {
   ///
   /// ```rust
   /// # #[cfg(feature = "std")] {
-  /// use logosky::utils::{UnexpectedEnd, FileHint, TokenHint};
-  /// use std::borrow::Cow;
+  /// use logosky::utils::{UnexpectedEnd, FileHint, TokenHint, Message};
   ///
-  /// let file_error = UnexpectedEnd::with_name(Cow::Borrowed("file"), FileHint);
+  /// let file_error = UnexpectedEnd::with_name(Message::from_static("file"), FileHint);
   /// let token_error = file_error.reconstruct_without_name(|_| TokenHint);
   /// assert_eq!(token_error.name(), None);
   /// # }
