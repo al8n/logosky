@@ -27,7 +27,7 @@
 //!
 //! ```rust
 //! # #[cfg(not(feature = "generic-array"))] {
-//! use logosky::utils::{GenericVec, typenum};
+//! use logosky::utils::GenericVec;
 //!
 //! fn validate_input(input: &[&str]) -> Result<(), GenericVec<String, 10>> {
 //!     let mut errors = GenericVec::new();
@@ -54,7 +54,7 @@
 //!
 //! ```rust
 //! # #[cfg(not(feature = "generic-array"))] {
-//! use logosky::utils::{GenericVec, typenum};
+//! use logosky::utils::GenericVec;
 //!
 //! let mut vec: GenericVec<i32, 8> = GenericVec::new();
 //! vec.push(1);
