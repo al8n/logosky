@@ -414,7 +414,7 @@ where
   /// #     type Component = Component;
   /// #     type COMPONENTS = U3;
   /// #     fn possible_components() -> generic_array::GenericArray<Component, U3> {
-  /// #         generic_array::arr![Component; Component::A, Component::B, Component::C]
+  /// #         [Component::A, Component::B, Component::C].into_iter().collect()
   /// #     }
   /// # }
   /// let error = IncompleteSyntax::<MySyntax>::new(Component::A);
