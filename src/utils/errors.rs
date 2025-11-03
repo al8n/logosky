@@ -36,6 +36,9 @@
 
 use core::fmt::{Debug, Display};
 
+#[cfg(any(feature = "alloc", feature = "std"))]
+use std::vec::Vec;
+
 #[cfg(not(any(feature = "alloc", feature = "std")))]
 use crate::utils::GenericVec;
 
@@ -63,7 +66,7 @@ pub type DefaultContainer<E> = GenericVec<E, 2>;
 ///
 /// Uses a heap-allocated `Vec` for unlimited error collection.
 #[cfg(any(feature = "alloc", feature = "std"))]
-pub type DefaultContainer<E> = std::vec::Vec<E>;
+pub type DefaultContainer<E> = Vec<E>;
 
 /// A collection of errors that adapts to the allocation environment.
 ///
