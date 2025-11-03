@@ -1,5 +1,6 @@
 use core::ops::Range;
 
+pub use errors::Errors;
 pub use expected::*;
 pub use generic_vec::GenericVec;
 pub use incomplete_token::*;
@@ -49,6 +50,7 @@ pub use generic_array::typenum;
 #[cfg_attr(docsrs, doc(cfg(feature = "smallvec")))]
 pub mod container;
 
+mod errors;
 mod expected;
 mod incomplete_token;
 mod lexeme;

@@ -38,6 +38,7 @@ ascii = { version = "1", default-features = false }
 derive_more = { version = "2", default-features = false, features = [
   "display",
   "deref",
+  "deref_mut",
   "as_ref",
   "from",
   "into",
@@ -70,8 +71,8 @@ criterion = "0.7"
 tempfile = "3"
 
 [[example]]
-name = "simple_parser"
-path = "examples/simple_parser.rs"
+name = "simple_calculator"
+path = "examples/simple_calculator.rs"
 required-features = ["chumsky", "std"]
 
 [[example]]
