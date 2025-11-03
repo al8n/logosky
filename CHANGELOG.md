@@ -129,6 +129,27 @@
 
 ### New Utility Types
 
+- **`Errors<E, C>`**: Environment-adaptive error collection container
+  - Automatically adapts to allocation environment:
+    - **no_std (no alloc)**: Uses `GenericVec<E, 2>` with fixed capacity of 2 errors
+    - **alloc/std**: Uses `Vec<E>` for unlimited error collection
+  - Generic over error type `E` and container `C` for custom containers
+  - Provides consistent API across all environments
+  - Methods: `new()`, `push()`, `try_push()`, `len()`, `is_empty()`, `clear()`, `iter()`, etc.
+  - Alloc-specific methods: `with_capacity()`, `reserve()`, `pop()`, `retain()`, `truncate()`
+  - Implements `Display`, `IntoIterator`, `FromIterator`, and standard traits
+  - Perfect for collecting multiple parsing errors in no-alloc environments
+
+- **`GenericVec<T, N>`**: Bounded, stack-allocated vector for no-alloc environments
+  - Two implementations via feature flags:
+    - **Without `generic-array`**: Uses `const N: usize` (const-generic)
+    - **With `generic-array`**: Uses `typenum` for type-level capacity
+  - Designed for error collection in parsers without heap allocation
+  - Silently drops elements when capacity is exceeded (by design)
+  - Comprehensive API: `capacity()`, `is_full()`, `remaining_capacity()`, `try_push()`, `pop()`, `clear()`, `retain()`, `truncate()`, `iter_mut()`, etc.
+  - Implements `Index`, `IndexMut`, `PartialEq`, `Eq`, `PartialOrd`, `Ord`, `Hash`
+  - Safe abstraction over `MaybeUninit` arrays
+
 - **`Lexeme<Char>`**: Zero-copy description of a lexeme in source code
   - Represents either a single positioned character or a byte span
   - Designed for error reporting without string allocation
