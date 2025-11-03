@@ -1,14 +1,58 @@
-# UNRELEASED
-
-# 0.3.0 (October 27th, 2025)
+# 0.3.0 (Nov 3rd, 2025)
 
 ## Breaking Changes
+
+- **Parser error types now include span tracking**: `UnexpectedToken` and `UnexpectedKeyword` now include a `span` field to track error locations
+  - All constructors now require a `Span` parameter as the first argument
+  - `into_components()` now returns `(Span, ...)` instead of just the token/keyword components
+  - This change improves error reporting by providing precise source locations for parser errors
+  - **Migration guide**:
+
+    ```rust
+    // Before
+    let error = UnexpectedToken::with_found("}", Expected::one("{"));
+    let (found, expected) = error.into_components();
+
+    // After
+    let error = UnexpectedToken::with_found(span, "}", Expected::one("{"));
+    let (span, found, expected) = error.into_components();
+    ```
 
 - **Chumsky is now optional**: The `chumsky` dependency is now behind the `chumsky` feature flag (enabled by default with `std` feature)
   - Use `default-features = false` if you only need the lexer functionality
   - Renamed `parseable.rs` → `chumsky.rs` to better reflect the optional nature
 
 ## New Features
+
+### Enhanced Error Position Tracking
+
+- **`span()` getter**: Added `span()` method to `UnexpectedToken` and `UnexpectedKeyword` for retrieving error locations
+- **`bump()` method**: Added `bump(offset)` method to all span-containing error types for adjusting error positions:
+  - `UnexpectedToken::bump(offset)` - Adjust token error positions
+  - `UnexpectedKeyword::bump(offset)` - Adjust keyword error positions
+  - `UnexpectedPrefix::bump(offset)` - Adjust prefix error positions
+  - `UnexpectedSuffix::bump(offset)` - Adjust suffix error positions
+  - `MalformedLiteral::bump(offset)` - Adjust malformed literal positions
+  - `IncompleteToken::bump(offset)` - Adjust incomplete token positions
+  - `Unclosed::bump(offset)` - Adjust unclosed delimiter positions
+  - Useful for adjusting error positions when combining spans from different contexts
+
+### Documentation Improvements
+
+- **Comprehensive doc tests**: Added detailed documentation with working examples for all error type methods
+  - `Expected<T>` - Complete documentation for expected value types with 3 doc tests
+  - `UnexpectedToken<T, TK>` - Full API documentation with 14 doc tests covering all methods and use cases
+  - `UnexpectedKeyword<S>` - Complete method documentation with 8 doc tests
+  - **Module-level documentation**: Added detailed explanations of design philosophy and common patterns
+  - All 25 examples are tested and guaranteed to compile
+
+- **Enhanced examples with custom error wrappers**: Both `simple_calculator` and `custom_parser` examples now demonstrate:
+  - Custom error types compatible with logosky's `Span` type
+  - Rich error reporting with detailed location information
+  - Implementation of Chumsky's `Error` and `LabelError` traits for custom error types
+  - User-friendly error messages showing precise source locations
+  - Example error format: `at 10..15: unexpected token Number, expected Plus`
+  - **Run examples**: `cargo run --example simple_calculator --features chumsky`
 
 ### No-alloc Support
 
@@ -20,23 +64,27 @@
 ### Macros for Token Types
 
 - **`keyword!` macro**: Define keyword tokens with zero boilerplate
+
   ```rust
   keyword! {
     (Let, "LET", "let"),
     (Const, "CONST", "const"),
   }
   ```
+
   - Automatically implements common traits (`Debug`, `Clone`, `PartialEq`, etc.)
   - Generic over span type `S` and optional content `C`
   - Provides `AsRef<str>` and `Borrow<str>` implementations
 
 - **`punctuator!` macro**: Define punctuation tokens with minimal code
+
   ```rust
   punctuator! {
     (LParen, "L_PAREN", "("),
     (RParen, "R_PAREN", ")"),
   }
   ```
+
   - Similar ergonomics to `keyword!` macro
   - Includes methods for accessing raw string literals
 
@@ -132,7 +180,7 @@
 - Improved error message clarity in various utility types
 - Better handling of edge cases in lexer position tracking
 
-# 0.2.0 (October 20th, 2025)
+# 0.2.0 (Oct 20th, 2025)
 
 ## New Features
 
@@ -147,7 +195,6 @@
   - `collect_trivias<C, E>()`: Parser that collects trivia tokens into a container
     - Useful for formatters, linters, and tools that need to preserve or analyze trivia
     - Generic over any container type implementing `Container<Spanned<T>>`
-
 
 ## Examples
 

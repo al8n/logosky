@@ -1,3 +1,50 @@
+//! Unexpected token error type for parser error reporting.
+//!
+//! This module provides the [`UnexpectedToken`] type, which represents parser errors
+//! when an unexpected token is encountered. It captures both the location of the error,
+//! what token was found (if any), and what tokens were expected.
+//!
+//! # Design Philosophy
+//!
+//! `UnexpectedToken` is designed to provide rich, actionable error messages:
+//! - **Location tracking**: The `span` field pinpoints exactly where the error occurred
+//! - **Optional found token**: Distinguishes between unexpected tokens and end-of-input
+//! - **Flexible expectations**: Can express single or multiple alternative expected tokens
+//! - **Position adjustment**: The `bump()` method allows adjusting error positions when
+//!   combining errors from different parsing contexts
+//!
+//! # Common Patterns
+//!
+//! ## End of Input Errors
+//!
+//! When the parser reaches the end of input unexpectedly, use constructors without a found token:
+//!
+//! ```
+//! use logosky::utils::{UnexpectedToken, Span};
+//!
+//! // Simple end-of-input error
+//! let error: UnexpectedToken<&str, &str> = UnexpectedToken::expected_one(
+//!     Span::new(100, 100),
+//!     "}"
+//! );
+//! assert_eq!(format!("{}", error), "unexpected end of input, expected '}'");
+//! ```
+//!
+//! ## Unexpected Token Errors
+//!
+//! When a specific token was found but something else was expected:
+//!
+//! ```
+//! use logosky::utils::{UnexpectedToken, Expected, Span};
+//!
+//! let error = UnexpectedToken::with_found(
+//!     Span::new(10, 15),
+//!     "else",
+//!     Expected::one("if")
+//! );
+//! assert_eq!(format!("{}", error), "unexpected token 'else', expected 'if'");
+//! ```
+
 use crate::utils::{Expected, Span};
 
 /// An error representing an unexpected token encountered during parsing.

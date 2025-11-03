@@ -1,3 +1,8 @@
+//! Expected value enumeration for parser error messages.
+//!
+//! This module provides the [`Expected`] type, which is used to represent what
+//! token or value was expected during parsing when an error occurs.
+
 use derive_more::{From, IsVariant, TryUnwrap, Unwrap};
 
 /// An enumeration representing expected tokens or values in parsing contexts.

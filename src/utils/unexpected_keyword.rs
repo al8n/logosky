@@ -1,3 +1,43 @@
+//! Unexpected keyword error type for keyword-based parser error reporting.
+//!
+//! This module provides the [`UnexpectedKeyword`] type, which is a specialized error type
+//! for keyword-based parsing where the expected values are always static string literals.
+//!
+//! # Why UnexpectedKeyword?
+//!
+//! While [`UnexpectedToken`](super::UnexpectedToken) is general-purpose, `UnexpectedKeyword`
+//! is optimized for the common case of keyword-based languages where:
+//! - The found value is always a string (or string-like type)
+//! - The expected values are always known string literals (keywords)
+//! - There's always a found value (unlike tokens which might hit end-of-input)
+//!
+//! # Common Use Cases
+//!
+//! - Language keywords: `if`, `while`, `for`, `class`, `fn`, etc.
+//! - Control flow keywords: `break`, `continue`, `return`
+//! - Declaration keywords: `let`, `const`, `var`, `type`
+//! - Access modifiers: `pub`, `private`, `protected`
+//!
+//! # Example
+//!
+//! ```
+//! use logosky::utils::{UnexpectedKeyword, Span};
+//!
+//! // Parser expected "async" but found "sync"
+//! let error = UnexpectedKeyword::expected_one(
+//!     Span::new(0, 4),
+//!     "sync",
+//!     "async"
+//! );
+//!
+//! assert_eq!(error.found(), &"sync");
+//! assert_eq!(error.span(), Span::new(0, 4));
+//! assert_eq!(
+//!     format!("{}", error),
+//!     "unexpected keyword 'sync', expected 'async'"
+//! );
+//! ```
+
 use crate::utils::{Expected, Span};
 
 /// An error representing an unexpected keyword encountered during parsing.

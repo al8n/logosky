@@ -3,10 +3,11 @@
 //! This example shows how to:
 //! - Define tokens using Logos
 //! - Create a Token implementation
-//! - Build a recursive descent parser with Chumsky
+//! - Build a recursive descent parser with Chumsky using Rich error reporting
 //! - Evaluate arithmetic expressions
+//! - Handle parse errors with detailed error messages
 //!
-//! Run with: cargo run --example simple_calculator
+//! Run with: cargo run --example simple_calculator --features chumsky
 
 use chumsky::prelude::*;
 use logos::Logos;
@@ -80,6 +81,117 @@ impl<'a> From<CalcTokens<'a>> for CalcToken<'a> {
     };
     CalcToken { kind, logos }
   }
+}
+
+impl std::fmt::Display for CalcToken<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self.logos {
+      CalcTokens::Plus => write!(f, "+"),
+      CalcTokens::Minus => write!(f, "-"),
+      CalcTokens::Multiply => write!(f, "*"),
+      CalcTokens::Divide => write!(f, "/"),
+      CalcTokens::LParen => write!(f, "("),
+      CalcTokens::RParen => write!(f, ")"),
+      CalcTokens::Number(n) => write!(f, "{}", n),
+    }
+  }
+}
+
+// Step 3.5: Define a custom error type with rich error reporting
+#[derive(Debug, Clone, PartialEq)]
+enum CalcError {
+  UnexpectedToken {
+    span: logosky::utils::Span,
+    found: Option<CalcTokenKind>,
+    expected: Vec<CalcTokenKind>,
+  },
+  InvalidNumber {
+    span: logosky::utils::Span,
+    value: String,
+    message: String,
+  },
+  Custom {
+    span: logosky::utils::Span,
+    message: String,
+  },
+}
+
+impl std::fmt::Display for CalcError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      CalcError::UnexpectedToken {
+        span,
+        found,
+        expected,
+      } => {
+        write!(f, "at {}..{}: ", span.start(), span.end())?;
+        match found {
+          Some(kind) => write!(f, "unexpected token {:?}", kind)?,
+          None => write!(f, "unexpected end of input")?,
+        }
+        if !expected.is_empty() {
+          write!(f, ", expected ")?;
+          if expected.len() == 1 {
+            write!(f, "{:?}", expected[0])?;
+          } else {
+            write!(f, "one of: ")?;
+            for (i, exp) in expected.iter().enumerate() {
+              if i > 0 {
+                write!(f, ", ")?;
+              }
+              write!(f, "{:?}", exp)?;
+            }
+          }
+        }
+        Ok(())
+      }
+      CalcError::InvalidNumber {
+        span,
+        value,
+        message,
+      } => {
+        write!(
+          f,
+          "at {}..{}: invalid number '{}': {}",
+          span.start(),
+          span.end(),
+          value,
+          message
+        )
+      }
+      CalcError::Custom { span, message } => {
+        write!(f, "at {}..{}: {}", span.start(), span.end(), message)
+      }
+    }
+  }
+}
+
+impl std::error::Error for CalcError {}
+
+impl<'a, I, L> chumsky::error::LabelError<'a, I, L> for CalcError
+where
+  I: chumsky::input::Input<'a, Span = logosky::utils::Span>,
+{
+  fn expected_found<E>(
+    _expected: E,
+    _found: Option<chumsky::util::Maybe<I::Token, &'a I::Token>>,
+    span: I::Span,
+  ) -> Self
+  where
+    E: IntoIterator<Item = L>,
+  {
+    CalcError::Custom {
+      span,
+      message: "parse error".to_string(),
+    }
+  }
+
+  fn label_with(&mut self, _label: L) {}
+}
+
+impl<'a, I> chumsky::error::Error<'a, I> for CalcError where
+  I: chumsky::input::Input<'a, Span = logosky::utils::Span>
+{
 }
 
 // Step 4: Define the AST
@@ -161,7 +273,7 @@ impl std::fmt::Display for Expr {
 fn calc_parser<'a, I, E>() -> impl Parser<'a, I, Spanned<Expr>, E> + Clone
 where
   I: LogoStream<'a, CalcToken<'a>, Slice = &'a str> + 'a,
-  E: extra::ParserExtra<'a, I, Error = EmptyErr> + 'a,
+  E: extra::ParserExtra<'a, I, Error = CalcError> + 'a,
 {
   recursive(|expr| {
     // Parse numbers
@@ -169,15 +281,26 @@ where
       .try_map(|tok: Lexed<'_, CalcToken<'_>>, span| match tok {
         Lexed::Token(t) => {
           if let CalcTokens::Number(n) = t.logos {
-            Ok(Spanned::new(
-              span,
-              Expr::Number(n.parse().map_err(|_| EmptyErr::default())?),
-            ))
+            n.parse()
+              .map(|num| Spanned::new(span, Expr::Number(num)))
+              .map_err(|e| CalcError::InvalidNumber {
+                span,
+                value: n.to_string(),
+                message: e.to_string(),
+              })
           } else {
-            Err(EmptyErr::default())
+            Err(CalcError::UnexpectedToken {
+              span,
+              found: Some(t.kind()),
+              expected: vec![CalcTokenKind::Number],
+            })
           }
         }
-        _ => Err(EmptyErr::default()),
+        _ => Err(CalcError::UnexpectedToken {
+          span,
+          found: None,
+          expected: vec![CalcTokenKind::Number],
+        }),
       })
       .boxed();
 
@@ -185,25 +308,54 @@ where
     let atom = number
       .or(
         any()
-          .try_map(|tok: Lexed<'_, CalcToken<'_>>, _| match tok {
+          .try_map(|tok: Lexed<'_, CalcToken<'_>>, span| match tok {
             Lexed::Token(t) if t.kind() == CalcTokenKind::LParen => Ok(()),
-            _ => Err(EmptyErr::default()),
+            Lexed::Token(t) => Err(CalcError::UnexpectedToken {
+              span,
+              found: Some(t.kind()),
+              expected: vec![CalcTokenKind::LParen, CalcTokenKind::Number],
+            }),
+            _ => Err(CalcError::UnexpectedToken {
+              span,
+              found: None,
+              expected: vec![CalcTokenKind::LParen, CalcTokenKind::Number],
+            }),
           })
           .ignore_then(expr.clone())
-          .then_ignore(any().try_map(|tok: Lexed<'_, CalcToken<'_>>, _| match tok {
-            Lexed::Token(t) if t.kind() == CalcTokenKind::RParen => Ok(()),
-            _ => Err(EmptyErr::default()),
-          })),
+          .then_ignore(
+            any().try_map(|tok: Lexed<'_, CalcToken<'_>>, span| match tok {
+              Lexed::Token(t) if t.kind() == CalcTokenKind::RParen => Ok(()),
+              Lexed::Token(t) => Err(CalcError::UnexpectedToken {
+                span,
+                found: Some(t.kind()),
+                expected: vec![CalcTokenKind::RParen],
+              }),
+              _ => Err(CalcError::UnexpectedToken {
+                span,
+                found: None,
+                expected: vec![CalcTokenKind::RParen],
+              }),
+            }),
+          ),
       )
       .boxed();
 
     // Parse multiplication and division (higher precedence)
     let factor = atom.clone().foldl(
       any()
-        .try_map(|tok: Lexed<'_, CalcToken<'_>>, _| match tok {
+        .try_map(|tok: Lexed<'_, CalcToken<'_>>, span| match tok {
           Lexed::Token(t) if t.kind() == CalcTokenKind::Multiply => Ok(BinaryOp::Mul),
           Lexed::Token(t) if t.kind() == CalcTokenKind::Divide => Ok(BinaryOp::Div),
-          _ => Err(EmptyErr::default()),
+          Lexed::Token(t) => Err(CalcError::UnexpectedToken {
+            span,
+            found: Some(t.kind()),
+            expected: vec![CalcTokenKind::Multiply, CalcTokenKind::Divide],
+          }),
+          _ => Err(CalcError::UnexpectedToken {
+            span,
+            found: None,
+            expected: vec![CalcTokenKind::Multiply, CalcTokenKind::Divide],
+          }),
         })
         .then(atom)
         .repeated(),
@@ -223,10 +375,19 @@ where
     // Parse addition and subtraction (lower precedence)
     factor.clone().foldl(
       any()
-        .try_map(|tok: Lexed<'_, CalcToken<'_>>, _| match tok {
+        .try_map(|tok: Lexed<'_, CalcToken<'_>>, span| match tok {
           Lexed::Token(t) if t.kind() == CalcTokenKind::Plus => Ok(BinaryOp::Add),
           Lexed::Token(t) if t.kind() == CalcTokenKind::Minus => Ok(BinaryOp::Sub),
-          _ => Err(EmptyErr::default()),
+          Lexed::Token(t) => Err(CalcError::UnexpectedToken {
+            span,
+            found: Some(t.kind()),
+            expected: vec![CalcTokenKind::Plus, CalcTokenKind::Minus],
+          }),
+          _ => Err(CalcError::UnexpectedToken {
+            span,
+            found: None,
+            expected: vec![CalcTokenKind::Plus, CalcTokenKind::Minus],
+          }),
         })
         .then(factor)
         .repeated(),
@@ -269,8 +430,8 @@ fn main() {
     // Create a token stream from the input
     let stream = Tokenizer::<CalcToken<'_>>::new(expr_str);
 
-    // Parse the expression
-    let parser = calc_parser::<_, extra::Err<EmptyErr>>();
+    // Parse the expression with rich error reporting
+    let parser = calc_parser::<_, extra::Err<CalcError>>();
     let result = parser.parse(stream).into_result();
 
     match result {
@@ -284,7 +445,9 @@ fn main() {
         }
       }
       Err(errors) => {
-        println!("Parse errors: {:?}\n", errors);
+        for error in errors {
+          println!("Parse error: {}\n", error);
+        }
       }
     }
   }
