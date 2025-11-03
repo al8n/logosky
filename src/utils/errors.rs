@@ -387,7 +387,7 @@ mod tests {
   #[cfg(any(feature = "alloc", feature = "std"))]
   #[test]
   fn test_with_capacity() {
-    let errors: Errors<String> = Errors::with_capacity(10);
+    let errors: Errors<&str> = Errors::with_capacity(10);
     assert_eq!(errors.capacity(), 10);
     assert!(errors.is_empty());
   }
