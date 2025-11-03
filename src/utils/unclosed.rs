@@ -84,4 +84,24 @@ impl<Delimiter> Unclosed<Delimiter> {
   {
     self.delimiter
   }
+
+  /// Bumps both the start and end positions of the span by the given offset.
+  ///
+  /// This is useful when adjusting error positions after processing or
+  /// when combining spans from different contexts.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// use logosky::utils::{Unclosed, Span};
+  ///
+  /// let mut unclosed = Unclosed::new(Span::new(5, 10), '(');
+  /// unclosed.bump(10);
+  /// assert_eq!(unclosed.span(), Span::new(15, 20));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn bump(&mut self, offset: usize) {
+    self.span.bump_end(offset);
+    self.span.bump_start(offset);
+  }
 }

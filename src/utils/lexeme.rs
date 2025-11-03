@@ -275,7 +275,7 @@ impl<Char> Lexeme<Char> {
         positioned_char.bump_position(n);
       }
       Self::Span(span) => {
-        span.bump_span(n);
+        span.bump(n);
       }
     }
 

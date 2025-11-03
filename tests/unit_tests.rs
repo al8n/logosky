@@ -131,9 +131,9 @@ mod span_tests {
   }
 
   #[test]
-  fn test_span_bump_span() {
+  fn test_span_bump() {
     let mut span = Span::new(0, 10);
-    span.bump_span(5);
+    span.bump(5);
     assert_eq!(span.start(), 5);
     assert_eq!(span.end(), 15);
     assert_eq!(span.len(), 10);

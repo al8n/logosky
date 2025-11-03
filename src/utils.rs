@@ -1,14 +1,17 @@
 use core::ops::Range;
 
+pub use expected::*;
 pub use incomplete_token::*;
 pub use lexeme::*;
 pub use malformed_literal::*;
 pub use positioned_char::*;
 pub use unclosed::*;
 pub use unexpected_end::*;
+pub use unexpected_keyword::*;
 pub use unexpected_lexeme::*;
 pub use unexpected_prefix::*;
 pub use unexpected_suffix::*;
+pub use unexpected_token::*;
 pub use unknown_lexeme::*;
 
 /// Trackers for preventing infinite recursion in parsers.
@@ -41,15 +44,18 @@ mod to_equivalent;
 #[cfg_attr(docsrs, doc(cfg(feature = "smallvec")))]
 pub mod container;
 
+mod expected;
 mod incomplete_token;
 mod lexeme;
 mod malformed_literal;
 mod positioned_char;
 mod unclosed;
 mod unexpected_end;
+mod unexpected_keyword;
 mod unexpected_lexeme;
 mod unexpected_prefix;
 mod unexpected_suffix;
+mod unexpected_token;
 mod unknown_lexeme;
 
 /// A lightweight span representing a range of positions in source input.
@@ -118,7 +124,7 @@ mod unknown_lexeme;
 /// assert_eq!(span.end(), 30);
 ///
 /// // Shift the entire span
-/// span.bump_span(5);
+/// span.bump(5);
 /// assert_eq!(span.start(), 20);
 /// assert_eq!(span.end(), 35);
 /// ```
@@ -270,11 +276,11 @@ impl Span {
   /// use logosky::utils::Span;
   ///
   /// let mut span = Span::new(5, 15);
-  /// span.bump_span(10);
+  /// span.bump(10);
   /// assert_eq!(span, Span::new(15, 25));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn bump_span(&mut self, n: usize) -> &mut Self {
+  pub const fn bump(&mut self, n: usize) -> &mut Self {
     self.start += n;
     self.end += n;
     self

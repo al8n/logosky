@@ -19,7 +19,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ```rust
   /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme, PositionedChar};
   ///
-  /// let error = UnexpectedSuffix::new(
+  /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::new(
   ///     Span::new(0, 5),
   ///     Lexeme::Char(PositionedChar::with_position('x', 5))
   /// );
@@ -48,7 +48,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ```rust
   /// use logosky::utils::{UnexpectedSuffix, Span, PositionedChar};
   ///
-  /// let error = UnexpectedSuffix::from_char(
+  /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::from_char(
   ///    Span::new(0, 5),
   ///    PositionedChar::with_position('x', 5)
   /// );
@@ -85,7 +85,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ```rust
   /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme};
   ///
-  /// let error: UnexpectedSuffix<char> = UnexpectedSuffix::from_suffix(
+  /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::from_suffix(
   ///   Span::new(0, 5),
   ///   Span::new(5, 10)
   /// );
@@ -102,7 +102,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ```rust
   /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme, PositionedChar};
   ///
-  /// let error = UnexpectedSuffix::new(
+  /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::new(
   ///   Span::new(0, 5),
   ///   Lexeme::Char(PositionedChar::with_position('x', 5))
   /// );
@@ -130,7 +130,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ```rust
   /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme, PositionedChar};
   ///
-  /// let error = UnexpectedSuffix::new(
+  /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::new(
   ///     Span::new(0, 5),
   ///     Lexeme::Char(PositionedChar::with_position('x', 5))
   /// );
@@ -148,7 +148,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ```rust
   /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme, PositionedChar};
   ///
-  /// let error = UnexpectedSuffix::new(
+  /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::new(
   ///    Span::new(0, 5),
   ///   Lexeme::Char(PositionedChar::with_position('x', 5))
   /// );
@@ -170,7 +170,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ```rust
   /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme, PositionedChar};
   ///
-  /// let error = UnexpectedSuffix::new(
+  /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::new(
   ///   Span::new(0, 5),
   ///   Lexeme::Char(PositionedChar::with_position('x', 5))
   /// );
@@ -184,6 +184,29 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_components(self) -> (Span, Lexeme<Char>) {
     (self.token, self.suffix)
+  }
+
+  /// Bumps both the start and end positions of the token span by the given offset.
+  ///
+  /// This is useful when adjusting error positions after processing or
+  /// when combining spans from different contexts.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme, PositionedChar};
+  ///
+  /// let mut error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::new(
+  ///   Span::new(0, 5),
+  ///   Lexeme::Char(PositionedChar::with_position('x', 5))
+  /// );
+  /// error.bump(10);
+  /// assert_eq!(error.token(), Span::new(10, 15));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn bump(&mut self, offset: usize) {
+    self.token.bump_end(offset);
+    self.token.bump_start(offset);
   }
 }
 

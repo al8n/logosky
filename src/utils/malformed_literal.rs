@@ -65,4 +65,14 @@ impl<Knowledge> MalformedLiteral<Knowledge> {
   pub fn into_components(self) -> (Span, Option<Knowledge>) {
     (self.span, self.knowledge)
   }
+
+  /// Bumps both the start and end positions of the span by the given offset.
+  ///
+  /// This is useful when adjusting error positions after processing or
+  /// when combining spans from different contexts.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn bump(&mut self, offset: usize) {
+    self.span.bump_end(offset);
+    self.span.bump_start(offset);
+  }
 }
