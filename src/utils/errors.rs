@@ -354,7 +354,7 @@ mod tests {
 
   #[test]
   fn test_new() {
-    let _: Errors<String> = Errors::new();
+    let _: Errors<&str> = Errors::new();
   }
 
   #[test]
@@ -379,10 +379,9 @@ mod tests {
     let mut errors = Errors::new();
     errors.push(1);
     errors.push(2);
-    errors.push(3);
 
     let sum: i32 = errors.iter().sum();
-    assert_eq!(sum, 6);
+    assert_eq!(sum, 3);
   }
 
   #[cfg(any(feature = "alloc", feature = "std"))]

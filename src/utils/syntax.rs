@@ -29,6 +29,7 @@
 //! ## Const-Generic Version (Default)
 //!
 //! ```rust
+//! # #[cfg(not(feature = "generic-array"))] {
 //! use logosky::utils::syntax::{Syntax, IncompleteSyntax};
 //! use core::fmt;
 //!
@@ -74,6 +75,7 @@
 //! // Error message shows all missing components
 //! assert!(format!("{}", error).contains("identifier"));
 //! assert!(format!("{}", error).contains("initializer"));
+//! # }
 //! ```
 //!
 //! ## Type-Level Version (with generic-array feature)
