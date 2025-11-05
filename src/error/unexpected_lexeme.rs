@@ -150,6 +150,56 @@ impl<Char, Hint> core::ops::DerefMut for UnexpectedLexeme<Char, Hint> {
   }
 }
 
+impl<Char> UnexpectedLexeme<Char, LineTerminator> {
+  /// Creates a new `UnexpectedLineTerminator` from a lexeme and line terminator hint.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::{error::{UnexpectedLexeme, LineTerminator}, utils::{Lexeme, PositionedChar}};
+  ///
+  /// let error = UnexpectedLexeme::new_line(5, '\n');
+  ///
+  /// assert_eq!(*error.hint(), LineTerminator::NewLine);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new_line(pos: usize, ch: Char) -> Self {
+    Self::from_char(pos, ch, LineTerminator::NewLine)
+  }
+
+  /// Creates a new unexpected carriage return error.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::{error::{UnexpectedLexeme, LineTerminator}, utils::{Lexeme, PositionedChar}};
+  ///
+  /// let error = UnexpectedLexeme::carriage_return(5, '\r');
+  ///
+  /// assert_eq!(*error.hint(), LineTerminator::CarriageReturn);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn carriage_return(pos: usize, ch: Char) -> Self {
+    Self::from_char(pos, ch, LineTerminator::CarriageReturn)
+  }
+
+  /// Creates a new unexpected carriage return + newline error.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::{error::{UnexpectedLexeme, LineTerminator}, utils::Span};
+  ///
+  /// let error = UnexpectedLexeme::<char, _>::carriage_return_new_line((5..7).into());
+  ///
+  /// assert_eq!(*error.hint(), LineTerminator::CarriageReturnNewLine);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn carriage_return_new_line(span: Span) -> Self {
+    Self::from_span_const(span, LineTerminator::CarriageReturnNewLine)
+  }
+}
+
 impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// Creates a new `UnexpectedLexeme` from a lexeme and hint.
   ///
