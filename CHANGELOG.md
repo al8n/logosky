@@ -2,6 +2,42 @@
 
 ## Breaking Changes
 
+- **Unicode escape error types renamed for clarity**: Variable-length unicode escape types now use "Variable" prefix instead of "Braced"
+  - `BracedUnicodeEscapeError` → `VariableUnicodeEscapeError`
+  - `EmptyBracedUnicodeEscape` → `EmptyVariableUnicodeEscape`
+  - `TooManyDigitsInBracedUnicodeEscape` → `TooManyDigitsInVariableUnicodeEscape`
+  - `MalformedBracedUnicodeSequence` → `MalformedVariableUnicodeSequence`
+  - This change better reflects the variable-length nature of `\u{...}` escapes (1-6 hex digits)
+  - **Migration guide**:
+
+    ```rust
+    // Before
+    let error = BracedUnicodeEscapeError::empty(span);
+
+    // After
+    let error = VariableUnicodeEscapeError::empty(span);
+    ```
+
+- **Escape sequence utility types renamed for clarity**: Types in `utils::escaped` now have more descriptive names
+  - `EscapedCharacter` → `SingleCharEscape` (represents single-char escapes like `\n`, `\t`)
+  - `EscapedSequence` → `MultiCharEscape` (represents multi-char escapes like `\xXX`, `\u{...}`)
+  - `Escaped` → `EscapedLexeme` (wrapper enum for both escape types)
+  - Field renames for consistency:
+    - `char` → `character` (in `SingleCharEscape`)
+    - `seq` → `content` (in `MultiCharEscape`)
+    - `escaped` → `lexeme` (in `EscapedLexeme`)
+  - **Migration guide**:
+
+    ```rust
+    // Before
+    let escaped = EscapedCharacter::new(positioned_char, span);
+    let c = escaped.char();
+
+    // After
+    let escaped = SingleCharEscape::new(positioned_char, span);
+    let c = escaped.character();
+    ```
+
 - **Error types now have lifetime parameters**: `Expected`, `UnexpectedToken`, and `UnexpectedKeyword` now include a lifetime parameter `'a`
   - `Expected<T>` → `Expected<'a, T>` (to support `OneOf(&'a [T])`)
   - `UnexpectedToken<T, TK>` → `UnexpectedToken<'a, T, TK>`
@@ -41,6 +77,25 @@
 
 ## New Features
 
+### Hexadecimal Escape Sequence Error Handling
+
+- **`HexEscapeError<Char>`**: New error type for `\xXX` hex escape sequences
+  - `Incomplete(IncompleteHexEscape)` - For sequences with fewer than 2 hex digits (e.g., `\x`, `\xA`)
+  - `Malformed(MalformedHexEscape<Char>)` - For invalid hexadecimal characters (e.g., `\xGG`, `\xZ9`)
+  - Follows the same design patterns as `UnicodeEscapeError`
+  - Provides precise error reporting with span tracking and invalid character positions
+
+- **`IncompleteHexEscape`**: Error for incomplete hex escape sequences
+  - Tracks the span of the incomplete sequence
+  - Occurs when hex escape has fewer than 2 hex digits
+  - Methods: `span()`, `bump(n)` for position adjustment
+
+- **`MalformedHexEscape<Char>`**: Error for malformed hex escape sequences
+  - Contains `InvalidHexDigits<Char, 2>` with the invalid characters and their positions
+  - Tracks both the span and the specific invalid hex digits encountered
+  - Methods: `digits()`, `digits_ref()`, `span()`, `is_incomplete()`, `bump(n)`
+  - Type alias: `InvalidHexEscapeDigits<Char>` for `InvalidHexDigits<Char, 2>`
+
 ### Enhanced Error Position Tracking
 
 - **`span()` getter**: Added `span()` method to `UnexpectedToken` and `UnexpectedKeyword` for retrieving error locations
@@ -62,6 +117,30 @@
   - `UnexpectedKeyword<S>` - Complete method documentation with 8 doc tests
   - **Module-level documentation**: Added detailed explanations of design philosophy and common patterns
   - All 25 examples are tested and guaranteed to compile
+
+- **Enhanced unicode escape error documentation**: Complete rewrite of `error::unicode_escape` module
+  - Added 100+ lines of module-level documentation explaining:
+    - Design philosophy for unicode escape error handling
+    - Format specifications for `\uXXXX` (fixed, 4 digits) vs `\u{...}` (variable, 1-6 digits)
+    - Error type hierarchy and when each error occurs
+    - Common error patterns and examples
+  - Added comprehensive examples to all public types and methods
+  - Improved naming clarity (Variable prefix for variable-length escapes)
+
+- **Enhanced escape sequence utility documentation**: Complete rewrite of `utils::escaped` module
+  - Added detailed module-level documentation explaining:
+    - Design philosophy for escape sequence representation
+    - Distinction between single-char (`\n`) and multi-char (`\xXX`) escapes
+    - Zero-copy design principles
+    - Usage patterns in lexer implementations
+  - Improved type names for better clarity
+  - Added examples demonstrating typical usage patterns
+  - Added missing `lexeme()` getter method to `EscapedLexeme`
+
+- **Hexadecimal escape error documentation**: New `error::hex_escape` module with comprehensive documentation
+  - Module-level docs explaining hex escape format (`\xXX`) and error types
+  - Detailed examples for all error variants
+  - Clear distinction between incomplete (fewer digits) and malformed (invalid hex) errors
 
 - **Enhanced examples with custom error wrappers**: Both `simple_calculator` and `custom_parser` examples now demonstrate:
   - Custom error types compatible with logosky's `Span` type
@@ -128,6 +207,21 @@
   - All error types include rich context for better diagnostics
 
 ### New Utility Types
+
+- **`InvalidHexDigits<Char, N>`**: Generic, zero-copy container for storing invalid hex digit characters
+  - Stack-allocated container for collecting invalid hex digits during escape sequence parsing
+  - Two implementations via feature flags:
+    - **Without `generic-array`** (default): Uses `const N: usize` (const-generic implementation)
+    - **With `generic-array`**: Uses `N: ArrayLength` for type-level capacity specification
+  - Internally uses `GenericVec<PositionedChar<Char>, N>` for efficient storage
+  - Methods: `from_positioned_char()`, `from_char()`, `from_array()`, `try_from_iter()`, `push()`, `push_char()`, `len()`, `is_full()`, `bump(n)`
+  - Implements `Deref<Target = [PositionedChar<Char>]>` for convenient access
+  - Specialized for different escape formats:
+    - `InvalidHexDigits<Char, 2>` for hex escapes (`\xXX`)
+    - `InvalidHexDigits<Char, 4>` for fixed unicode escapes (`\uXXXX`)
+    - `InvalidHexDigits<Char, 6>` for variable unicode escapes (`\u{XXXXXX}`)
+  - Enables precise error reporting by tracking both invalid characters and their positions
+  - Zero heap allocation design for no-alloc environments
 
 - **`Message`**: Feature-aware message container that seamlessly adapts between `&'static str`
   in `no_std` + `no_alloc` builds and `Cow<'static, str>` when `alloc` or `std` is enabled
