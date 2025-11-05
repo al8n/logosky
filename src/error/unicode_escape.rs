@@ -623,7 +623,7 @@ impl core::error::Error for EmptyVariableUnicodeEscape {}
 ///
 /// // Error for a span of invalid characters
 /// let error: MalformedVariableUnicodeSequence<char> =
-///     MalformedVariableUnicodeSequence::from_span((10, 15).into());
+///     MalformedVariableUnicodeSequence::from_range((10, 15).into());
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct MalformedVariableUnicodeSequence<Char = char>(Lexeme<Char>);
@@ -690,10 +690,10 @@ impl<Char> MalformedVariableUnicodeSequence<Char> {
   /// use logosky::utils::Span;
   ///
   /// let error: MalformedVariableUnicodeSequence<char> =
-  ///     MalformedVariableUnicodeSequence::from_span(Span::new(10, 15));
+  ///     MalformedVariableUnicodeSequence::from_range(Span::new(10, 15));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn from_span(span: Span) -> Self {
+  pub const fn from_range(span: Span) -> Self {
     Self(Lexeme::Range(span))
   }
 
@@ -1505,7 +1505,7 @@ impl<Char> UnicodeEscapeError<Char> {
   #[inline]
   pub const fn invalid_variable_unicode_escape_sequence(span: Span) -> Self {
     Self::Variable(VariableUnicodeEscapeError::Malformed(
-      MalformedVariableUnicodeSequence::from_span(span),
+      MalformedVariableUnicodeSequence::from_range(span),
     ))
   }
 

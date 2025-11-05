@@ -489,7 +489,7 @@ impl MultiCharEscape {
 /// );
 ///
 /// assert_eq!(escape.span(), Span::new(5, 9));
-/// assert!(escape.lexeme_ref().is_span());
+/// assert!(escape.lexeme_ref().is_range());
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct EscapedLexeme<Char = char> {
@@ -575,7 +575,7 @@ impl<Char> EscapedLexeme<Char> {
   ///     Span::new(6, 9)    // Just "xFF"
   /// );
   ///
-  /// assert!(escape.lexeme_ref().is_span());
+  /// assert!(escape.lexeme_ref().is_range());
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_sequence(span: Span, content: Span) -> Self {

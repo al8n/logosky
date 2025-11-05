@@ -254,7 +254,7 @@
 - **`Lexeme<Char>`**: Zero-copy description of a lexeme in source code
   - Represents either a single positioned character or a byte span
   - Designed for error reporting without string allocation
-  - Provides `is_char()`, `is_span()`, `unwrap_char()`, `unwrap_span()` helpers
+  - Provides `is_char()`, `is_range()`, `unwrap_char()`, `unwrap_range()` helpers
 
 - **`UnknownLexeme<Char, Knowledge>`**: Error structure for unrecognized lexemes
   - Pairs an unrecognized lexeme with diagnostic knowledge

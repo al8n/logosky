@@ -69,7 +69,7 @@ pub type UnexpectedLineTerminator<Char> = UnexpectedLexeme<Char, LineTerminator>
 ///     OneOf(Vec<TokenKind>),
 /// }
 ///
-/// let error = UnexpectedLexeme::from_span(
+/// let error = UnexpectedLexeme::from_range(
 ///     Span::new(10, 15),
 ///     Expected::OneOf(vec![TokenKind::Semicolon, TokenKind::Comma])
 /// );
@@ -180,7 +180,7 @@ impl<Char> UnexpectedLexeme<Char, LineTerminator> {
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn carriage_return_new_line(span: Span) -> Self {
-    Self::from_span_const(span, LineTerminator::CarriageReturnNewLine)
+    Self::from_range_const(span, LineTerminator::CarriageReturnNewLine)
   }
 }
 
@@ -252,15 +252,15 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// ```rust
   /// use logosky::{error::UnexpectedLexeme, utils::Span};
   ///
-  /// let error: UnexpectedLexeme<char, _> = UnexpectedLexeme::from_span_const(
+  /// let error: UnexpectedLexeme<char, _> = UnexpectedLexeme::from_range_const(
   ///     Span::new(10, 15),
   ///     "semicolon"
   /// );
   ///
-  /// assert!(error.is_span());
+  /// assert!(error.is_range());
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn from_span_const(span: Span, hint: Hint) -> Self {
+  pub const fn from_range_const(span: Span, hint: Hint) -> Self {
     Self::new(Lexeme::Range(span), hint)
   }
 
@@ -271,13 +271,13 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// ```rust
   /// use logosky::error::UnexpectedLexeme;
   ///
-  /// let error: UnexpectedLexeme<char, _> = UnexpectedLexeme::from_span(10..15, "closing brace");
+  /// let error: UnexpectedLexeme<char, _> = UnexpectedLexeme::from_range(10..15, "closing brace");
   ///
-  /// assert!(error.is_span());
-  /// assert_eq!(error.unwrap_span().start(), 10);
+  /// assert!(error.is_range());
+  /// assert_eq!(error.unwrap_range().start(), 10);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn from_span(span: impl Into<Span>, hint: Hint) -> Self {
+  pub fn from_range(span: impl Into<Span>, hint: Hint) -> Self {
     Self::new(Lexeme::Range(span.into()), hint)
   }
 

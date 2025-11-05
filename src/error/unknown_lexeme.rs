@@ -62,7 +62,7 @@ use crate::utils::{CharLen, Lexeme, PositionedChar, Span, human_display::Display
 ///     Multiple(Vec<TokenKind>),
 /// }
 ///
-/// let error = UnknownLexeme::from_span(
+/// let error = UnknownLexeme::from_range(
 ///     Span::new(10, 15),
 ///     ValidTokens::Multiple(vec![TokenKind::Identifier, TokenKind::Keyword])
 /// );
@@ -166,7 +166,7 @@ impl<Char> UnknownLexeme<Char, crate::utils::knowledge::Characters> {
   /// );
   ///
   /// assert!(!error.is_char());
-  /// assert_eq!(error.unwrap_char().position(), 7);
+  /// assert_eq!(error.unwrap_range().start(), 7);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn unknown_characters(span: Span) -> Self {
@@ -262,15 +262,15 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// ```rust
   /// use logosky::{utils::Span, error::UnknownLexeme};
   ///
-  /// let error: UnknownLexeme<char, _> = UnknownLexeme::from_span_const(
+  /// let error: UnknownLexeme<char, _> = UnknownLexeme::from_range_const(
   ///     Span::new(10, 15),
   ///     "valid: semicolon"
   /// );
   ///
-  /// assert!(error.is_span());
+  /// assert!(error.is_range());
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn from_span_const(span: Span, knowledge: Knowledge) -> Self {
+  pub const fn from_range_const(span: Span, knowledge: Knowledge) -> Self {
     Self::new(Lexeme::Range(span), knowledge)
   }
 
@@ -281,13 +281,13 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// ```rust
   /// use logosky::error::UnknownLexeme;
   ///
-  /// let error: UnknownLexeme<char, _> = UnknownLexeme::from_span(10..15, "valid: closing brace");
+  /// let error: UnknownLexeme<char, _> = UnknownLexeme::from_range(10..15, "valid: closing brace");
   ///
-  /// assert!(error.is_span());
-  /// assert_eq!(error.unwrap_span().start(), 10);
+  /// assert!(error.is_range());
+  /// assert_eq!(error.unwrap_range().start(), 10);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn from_span(span: impl Into<Span>, knowledge: Knowledge) -> Self {
+  pub fn from_range(span: impl Into<Span>, knowledge: Knowledge) -> Self {
     Self::new(Lexeme::Range(span.into()), knowledge)
   }
 
