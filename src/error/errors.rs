@@ -40,14 +40,14 @@ use core::fmt::{Debug, Display};
 use std::vec::Vec;
 
 #[cfg(not(any(feature = "alloc", feature = "std")))]
-use crate::utils::GenericVec;
+use crate::utils::ConstGenericVec as GenericVec;
 
 /// Default error container for no-alloc environments.
 ///
 /// Uses a stack-allocated `GenericVec` with capacity for 2 errors.
 /// When the capacity is exceeded, additional errors are silently dropped.
 #[cfg(not(any(feature = "alloc", feature = "std")))]
-pub type DefaultContainer<E> = GenericVec<E, super::typenum::U2>;
+pub type DefaultContainer<E> = GenericVec<E, 2>;
 
 /// Default error container for alloc/std environments.
 ///
@@ -130,26 +130,7 @@ impl<E> Errors<E> {
   /// assert!(errors.is_empty());
   /// ```
   #[inline]
-  #[cfg(not(feature = "generic-array"))]
   pub const fn new() -> Self {
-    Self::new_in(GenericVec::new())
-  }
-
-  /// Creates a new empty error collection.
-  ///
-  /// In no-alloc environments, this creates a `GenericVec` with capacity 2.
-  ///
-  /// # Examples
-  ///
-  /// ```rust
-  /// use logosky::error::Errors;
-  ///
-  /// let errors: Errors<String> = Errors::new();
-  /// assert!(errors.is_empty());
-  /// ```
-  #[inline]
-  #[cfg(feature = "generic-array")]
-  pub fn new() -> Self {
     Self::new_in(GenericVec::new())
   }
 }
