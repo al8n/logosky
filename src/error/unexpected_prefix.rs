@@ -9,6 +9,57 @@ pub struct UnexpectedPrefix<Char, Knowledge> {
 }
 
 impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
+  /// Create a new `UnexpectedPrefix` error indicating a leading zero was found.
+  ///
+  /// ## Panics
+  /// - If the positioned character's position is before the token span ends.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// use logosky::{utils::{Span, knowledge::IntLiteral}, error::UnexpectedPrefix};
+  ///
+  /// let error: UnexpectedPrefix<char, IntLiteral> = UnexpectedPrefix::leading_zero(
+  ///   Span::new(1, 5),
+  ///   0,
+  ///   '0'
+  /// );
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn leading_zero(token: Span, pos: usize, ch: Char) -> Self
+  where
+    Knowledge: DenyLeadingZero,
+    Char: CharLen,
+  {
+    Self::from_char(token, pos, ch).with_knowledge(Knowledge::INIT)
+  }
+
+  /// Create a new `UnexpectedPrefix` error from the given token span and the prefix span
+  ///
+  /// ## Panics
+  /// - If the prefix span starts before the token span ends.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// use logosky::{utils::{Span, knowledge::IntLiteral}, error::UnexpectedPrefix};
+  ///
+  /// let error: UnexpectedPrefix<char, IntLiteral> = UnexpectedPrefix::leading_zeros(
+  ///   Span::new(6, 10),
+  ///   Span::new(0, 6)
+  /// );
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn leading_zeros(token: Span, span: Span) -> Self
+  where
+    Knowledge: DenyLeadingZero,
+    Char: CharLen,
+  {
+    Self::from_prefix(token, span).with_knowledge(Knowledge::INIT)
+  }
+}
+
+impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   /// Creates a new `UnexpectedPrefix` error with the span of the valid token and the unexpected prefix.
   ///
   /// ## Panics
@@ -290,4 +341,29 @@ where
   Char: DisplayHuman + core::fmt::Debug,
   Knowledge: DisplayHuman + core::fmt::Debug,
 {
+}
+
+/// A marker trait indicating that leading zeros are not allowed for the implementing knowledge type.
+pub trait DenyLeadingZero: sealed::Sealed {}
+
+impl<T> DenyLeadingZero for T where T: sealed::Sealed {}
+
+mod sealed {
+  use crate::utils::knowledge::{FloatLiteral, HexFloatLiteral, IntLiteral};
+
+  pub trait Sealed {
+    const INIT: Self;
+  }
+
+  impl Sealed for FloatLiteral {
+    const INIT: Self = FloatLiteral(());
+  }
+
+  impl Sealed for HexFloatLiteral {
+    const INIT: Self = HexFloatLiteral(());
+  }
+
+  impl Sealed for IntLiteral {
+    const INIT: Self = IntLiteral(());
+  }
 }

@@ -37,6 +37,9 @@ pub mod syntax;
 /// Common delimiters used in lexing and parsing.
 pub mod delimiter;
 
+/// Common knowledge types for lexing and parsing.
+pub mod knowledge;
+
 pub use generic_array::typenum;
 
 /// A module for container types with small size optimizations.
