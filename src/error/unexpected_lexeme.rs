@@ -140,7 +140,7 @@ impl<Char> UnexpectedLexeme<Char, LineTerminator> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::{error::{UnexpectedLexeme, LineTerminator}, utils::{Lexeme, PositionedChar}};
+  /// use logosky::{error::UnexpectedLexeme, utils::{Lexeme, PositionedChar, knowledge::LineTerminator}};
   ///
   /// let error = UnexpectedLexeme::new_line(5, '\n');
   ///
@@ -156,7 +156,7 @@ impl<Char> UnexpectedLexeme<Char, LineTerminator> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::{error::{UnexpectedLexeme, LineTerminator}, utils::{Lexeme, PositionedChar}};
+  /// use logosky::{error::UnexpectedLexeme, utils::{Lexeme, PositionedChar, knowledge::LineTerminator}};
   ///
   /// let error = UnexpectedLexeme::carriage_return(5, '\r');
   ///
@@ -172,7 +172,7 @@ impl<Char> UnexpectedLexeme<Char, LineTerminator> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::{error::{UnexpectedLexeme, LineTerminator}, utils::Span};
+  /// use logosky::{error::UnexpectedLexeme, utils::{Span, knowledge::LineTerminator}};
   ///
   /// let error = UnexpectedLexeme::<char, _>::carriage_return_new_line((5..7).into());
   ///

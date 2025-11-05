@@ -63,12 +63,15 @@
 //!     }
 //! }
 //!
-//! let mut error = IncompleteSyntax::<WhileLoop>::new(WhileComponent::Condition);
+//! let mut error = IncompleteSyntax::<WhileLoop>::new(
+//!     logosky::utils::Span::new(10, 15),
+//!     WhileComponent::Condition
+//! );
 //! assert_eq!(error.len(), 1);
 //! # }
 //! ```
 
-use crate::utils::{GenericVec, syntax::Syntax};
+use crate::utils::{GenericVec, Span, syntax::Syntax};
 
 use core::{
   fmt::{Debug, Display},
@@ -131,8 +134,9 @@ use generic_array::typenum::Unsigned;
 ///     }
 /// }
 ///
-/// // Report a missing component
+/// // Report a missing component at a specific location
 /// let error = IncompleteSyntax::<IfStatement>::new(
+///     logosky::utils::Span::new(10, 15),
 ///     IfStatementComponent::Condition
 /// );
 /// assert_eq!(error.len(), 1);
@@ -166,7 +170,10 @@ use generic_array::typenum::Unsigned;
 /// #         [Component::A, Component::B].into_iter().collect()
 /// #     }
 /// # }
-/// let mut error = IncompleteSyntax::<MySyntax>::new(Component::A);
+/// let mut error = IncompleteSyntax::<MySyntax>::new(
+///     logosky::utils::Span::new(10, 15),
+///     Component::A
+/// );
 /// assert_eq!(format!("{}", error), "incomplete syntax: component A is missing");
 ///
 /// error.push(Component::B);
@@ -175,6 +182,7 @@ use generic_array::typenum::Unsigned;
 /// ```
 #[derive(Debug, Clone)]
 pub struct IncompleteSyntax<S: Syntax> {
+  span: Span,
   components: GenericVec<S::Component, S::COMPONENTS>,
 }
 
@@ -184,7 +192,7 @@ where
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn eq(&self, other: &Self) -> bool {
-    self.components == other.components
+    self.span == other.span && self.components == other.components
   }
 }
 
@@ -196,6 +204,7 @@ where
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+    self.span.hash(state);
     self.components.hash(state);
   }
 }
@@ -224,7 +233,7 @@ impl<S> IncompleteSyntax<S>
 where
   S: Syntax,
 {
-  /// Creates a new incomplete syntax error with the specified missing component.
+  /// Creates a new incomplete syntax error with the specified span and missing component.
   ///
   /// The error always starts with at least one missing component.
   ///
@@ -236,7 +245,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, syntax::Syntax, Span}, error::IncompleteSyntax};
   /// # use typenum::U1;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -252,21 +261,22 @@ where
   /// #         [Component::A].into_iter().collect()
   /// #     }
   /// # }
-  /// let error = IncompleteSyntax::<MySyntax>::new(Component::A);
+  /// let error = IncompleteSyntax::<MySyntax>::new(Span::new(10, 15), Component::A);
   /// assert_eq!(error.len(), 1);
+  /// assert_eq!(error.span(), Span::new(10, 15));
   /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn new(component: S::Component) -> Self {
+  pub fn new(span: Span, component: S::Component) -> Self {
     if S::COMPONENTS::USIZE == 0 {
       panic!("IncompleteSyntax requires S::COMPONENTS to be non-zero");
     }
     let mut components = GenericVec::new();
     components.push(component);
-    Self { components }
+    Self { span, components }
   }
 
-  /// Tries to create an incomplete syntax error from an iterator of components.
+  /// Tries to create an incomplete syntax error from a span and an iterator of components.
   ///
   /// Returns `None` if:
   /// - The iterator yields no components
@@ -276,7 +286,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, syntax::Syntax, Span}, error::IncompleteSyntax};
   /// # use typenum::U2;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -295,22 +305,23 @@ where
   /// #     }
   /// # }
   /// let components = vec![Component::A, Component::B];
-  /// let error = IncompleteSyntax::<MySyntax>::from_iter(components).unwrap();
+  /// let error = IncompleteSyntax::<MySyntax>::from_iter(Span::new(10, 15), components).unwrap();
   /// assert_eq!(error.len(), 2);
+  /// assert_eq!(error.span(), Span::new(10, 15));
   ///
   /// // Empty iterator returns None
-  /// let error = IncompleteSyntax::<MySyntax>::from_iter(std::iter::empty());
+  /// let error = IncompleteSyntax::<MySyntax>::from_iter(Span::new(10, 15), std::iter::empty());
   /// assert!(error.is_none());
   /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   #[allow(clippy::should_implement_trait)]
-  pub fn from_iter(iter: impl IntoIterator<Item = S::Component>) -> Option<Self> {
+  pub fn from_iter(span: Span, iter: impl IntoIterator<Item = S::Component>) -> Option<Self> {
     let mut components = GenericVec::new();
     for component in iter {
       Self::try_push_impl(&mut components, component);
     }
-    (!components.is_empty()).then_some(Self { components })
+    (!components.is_empty()).then_some(Self { span, components })
   }
 
   /// Helper function that tries to push a component with deduplication logic.
@@ -355,7 +366,10 @@ where
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
-  /// let mut error = IncompleteSyntax::<MySyntax>::new(Component::A);
+  /// let mut error = IncompleteSyntax::<MySyntax>::new(
+  ///     logosky::utils::Span::new(10, 15),
+  ///     Component::A
+  /// );
   /// assert_eq!(error.len(), 1);
   /// error.push(Component::B);
   /// assert_eq!(error.len(), 2);
@@ -389,7 +403,10 @@ where
   /// #         [Component::A, Component::B, Component::C].into_iter().collect()
   /// #     }
   /// # }
-  /// let error = IncompleteSyntax::<MySyntax>::new(Component::A);
+  /// let error = IncompleteSyntax::<MySyntax>::new(
+  ///     logosky::utils::Span::new(10, 15),
+  ///     Component::A
+  /// );
   /// assert_eq!(error.capacity(), 3);
   /// # }
   /// ```
@@ -422,7 +439,10 @@ where
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
-  /// let mut error = IncompleteSyntax::<MySyntax>::new(Component::A);
+  /// let mut error = IncompleteSyntax::<MySyntax>::new(
+  ///     logosky::utils::Span::new(10, 15),
+  ///     Component::A
+  /// );
   /// assert!(!error.is_full());
   /// error.push(Component::B);
   /// assert!(error.is_full());
@@ -464,7 +484,10 @@ where
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
-  /// let mut error = IncompleteSyntax::<MySyntax>::new(Component::A);
+  /// let mut error = IncompleteSyntax::<MySyntax>::new(
+  ///     logosky::utils::Span::new(10, 15),
+  ///     Component::A
+  /// );
   /// error.push(Component::B);
   /// // Pushing the same component again is a no-op
   /// error.push(Component::A);
@@ -504,7 +527,10 @@ where
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
-  /// let mut error = IncompleteSyntax::<MySyntax>::new(Component::A);
+  /// let mut error = IncompleteSyntax::<MySyntax>::new(
+  ///     logosky::utils::Span::new(10, 15),
+  ///     Component::A
+  /// );
   /// assert!(error.try_push(Component::B).is_none()); // Success
   /// assert_eq!(error.try_push(Component::C), Some(Component::C)); // Full!
   /// # }
@@ -538,7 +564,10 @@ where
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
-  /// let mut error = IncompleteSyntax::<MySyntax>::new(Component::A);
+  /// let mut error = IncompleteSyntax::<MySyntax>::new(
+  ///     logosky::utils::Span::new(10, 15),
+  ///     Component::A
+  /// );
   /// error.push(Component::B);
   /// assert_eq!(error.as_slice(), &[Component::A, Component::B]);
   /// # }
@@ -572,7 +601,10 @@ where
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
-  /// let mut error = IncompleteSyntax::<MySyntax>::new(Component::A);
+  /// let mut error = IncompleteSyntax::<MySyntax>::new(
+  ///     logosky::utils::Span::new(10, 15),
+  ///     Component::A
+  /// );
   /// error.as_mut_slice()[0] = Component::B;
   /// assert_eq!(error.as_slice()[0], Component::B);
   /// # }
@@ -588,7 +620,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, syntax::Syntax, Span}, error::IncompleteSyntax};
   /// # use typenum::U2;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -606,7 +638,7 @@ where
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
-  /// let mut error = IncompleteSyntax::<MySyntax>::new(Component::A);
+  /// let mut error = IncompleteSyntax::<MySyntax>::new(Span::new(10, 15), Component::A);
   /// error.push(Component::B);
   /// let collected: Vec<_> = error.iter().collect();
   /// assert_eq!(collected, vec![&Component::A, &Component::B]);
@@ -615,6 +647,85 @@ where
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn iter(&self) -> core::slice::Iter<'_, S::Component> {
     self.components.iter()
+  }
+
+  /// Returns the span of the incomplete syntax.
+  ///
+  /// # Examples
+  ///
+  /// ```rust
+  /// # {
+  /// # use logosky::{utils::{typenum, syntax::Syntax, Span}, error::IncompleteSyntax};
+  /// # use typenum::U1;
+  /// # use core::fmt;
+  /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+  /// # enum Component { A }
+  /// # impl fmt::Display for Component {
+  /// #     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "A") }
+  /// # }
+  /// # struct MySyntax;
+  /// # impl Syntax for MySyntax {
+  /// #     type Component = Component;
+  /// #     type COMPONENTS = U1;
+  /// #     fn possible_components() -> generic_array::GenericArray<Component, U1> {
+  /// #         [Component::A].into_iter().collect()
+  /// #     }
+  /// # }
+  /// let error = IncompleteSyntax::<MySyntax>::new(Span::new(10, 15), Component::A);
+  /// assert_eq!(error.span(), Span::new(10, 15));
+  /// # }
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn span(&self) -> Span {
+    self.span
+  }
+
+  /// Returns a reference to the span of the incomplete syntax.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn span_ref(&self) -> &Span {
+    &self.span
+  }
+
+  /// Returns a mutable reference to the span of the incomplete syntax.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn span_mut(&mut self) -> &mut Span {
+    &mut self.span
+  }
+
+  /// Bumps the span by the given offset.
+  ///
+  /// This is useful when adjusting error positions after processing or
+  /// when combining errors from different parsing contexts.
+  ///
+  /// # Examples
+  ///
+  /// ```rust
+  /// # {
+  /// # use logosky::{utils::{typenum, syntax::Syntax, Span}, error::IncompleteSyntax};
+  /// # use typenum::U1;
+  /// # use core::fmt;
+  /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+  /// # enum Component { A }
+  /// # impl fmt::Display for Component {
+  /// #     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "A") }
+  /// # }
+  /// # struct MySyntax;
+  /// # impl Syntax for MySyntax {
+  /// #     type Component = Component;
+  /// #     type COMPONENTS = U1;
+  /// #     fn possible_components() -> generic_array::GenericArray<Component, U1> {
+  /// #         [Component::A].into_iter().collect()
+  /// #     }
+  /// # }
+  /// let mut error = IncompleteSyntax::<MySyntax>::new(Span::new(10, 15), Component::A);
+  /// error.bump(5);
+  /// assert_eq!(error.span(), Span::new(15, 20));
+  /// # }
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn bump(&mut self, offset: usize) -> &mut Self {
+    self.span.bump(offset);
+    self
   }
 }
 

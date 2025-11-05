@@ -17,7 +17,7 @@
 //!
 //! ```rust
 //! # {
-//! use logosky::{utils::{syntax::Syntax, typenum::U3}, error::IncompleteSyntax};
+//! use logosky::{utils::{syntax::Syntax, typenum::U3, Span}, error::IncompleteSyntax};
 //! use core::fmt;
 //!
 //! #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -52,7 +52,7 @@
 //!     }
 //! }
 //!
-//! let mut error = IncompleteSyntax::<WhileLoop>::new(WhileComponent::Condition);
+//! let mut error = IncompleteSyntax::<WhileLoop>::new(Span::new(10, 15), WhileComponent::Condition);
 //! assert_eq!(error.len(), 1);
 //! # }
 //! ```
