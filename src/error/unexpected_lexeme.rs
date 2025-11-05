@@ -1,6 +1,4 @@
-use derive_more::{Display, IsVariant};
-
-use crate::utils::{CharLen, Lexeme, PositionedChar, Span};
+use crate::utils::{CharLen, Lexeme, PositionedChar, Span, knowledge::LineTerminator};
 
 /// A specialized `UnexpectedLexeme` for line terminators.
 ///
@@ -8,20 +6,6 @@ use crate::utils::{CharLen, Lexeme, PositionedChar, Span};
 /// encountered during lexing or parsing, along with a hint
 /// describing what was expected instead.
 pub type UnexpectedLineTerminator<Char> = UnexpectedLexeme<Char, LineTerminator>;
-
-/// An enumeration of line terminator types.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, IsVariant, Display)]
-pub enum LineTerminator {
-  /// A newline character (`\n`).
-  #[display("\\n")]
-  NewLine,
-  /// A carriage return character (`\r`).
-  #[display("\\r")]
-  CarriageReturn,
-  /// A carriage return followed by a newline (`\r\n`).
-  #[display("\\r\\n")]
-  CarriageReturnNewLine,
-}
 
 /// A zero-copy error structure combining an unexpected lexeme with a diagnostic hint.
 ///

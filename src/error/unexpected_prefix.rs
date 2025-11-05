@@ -349,7 +349,9 @@ pub trait DenyLeadingZero: sealed::Sealed {}
 impl<T> DenyLeadingZero for T where T: sealed::Sealed {}
 
 mod sealed {
-  use crate::utils::knowledge::{FloatLiteral, HexFloatLiteral, IntLiteral};
+  use crate::utils::knowledge::{
+    BinaryLiteral, FloatLiteral, HexFloatLiteral, HexLiteral, IntLiteral, OctalLiteral,
+  };
 
   pub trait Sealed {
     const INIT: Self;
@@ -365,5 +367,17 @@ mod sealed {
 
   impl Sealed for IntLiteral {
     const INIT: Self = IntLiteral(());
+  }
+
+  impl Sealed for HexLiteral {
+    const INIT: Self = HexLiteral(());
+  }
+
+  impl Sealed for BinaryLiteral {
+    const INIT: Self = BinaryLiteral(());
+  }
+
+  impl Sealed for OctalLiteral {
+    const INIT: Self = OctalLiteral(());
   }
 }
