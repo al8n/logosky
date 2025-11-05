@@ -694,7 +694,7 @@ impl<Char> MalformedVariableUnicodeSequence<Char> {
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_span(span: Span) -> Self {
-    Self(Lexeme::Span(span))
+    Self(Lexeme::Range(span))
   }
 
   /// Returns the span of the malformed variable-length unicode escape.
@@ -776,7 +776,7 @@ where
         positioned_char.char_ref().display(),
         positioned_char.position()
       ),
-      Lexeme::Span(span) => write!(f, "invalid variable-length unicode escape at {}", span),
+      Lexeme::Range(span) => write!(f, "invalid variable-length unicode escape at {}", span),
     }
   }
 }
@@ -1126,12 +1126,12 @@ pub enum UnpairedSurrogateHint {
 ///
 /// // Incomplete escape: \uAB (only 2 hex digits)
 /// let error: FixedUnicodeEscapeError =
-///     FixedUnicodeEscapeError::Incomplete(Lexeme::Span(Span::new(10, 14)));
+///     FixedUnicodeEscapeError::Incomplete(Lexeme::Range(Span::new(10, 14)));
 /// assert!(error.is_incomplete());
 ///
 /// // Unpaired high surrogate: \uD800
 /// let error = FixedUnicodeEscapeError::<char>::unpaired_high_surrogate(
-///     Lexeme::Span(Span::new(5, 11))
+///     Lexeme::Range(Span::new(5, 11))
 /// );
 /// assert!(error.is_unpaired_surrogate());
 /// ```
@@ -1169,7 +1169,7 @@ impl<Char> FixedUnicodeEscapeError<Char> {
   /// use logosky::utils::{Lexeme, Span};
   ///
   /// let error = FixedUnicodeEscapeError::<char>::unpaired_high_surrogate(
-  ///     Lexeme::Span(Span::new(10, 16))
+  ///     Lexeme::Range(Span::new(10, 16))
   /// );
   /// assert!(error.is_unpaired_surrogate());
   /// ```
@@ -1187,7 +1187,7 @@ impl<Char> FixedUnicodeEscapeError<Char> {
   /// use logosky::utils::{Lexeme, Span};
   ///
   /// let error = FixedUnicodeEscapeError::<char>::unpaired_low_surrogate(
-  ///     Lexeme::Span(Span::new(10, 16))
+  ///     Lexeme::Range(Span::new(10, 16))
   /// );
   /// assert!(error.is_unpaired_surrogate());
   /// ```
@@ -1208,7 +1208,7 @@ impl<Char> FixedUnicodeEscapeError<Char> {
   /// use logosky::utils::{Lexeme, Span};
   ///
   /// let mut error: FixedUnicodeEscapeError =
-  ///     FixedUnicodeEscapeError::Incomplete(Lexeme::Span(Span::new(10, 14)));
+  ///     FixedUnicodeEscapeError::Incomplete(Lexeme::Range(Span::new(10, 14)));
   /// error.bump(5);
   /// // The span is now adjusted
   /// ```
@@ -1249,13 +1249,13 @@ impl<Char> FixedUnicodeEscapeError<Char> {
 ///
 /// // Incomplete fixed-width escape: \uAB
 /// let error = UnicodeEscapeError::<char>::incomplete_fixed_unicode_escape(
-///     Lexeme::Span(Span::new(10, 14))
+///     Lexeme::Range(Span::new(10, 14))
 /// );
 /// assert!(error.is_fixed());
 ///
 /// // Unpaired high surrogate: \uD800
 /// let error = UnicodeEscapeError::<char>::unpaired_high_surrogate(
-///     Lexeme::Span(Span::new(5, 11))
+///     Lexeme::Range(Span::new(5, 11))
 /// );
 /// assert!(error.is_fixed());
 /// ```
@@ -1306,7 +1306,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// use logosky::utils::{Lexeme, Span};
   ///
   /// let error = UnicodeEscapeError::<char>::unpaired_high_surrogate(
-  ///     Lexeme::Span(Span::new(10, 16))
+  ///     Lexeme::Range(Span::new(10, 16))
   /// );
   /// assert!(error.is_fixed());
   /// ```
@@ -1324,7 +1324,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// use logosky::utils::{Lexeme, Span};
   ///
   /// let error = UnicodeEscapeError::<char>::unpaired_low_surrogate(
-  ///     Lexeme::Span(Span::new(10, 16))
+  ///     Lexeme::Range(Span::new(10, 16))
   /// );
   /// assert!(error.is_fixed());
   /// ```
@@ -1342,7 +1342,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// use logosky::utils::{Lexeme, Span};
   ///
   /// let error = UnicodeEscapeError::<char>::incomplete_fixed_unicode_escape(
-  ///     Lexeme::Span(Span::new(10, 14))
+  ///     Lexeme::Range(Span::new(10, 14))
   /// );
   /// assert!(error.is_fixed());
   /// ```

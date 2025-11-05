@@ -14,7 +14,7 @@ use crate::utils::{CharLen, Lexeme, PositionedChar, Span, human_display::Display
 /// # Design Philosophy
 ///
 /// This type stores:
-/// - The **lexeme** of the unrecognized fragment ([`Char`](Lexeme::Char) or [`Span`](Lexeme::Span))
+/// - The **lexeme** of the unrecognized fragment ([`Char`](Lexeme::Char) or [`Span`](Lexeme::Range))
 /// - **Knowledge** providing context about valid options or diagnostic information (any type you choose)
 ///
 /// The knowledge is left generic and unconstrained so you can carry:
@@ -123,7 +123,7 @@ where
         pc.char_ref().display(),
         pc.position(),
       ),
-      Lexeme::Span(span) => write!(f, "unknown lexeme encountered at {}", span),
+      Lexeme::Range(span) => write!(f, "unknown lexeme encountered at {}", span),
     }
   }
 }
@@ -170,7 +170,7 @@ impl<Char> UnknownLexeme<Char, crate::utils::knowledge::Characters> {
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn unknown_characters(span: Span) -> Self {
-    Self::new(Lexeme::Span(span), sealed::Sealed::INIT)
+    Self::new(Lexeme::Range(span), sealed::Sealed::INIT)
   }
 
   /// Creates an `UnknownLexeme` with character knowledge.
@@ -271,7 +271,7 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_span_const(span: Span, knowledge: Knowledge) -> Self {
-    Self::new(Lexeme::Span(span), knowledge)
+    Self::new(Lexeme::Range(span), knowledge)
   }
 
   /// Constructs an error from a byte span and diagnostic knowledge.
@@ -288,7 +288,7 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn from_span(span: impl Into<Span>, knowledge: Knowledge) -> Self {
-    Self::new(Lexeme::Span(span.into()), knowledge)
+    Self::new(Lexeme::Range(span.into()), knowledge)
   }
 
   /// Returns a reference to the lexeme.

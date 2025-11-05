@@ -22,9 +22,9 @@ use super::{CharLen, PositionedChar, Span};
 /// # Derived Helpers
 ///
 /// This type provides several helper methods via derive macros:
-/// - `is_char()` / `is_span()`: Check which variant it is
-/// - `unwrap_char()` / `unwrap_span()`: Extract the inner value (panics if wrong variant)
-/// - `try_unwrap_char()` / `try_unwrap_span()`: Try to extract the inner value
+/// - `is_char()` / `is_range()`: Check which variant it is
+/// - `unwrap_char()` / `unwrap_range()`: Extract the inner value (panics if wrong variant)
+/// - `try_unwrap_char()` / `try_unwrap_range()`: Try to extract the inner value
 ///
 /// # Use Cases
 ///
@@ -56,9 +56,9 @@ use super::{CharLen, PositionedChar, Span};
 /// let span = Span::new(10, 15); // bytes 10-15
 /// let lexeme: Lexeme<char> = Lexeme::from(span);
 ///
-/// assert!(lexeme.is_span());
-/// assert_eq!(lexeme.unwrap_span().start(), 10);
-/// assert_eq!(lexeme.unwrap_span().end(), 15);
+/// assert!(lexeme.is_range());
+/// assert_eq!(lexeme.unwrap_range().start(), 10);
+/// assert_eq!(lexeme.unwrap_range().end(), 15);
 /// ```
 ///
 /// ## Getting Span from Either Variant
@@ -88,7 +88,7 @@ use super::{CharLen, PositionedChar, Span};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Unwrap, TryUnwrap, From)]
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
-pub enum Lexeme<Char> {
+pub enum Lexeme<Char = char> {
   /// A single positioned character with its byte position.
   ///
   /// Use this variant when the unexpected lexeme is exactly one character long.
@@ -102,7 +102,7 @@ pub enum Lexeme<Char> {
   ///
   /// Use this variant when the unexpected lexeme spans multiple characters
   /// or when you want to represent a multi-byte token.
-  Span(Span),
+  Range(Span),
 }
 
 impl<Char> core::fmt::Display for Lexeme<Char>
@@ -113,12 +113,61 @@ where
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self {
       Self::Char(pc) => write!(f, "'{}' at {}", pc.char_ref().display(), pc.position()),
-      Self::Span(span) => write!(f, "{}", span),
+      Self::Range(span) => write!(f, "{}", span),
     }
   }
 }
 
 impl<Char> Lexeme<Char> {
+  /// Creates a new `Lexeme` from a `Char` and its position.
+  ///
+  /// ## Example
+  ///
+  /// ```
+  /// use logosky::utils::{Lexeme, PositionedChar, Span};
+  ///
+  /// let char_lexeme = Lexeme::from_char(5, 'x');
+  /// assert_eq!(char_lexeme.start(), 5);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn from_char(pos: usize, ch: Char) -> Self {
+    Self::Char(PositionedChar::with_position(ch, pos))
+  }
+
+  /// Creates a new `Lexeme` from a range
+  ///
+  /// ## Example
+  ///
+  /// ```
+  /// use logosky::utils::{Lexeme, Span};
+  ///
+  /// let l = Lexeme::<char>::from_range(5..10);
+  /// assert_eq!(l.start(), 5);
+  /// assert_eq!(l.end(), 10);
+  /// assert!(l.is_range());
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn from_range(range: impl Into<Span>) -> Self {
+    Self::Range(range.into())
+  }
+
+  /// Creates a new `Lexeme` from a range
+  ///
+  /// ## Example
+  ///
+  /// ```
+  /// use logosky::utils::{Lexeme, Span};
+  ///
+  /// let l = Lexeme::<char>::from_range_const(5, 10);
+  /// assert_eq!(l.start(), 5);
+  /// assert_eq!(l.end(), 10);
+  /// assert!(l.is_range());
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn from_range_const(start: usize, end: usize) -> Self {
+    Self::Range(Span::new(start, end))
+  }
+
   /// Returns the start position of the lexeme.
   ///
   /// ## Examples
@@ -136,7 +185,7 @@ impl<Char> Lexeme<Char> {
   pub const fn start(&self) -> usize {
     match self {
       Self::Char(pc) => pc.position(),
-      Self::Span(r) => r.start(),
+      Self::Range(r) => r.start(),
     }
   }
 
@@ -160,13 +209,13 @@ impl<Char> Lexeme<Char> {
   {
     match self {
       Self::Char(pc) => pc.position() + pc.char_ref().char_len(),
-      Self::Span(r) => r.end(),
+      Self::Range(r) => r.end(),
     }
   }
 
   /// Maps the character type to another type if this is a [`Char`](Lexeme::Char) variant.
   ///
-  /// The [`Span`](Lexeme::Span) variant is left unchanged, as it doesn't contain
+  /// The [`Span`](Lexeme::Range) variant is left unchanged, as it doesn't contain
   /// a character value.
   ///
   /// # Example
@@ -186,7 +235,7 @@ impl<Char> Lexeme<Char> {
   {
     match self {
       Self::Char(pc) => Lexeme::Char(pc.map(f)),
-      Self::Span(r) => Lexeme::Span(r),
+      Self::Range(r) => Lexeme::Range(r),
     }
   }
 
@@ -194,7 +243,7 @@ impl<Char> Lexeme<Char> {
   ///
   /// For the [`Char`](Lexeme::Char) variant, the provided `len_of` function is
   /// called to determine how many bytes the character occupies. For the
-  /// [`Span`](Lexeme::Span) variant, the span is returned directly.
+  /// [`Span`](Lexeme::Range) variant, the span is returned directly.
   ///
   /// Use this method when your `Char` type doesn't implement [`CharLen`].
   ///
@@ -217,14 +266,14 @@ impl<Char> Lexeme<Char> {
         let pos = pc.position();
         Span::from(pos..(pos + len_of(pc.char_ref())))
       }
-      Self::Span(r) => *r,
+      Self::Range(r) => *r,
     }
   }
 
   /// Returns the byte span covered by this lexeme.
   ///
   /// For the [`Char`](Lexeme::Char) variant, uses the [`CharLen`] trait to
-  /// determine how many bytes the character occupies. For the [`Span`](Lexeme::Span)
+  /// determine how many bytes the character occupies. For the [`Span`](Lexeme::Range)
   /// variant, returns the span directly.
   ///
   /// # Example
@@ -247,14 +296,14 @@ impl<Char> Lexeme<Char> {
   {
     match self {
       Self::Char(pc) => pc.span(),
-      Self::Span(r) => *r,
+      Self::Range(r) => *r,
     }
   }
 
   /// Adjusts the position/span by adding `n` bytes to the offset.
   ///
   /// For the [`Char`](Lexeme::Char) variant, bumps the character's position.
-  /// For the [`Span`](Lexeme::Span) variant, bumps both start and end of the span.
+  /// For the [`Span`](Lexeme::Range) variant, bumps both start and end of the span.
   ///
   /// Returns a mutable reference to self for method chaining.
   ///
@@ -274,7 +323,7 @@ impl<Char> Lexeme<Char> {
       Self::Char(positioned_char) => {
         positioned_char.bump_position(n);
       }
-      Self::Span(span) => {
+      Self::Range(span) => {
         span.bump(n);
       }
     }

@@ -21,7 +21,7 @@ pub type UnexpectedLineTerminator<Char> = UnexpectedLexeme<Char, LineTerminator>
 /// # Design Philosophy
 ///
 /// This type stores:
-/// - The **lexeme** of the unexpected fragment ([`Char`](Lexeme::Char) or [`Span`](Lexeme::Span))
+/// - The **lexeme** of the unexpected fragment ([`Char`](Lexeme::Char) or [`Span`](Lexeme::Range))
 /// - A **hint** describing what was expected next (any type you choose)
 ///
 /// The hint is left generic and unconstrained so you can carry:
@@ -261,7 +261,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_span_const(span: Span, hint: Hint) -> Self {
-    Self::new(Lexeme::Span(span), hint)
+    Self::new(Lexeme::Range(span), hint)
   }
 
   /// Constructs an error from a byte span and hint.
@@ -278,7 +278,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn from_span(span: impl Into<Span>, hint: Hint) -> Self {
-    Self::new(Lexeme::Span(span.into()), hint)
+    Self::new(Lexeme::Range(span.into()), hint)
   }
 
   /// Returns a reference to the lexeme.

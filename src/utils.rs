@@ -480,6 +480,13 @@ impl From<(usize, usize)> for Span {
   }
 }
 
+impl From<Span> for (usize, usize) {
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn from(span: Span) -> Self {
+    (span.start, span.end)
+  }
+}
+
 /// A value paired with its source location span.
 ///
 /// `Spanned<D>` combines a value of type `D` with a [`Span`] that indicates where in

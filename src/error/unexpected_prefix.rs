@@ -176,7 +176,7 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   where
     Char: CharLen,
   {
-    Self::new(token, Lexeme::Span(span))
+    Self::new(token, Lexeme::Range(span))
   }
 
   /// Returns the full span since the start of the unexpected prefix to the end of the valid token.
@@ -200,7 +200,7 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
     let end = self.token.end();
     let start = match &self.prefix {
       Lexeme::Char(positioned_char) => positioned_char.position(),
-      Lexeme::Span(span) => span.start(),
+      Lexeme::Range(span) => span.start(),
     };
     Span::new(start, end)
   }
@@ -318,7 +318,7 @@ where
           )
         }
       },
-      Lexeme::Span(span) => match &self.knowledge {
+      Lexeme::Range(span) => match &self.knowledge {
         Some(knowledge) => write!(
           f,
           "unexpected prefix at {} found before '{}'@({})",

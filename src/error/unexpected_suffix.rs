@@ -113,7 +113,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_suffix(token: Span, span: Span) -> Self {
-    Self::new(token, Lexeme::Span(span))
+    Self::new(token, Lexeme::Range(span))
   }
 
   /// Returns the full span since the start of the valid token to the end of the unexpected suffix.
@@ -139,7 +139,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
       Lexeme::Char(positioned_char) => {
         positioned_char.position() + positioned_char.char_ref().char_len()
       }
-      Lexeme::Span(span) => span.end(),
+      Lexeme::Range(span) => span.end(),
     };
     Span::new(start, end)
   }
@@ -257,7 +257,7 @@ where
           )
         }
       },
-      Lexeme::Span(span) => match &self.knowledge {
+      Lexeme::Range(span) => match &self.knowledge {
         Some(knowledge) => write!(
           f,
           "unexpected suffix at {} found after '{}'@({})",

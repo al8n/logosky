@@ -446,7 +446,7 @@ impl MultiCharEscape {
 ///
 /// This type provides a unified representation for escape sequences that can
 /// contain either a single character or a multi-character sequence. It wraps
-/// a [`Lexeme`] (which can be either [`Lexeme::Char`] or [`Lexeme::Span`]) along
+/// a [`Lexeme`] (which can be either [`Lexeme::Char`] or [`Lexeme::Range`]) along
 /// with the full span of the escape.
 ///
 /// # Use Cases
@@ -579,7 +579,7 @@ impl<Char> EscapedLexeme<Char> {
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_sequence(span: Span, content: Span) -> Self {
-    Self::new(span, Lexeme::Span(content))
+    Self::new(span, Lexeme::Range(content))
   }
 
   /// Returns the span of the entire escape sequence.
