@@ -41,13 +41,7 @@ where
     this: &mut Self::Cache,
     cursor: &mut Self::Cursor,
   ) -> Option<Self::MaybeToken> {
-    let mut lexer = logos::Lexer::<T::Logos>::with_extras(this.input, this.state);
-    lexer.bump(*cursor);
-    Lexed::lex(&mut lexer).inspect(|_| {
-      *cursor = lexer.span().end;
-      this.state = lexer.extras;
-      this.cursor = *cursor;
-    })
+    Self::next_maybe(this, cursor)
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]

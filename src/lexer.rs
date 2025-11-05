@@ -7,11 +7,7 @@ pub mod token;
 /// The source related structures and traits
 pub mod source;
 
-#[cfg(feature = "chumsky")]
-#[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
 pub use tokenizer::*;
-
-#[cfg(feature = "chumsky")]
 mod tokenizer;
 
 /// A trait for types that can be lexed from the input.

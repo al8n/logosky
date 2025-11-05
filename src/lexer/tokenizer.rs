@@ -188,4 +188,17 @@ impl<'a, T: Token<'a>> Tokenizer<'a, T> {
   pub const fn into_iter(self) -> iter::IntoIter<'a, T> {
     iter::IntoIter::new(self)
   }
+
+  pub(crate) fn next_maybe(this: &mut Self, cursor: &mut usize) -> Option<Lexed<'a, T>>
+  where
+    <T::Logos as Logos<'a>>::Extras: Copy,
+  {
+    let mut lexer = logos::Lexer::<T::Logos>::with_extras(this.input, this.state);
+    lexer.bump(*cursor);
+    Lexed::lex(&mut lexer).inspect(|_| {
+      *cursor = lexer.span().end;
+      this.state = lexer.extras;
+      this.cursor = *cursor;
+    })
+  }
 }

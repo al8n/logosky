@@ -1,5 +1,3 @@
-use chumsky::input::Input;
-
 use super::*;
 
 /// An iterator over the tokens produced by a [`Tokenizer`].
@@ -65,7 +63,7 @@ where
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn next(&mut self) -> Option<Self::Item> {
     let mut cursor = self.stream.cursor;
-    unsafe { Tokenizer::<'a, T>::next_maybe(&mut self.stream, &mut cursor) }
+    Tokenizer::next_maybe(&mut self.stream, &mut cursor)
   }
 }
 
@@ -109,7 +107,6 @@ where
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn next(&mut self) -> Option<Self::Item> {
     let mut cursor = self.stream.cursor;
-    // SAFETY: we ensure that the cursor is always valid
-    unsafe { Tokenizer::<'a, T>::next_maybe(self.stream, &mut cursor) }
+    Tokenizer::next_maybe(self.stream, &mut cursor)
   }
 }
