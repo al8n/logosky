@@ -15,7 +15,7 @@ use crate::utils::Message;
 /// # Example
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedEnd, FileHint};
+/// use logosky::error::{UnexpectedEnd, FileHint};
 ///
 /// let error = UnexpectedEnd::EOF;
 /// assert_eq!(error.to_string(), "unexpected end of file, expected byte");
@@ -37,7 +37,7 @@ pub struct FileHint;
 /// # Example
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedEnd, TokenHint};
+/// use logosky::error::{UnexpectedEnd, TokenHint};
 ///
 /// let error = UnexpectedEnd::EOT;
 /// assert_eq!(error.to_string(), "unexpected end of token stream, expected token");
@@ -59,7 +59,7 @@ pub struct TokenHint;
 /// # Example
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedEnd, CharacterHint};
+/// use logosky::error::{UnexpectedEnd, CharacterHint};
 ///
 /// let error = UnexpectedEnd::EOS;
 /// assert_eq!(error.to_string(), "unexpected end of string, expected character");
@@ -108,7 +108,7 @@ pub struct CharacterHint;
 /// ## Using Predefined Constants
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedEnd, UnexpectedEof, UnexpectedEot};
+/// use logosky::error::{UnexpectedEnd, UnexpectedEof, UnexpectedEot};
 ///
 /// // Unexpected end of file
 /// let eof = UnexpectedEnd::EOF;
@@ -149,7 +149,7 @@ pub struct CharacterHint;
 /// ## Transforming Hints
 ///
 /// ```rust,ignore
-/// use logosky::utils::{UnexpectedEnd, FileHint};
+/// use logosky::error::{UnexpectedEnd, FileHint};
 ///
 /// let file_error: UnexpectedEnd<FileHint> = UnexpectedEnd::EOF;
 ///
@@ -165,7 +165,7 @@ pub struct CharacterHint;
 /// ## Error Handling
 ///
 /// ```rust,ignore
-/// use logosky::utils::UnexpectedEof;
+/// use logosky::error::UnexpectedEof;
 /// use std::error::Error;
 ///
 /// fn parse_config(input: &str) -> Result<Config, Box<dyn Error>> {
@@ -242,7 +242,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
+  /// use logosky::error::{FileHint, UnexpectedEnd};
   ///
   /// let error = UnexpectedEnd::new(FileHint);
   /// assert_eq!(error.name(), None);
@@ -259,7 +259,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ```rust
   ///
   /// # #[cfg(feature = "std")] {
-  /// use logosky::utils::{UnexpectedEnd, FileHint, Message};
+  /// use logosky::{error::{FileHint, UnexpectedEnd}, utils::Message};
   ///
   /// let error = UnexpectedEnd::maybe_name(Some(Message::from_static("string")), FileHint);
   /// assert_eq!(error.name(), Some("string"));
@@ -276,7 +276,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   ///
   /// ```rust
   /// # #[cfg(feature = "std")] {
-  /// use logosky::utils::{UnexpectedEnd, FileHint, Message};
+  /// use logosky::{error::{FileHint, UnexpectedEnd}, utils::Message};
   ///
   /// let error = UnexpectedEnd::with_name(Message::from_static("block"), FileHint);
   /// assert_eq!(error.name(), Some("block"));
@@ -292,7 +292,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, TokenHint};
+  /// use logosky::error::{UnexpectedEnd, TokenHint};
   ///
   /// let error = UnexpectedEnd::with_hint(TokenHint);
   /// assert_eq!(error.name(), None);
@@ -307,7 +307,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint};
   ///
   /// let mut error = UnexpectedEnd::new(FileHint);
   /// error.set_name("expression");
@@ -325,7 +325,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   ///
   /// ```rust
   /// # #[cfg(feature = "std")] {
-  /// use logosky::utils::{UnexpectedEnd, FileHint, Message};
+  /// use logosky::{error::{FileHint, UnexpectedEnd}, utils::Message};
   ///
   /// let mut error = UnexpectedEnd::with_name(Message::from_static("old"), FileHint);
   /// error.update_name(Some("new"));
@@ -344,7 +344,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   ///
   /// ```rust
   /// # #[cfg(feature = "std")] {
-  /// use logosky::utils::{UnexpectedEnd, FileHint, Message};
+  /// use logosky::{error::{FileHint, UnexpectedEnd}, utils::Message};
   ///
   /// let mut error = UnexpectedEnd::with_name(Message::from_static("block"), FileHint);
   /// error.clear_name();
@@ -362,7 +362,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::UnexpectedEnd;
+  /// use logosky::error::UnexpectedEnd;
   ///
   /// let error = UnexpectedEnd::EOF;
   /// assert_eq!(error.name(), Some("file"));
@@ -380,7 +380,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint};
   ///
   /// let error = UnexpectedEnd::EOF;
   /// // FileHint is a zero-sized type
@@ -396,7 +396,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint};
   ///
   /// let mut error = UnexpectedEnd::EOF;
   /// let old_hint = error.replace_hint(FileHint);
@@ -412,7 +412,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint, TokenHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint, TokenHint};
   ///
   /// let file_error = UnexpectedEnd::EOF;
   /// let token_error = file_error.map_hint(|_| TokenHint);
@@ -434,7 +434,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint, TokenHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint, TokenHint};
   ///
   /// let file_error = UnexpectedEnd::EOF;
   /// let token_error = file_error.reconstruct(Some("block"), |_| TokenHint);
@@ -457,7 +457,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint, TokenHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint, TokenHint};
   ///
   /// let file_error = UnexpectedEnd::EOF;
   /// let token_error = file_error.reconstruct_with_name("expression", |_| TokenHint);
@@ -481,7 +481,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   ///
   /// ```rust
   /// # #[cfg(feature = "std")] {
-  /// use logosky::utils::{UnexpectedEnd, FileHint, TokenHint, Message};
+  /// use logosky::{error::{UnexpectedEnd, FileHint, TokenHint}, utils::Message};
   ///
   /// let file_error = UnexpectedEnd::with_name(Message::from_static("file"), FileHint);
   /// let token_error = file_error.reconstruct_without_name(|_| TokenHint);
@@ -501,7 +501,7 @@ impl<Hint> UnexpectedEnd<Hint> {
   /// ## Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedEnd, FileHint};
+  /// use logosky::error::{UnexpectedEnd, FileHint};
   ///
   /// let error = UnexpectedEnd::EOF;
   /// let (name, hint) = error.into_components();

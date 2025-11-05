@@ -28,7 +28,7 @@ impl<Delimiter> Unclosed<Delimiter> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{Unclosed, Span};
+  /// use logosky::{utils::Span, error::Unclosed};
   ///
   /// let unclosed = Unclosed::new(Span::new(5, 10), '(');
   /// ```
@@ -42,7 +42,7 @@ impl<Delimiter> Unclosed<Delimiter> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{Unclosed, Span};
+  /// use logosky::{utils::Span, error::Unclosed};
   ///
   /// let unclosed = Unclosed::new(Span::new(5, 10), '(');
   /// assert_eq!(unclosed.span(), Span::new(5, 10));
@@ -57,7 +57,7 @@ impl<Delimiter> Unclosed<Delimiter> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{Unclosed, Span};
+  /// use logosky::{utils::Span, error::Unclosed};
   ///
   /// let unclosed = Unclosed::new(Span::new(5, 10), '{');
   /// assert_eq!(unclosed.delimiter_ref(), &'{');
@@ -72,7 +72,7 @@ impl<Delimiter> Unclosed<Delimiter> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{Unclosed, Span};
+  /// use logosky::{utils::Span, error::Unclosed};
   ///
   /// let unclosed = Unclosed::new(Span::new(5, 10), '[');
   /// assert_eq!(unclosed.delimiter(), '[');
@@ -93,7 +93,7 @@ impl<Delimiter> Unclosed<Delimiter> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{Unclosed, Span};
+  /// use logosky::{utils::Span, error::Unclosed};
   ///
   /// let mut unclosed = Unclosed::new(Span::new(5, 10), '(');
   /// unclosed.bump(10);

@@ -2,6 +2,13 @@ use derive_more::{Display, IsVariant};
 
 use crate::utils::{CharLen, Lexeme, PositionedChar, Span};
 
+/// A specialized `UnexpectedLexeme` for line terminators.
+/// 
+/// This type represents an unexpected line terminator character
+/// encountered during lexing or parsing, along with a hint
+/// describing what was expected instead.
+pub type UnexpectedLineTerminator<Char> = UnexpectedLexeme<Char, LineTerminator>;
+
 /// An enumeration of line terminator types.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, IsVariant, Display)]
 pub enum LineTerminator {
@@ -55,9 +62,9 @@ pub enum LineTerminator {
 /// ## Basic Error with String Hint
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+/// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
 ///
-/// let error = UnexpectedLexeme::from_char(
+/// let error = UnexpectedLexeme::from_positioned_char(
 ///     PositionedChar::with_position('!', 42),
 ///     "expected letter or digit"
 /// );
@@ -70,7 +77,7 @@ pub enum LineTerminator {
 /// ## With Token Kind Hint
 ///
 /// ```rust,ignore
-/// use logosky::utils::{UnexpectedLexeme, Span};
+/// use logosky::{error::UnexpectedLexeme, utils::Span};
 ///
 /// #[derive(Debug, Clone)]
 /// enum Expected {
@@ -93,9 +100,9 @@ pub enum LineTerminator {
 /// ## Mapping Hints
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+/// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
 ///
-/// let error = UnexpectedLexeme::from_char(
+/// let error = UnexpectedLexeme::from_positioned_char(
 ///     PositionedChar::with_position('x', 5),
 ///     "number"
 /// );
@@ -109,9 +116,9 @@ pub enum LineTerminator {
 /// ## Accessing Lexeme via Deref
 ///
 /// ```rust
-/// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+/// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
 ///
-/// let error = UnexpectedLexeme::from_char(
+/// let error = UnexpectedLexeme::from_positioned_char(
 ///     PositionedChar::with_position('!', 10),
 ///     "identifier"
 /// );
@@ -149,7 +156,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, Lexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::{Lexeme, PositionedChar}};
   ///
   /// let lexeme = Lexeme::from(PositionedChar::with_position('!', 5));
   /// let error = UnexpectedLexeme::new(lexeme, "identifier");
@@ -161,14 +168,35 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
     Self { lexeme, hint }
   }
 
+  /// Constructs an error from a position, character and hint.
+  ///
+  /// # Example
+  ///
+  /// ```rust
+  /// use logosky::error::UnexpectedLexeme;
+  ///
+  /// let error = UnexpectedLexeme::from_char(
+  ///     42,
+  ///     '$',
+  ///     "alphanumeric character"
+  /// );
+  ///
+  /// assert!(error.is_char());
+  /// assert_eq!(error.unwrap_char().position(), 42);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn from_char(pos: usize, ch: Char, hint: Hint) -> Self {
+    Self::from_positioned_char(PositionedChar::with_position(ch, pos), hint)
+  }
+
   /// Constructs an error from a positioned character and hint.
   ///
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('$', 42),
   ///     "alphanumeric character"
   /// );
@@ -177,7 +205,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// assert_eq!(error.unwrap_char().position(), 42);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn from_char(pc: PositionedChar<Char>, hint: Hint) -> Self {
+  pub const fn from_positioned_char(pc: PositionedChar<Char>, hint: Hint) -> Self {
     Self::new(Lexeme::Char(pc), hint)
   }
 
@@ -188,7 +216,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, Span};
+  /// use logosky::{error::UnexpectedLexeme, utils::Span};
   ///
   /// let error: UnexpectedLexeme<char, _> = UnexpectedLexeme::from_span_const(
   ///     Span::new(10, 15),
@@ -207,7 +235,7 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::UnexpectedLexeme;
+  /// use logosky::error::UnexpectedLexeme;
   ///
   /// let error: UnexpectedLexeme<char, _> = UnexpectedLexeme::from_span(10..15, "closing brace");
   ///
@@ -224,9 +252,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('x', 5),
   ///     "digit"
   /// );
@@ -243,9 +271,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('x', 5),
   ///     "expected digit"
   /// );
@@ -262,9 +290,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
   ///
-  /// let mut error = UnexpectedLexeme::from_char(
+  /// let mut error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('x', 5),
   ///     "digit"
   /// );
@@ -282,9 +310,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
   ///
-  /// let mut error = UnexpectedLexeme::from_char(
+  /// let mut error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('x', 5),
   ///     String::from("digit")
   /// );
@@ -302,9 +330,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('!', 10),
   ///     "identifier"
   /// );
@@ -323,9 +351,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('!', 10),
   ///     "identifier"
   /// );
@@ -343,9 +371,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('!', 10),
   ///     "identifier"
   /// );
@@ -365,9 +393,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('€', 5),
   ///     "ASCII character"
   /// );
@@ -388,9 +416,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar, Span};
+  /// use logosky::{error::UnexpectedLexeme, utils::{PositionedChar, Span}};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('x', 10),
   ///     "digit"
   /// );
@@ -410,9 +438,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('a', 5),
   ///     "digit"
   /// );
@@ -437,9 +465,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('!', 5),
   ///     "digit"
   /// );
@@ -463,9 +491,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
   ///
-  /// let error = UnexpectedLexeme::from_char(
+  /// let error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('a', 5),
   ///     "number"
   /// );
@@ -497,9 +525,9 @@ impl<Char, Hint> UnexpectedLexeme<Char, Hint> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedLexeme, PositionedChar};
+  /// use logosky::{error::UnexpectedLexeme, utils::PositionedChar};
   ///
-  /// let mut error = UnexpectedLexeme::from_char(
+  /// let mut error = UnexpectedLexeme::from_positioned_char(
   ///     PositionedChar::with_position('x', 5),
   ///     "digit"
   /// );

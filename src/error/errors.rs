@@ -11,7 +11,7 @@
 //! ## Basic Usage
 //!
 //! ```rust
-//! use logosky::utils::Errors;
+//! use logosky::error::Errors;
 //!
 //! let mut errors = Errors::new();
 //! errors.push("First error");
@@ -24,7 +24,7 @@
 //! ## Iteration
 //!
 //! ```rust
-//! use logosky::utils::Errors;
+//! use logosky::error::Errors;
 //!
 //! let mut errors = Errors::new();
 //! errors.push(1);
@@ -85,7 +85,7 @@ pub type DefaultContainer<E> = Vec<E>;
 /// ## Using Default Container
 ///
 /// ```rust
-/// use logosky::utils::Errors;
+/// use logosky::error::Errors;
 ///
 /// let mut errors = Errors::new();
 /// errors.push("Error 1");
@@ -97,7 +97,7 @@ pub type DefaultContainer<E> = Vec<E>;
 /// ## Type Inference
 ///
 /// ```rust
-/// use logosky::utils::Errors;
+/// use logosky::error::Errors;
 ///
 /// // Type inference works seamlessly
 /// let mut errors = Errors::new();
@@ -137,7 +137,7 @@ impl<E> Errors<E> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::Errors;
+  /// use logosky::error::Errors;
   ///
   /// let errors: Errors<String> = Errors::new();
   /// assert!(errors.is_empty());
@@ -155,7 +155,7 @@ impl<E> Errors<E> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::Errors;
+  /// use logosky::error::Errors;
   ///
   /// let errors: Errors<String> = Errors::new();
   /// assert!(errors.is_empty());
@@ -177,7 +177,7 @@ impl<E> Errors<E> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::Errors;
+  /// use logosky::error::Errors;
   ///
   /// let errors: Errors<String> = Errors::new();
   /// assert!(errors.is_empty());
@@ -194,7 +194,7 @@ impl<E> Errors<E> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::Errors;
+  /// use logosky::error::Errors;
   ///
   /// let errors: Errors<String> = Errors::with_capacity(10);
   /// assert_eq!(errors.capacity(), 10);
@@ -212,7 +212,7 @@ impl<E> Errors<E> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::Errors;
+  /// use logosky::error::Errors;
   ///
   /// let errors: Errors<String> = Errors::with_capacity(10);
   /// assert_eq!(errors.capacity(), 10);
@@ -227,7 +227,7 @@ impl<E> Errors<E> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::Errors;
+  /// use logosky::error::Errors;
   ///
   /// let mut errors: Errors<String> = Errors::new();
   /// errors.reserve(10);

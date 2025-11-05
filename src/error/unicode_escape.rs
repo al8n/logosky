@@ -66,10 +66,10 @@
 //! use logosky::utils::{Span, PositionedChar};
 //!
 //! // Invalid hex digit 'G' at position 12
-//! let mut digits = InvalidUnicodeHexDigits::default();
+//! let mut digits = InvalidUnicodeHexDigits::<char>::default();
 //! // ... collect invalid digits ...
 //!
-//! let error = UnicodeEscapeError::malformed_fixed_unicode_escape(
+//! let error = UnicodeEscapeError::<char>::malformed_fixed_unicode_escape(
 //!     digits,
 //!     Span::new(10, 16) // \uGGGG
 //! );
@@ -82,18 +82,18 @@
 //! use logosky::utils::Span;
 //!
 //! // Empty braces: \u{}
-//! let error = UnicodeEscapeError::empty_variable_unicode_escape(
+//! let error = UnicodeEscapeError::<char>::empty_variable_unicode_escape(
 //!     Span::new(5, 9)
 //! );
 //!
 //! // Surrogate value: \u{D800}
-//! let error = UnicodeEscapeError::surrogate_variable_unicode_escape(
+//! let error = UnicodeEscapeError::<char>::surrogate_variable_unicode_escape(
 //!     Span::new(10, 18),
 //!     0xD800
 //! );
 //!
 //! // Overflow: \u{110000}
-//! let error = UnicodeEscapeError::overflow_variable_unicode_escape(
+//! let error = UnicodeEscapeError::<char>::overflow_variable_unicode_escape(
 //!     Span::new(20, 30),
 //!     0x110000
 //! );
@@ -407,13 +407,12 @@ impl<Char> core::ops::DerefMut for InvalidUnicodeHexDigits<Char> {
 ///     PositionedChar::with_position('J', 15),
 /// ]);
 ///
-/// let error = MalformedFixedUnicodeEscape::fixed(
+/// let error = MalformedFixedUnicodeEscape::new(
 ///     digits,
 ///     Span::new(10, 16) // \uGHIJ
 /// );
 ///
 /// assert_eq!(error.span(), Span::new(10, 16));
-/// assert!(error.is_incomplete()); // Only 4 chars, expected to check if < 6
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct MalformedFixedUnicodeEscape<Char = char> {
@@ -433,10 +432,10 @@ impl<Char> MalformedFixedUnicodeEscape<Char> {
   /// let digits = InvalidUnicodeHexDigits::from(
   ///     PositionedChar::with_position('Z', 12)
   /// );
-  /// let error = MalformedFixedUnicodeEscape::fixed(digits, Span::new(10, 14));
+  /// let error = MalformedFixedUnicodeEscape::new(digits, Span::new(10, 14));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn fixed(digits: InvalidUnicodeHexDigits<Char>, span: Span) -> Self {
+  pub const fn new(digits: InvalidUnicodeHexDigits<Char>, span: Span) -> Self {
     Self { digits, span }
   }
 
@@ -451,8 +450,8 @@ impl<Char> MalformedFixedUnicodeEscape<Char> {
   /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidUnicodeHexDigits};
   /// use logosky::utils::Span;
   ///
-  /// let digits = InvalidUnicodeHexDigits::default();
-  /// let error = MalformedFixedUnicodeEscape::fixed(digits, Span::new(10, 14));
+  /// let digits = InvalidUnicodeHexDigits::<char>::default();
+  /// let error = MalformedFixedUnicodeEscape::new(digits, Span::new(10, 14));
   /// assert!(error.is_incomplete()); // Only 4 chars, not 6
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -471,7 +470,7 @@ impl<Char> MalformedFixedUnicodeEscape<Char> {
   /// let digits = InvalidUnicodeHexDigits::from(
   ///     PositionedChar::with_position('G', 12)
   /// );
-  /// let error = MalformedFixedUnicodeEscape::fixed(digits, Span::new(10, 14));
+  /// let error = MalformedFixedUnicodeEscape::new(digits, Span::new(10, 14));
   /// assert_eq!(error.digits().len(), 1);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -493,7 +492,7 @@ impl<Char> MalformedFixedUnicodeEscape<Char> {
   /// let digits = InvalidUnicodeHexDigits::from(
   ///     PositionedChar::with_position('G', 12)
   /// );
-  /// let error = MalformedFixedUnicodeEscape::fixed(digits, Span::new(10, 14));
+  /// let error = MalformedFixedUnicodeEscape::new(digits, Span::new(10, 14));
   /// assert_eq!(error.digits_ref().len(), 1);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -515,8 +514,8 @@ impl<Char> MalformedFixedUnicodeEscape<Char> {
   /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidUnicodeHexDigits};
   /// use logosky::utils::Span;
   ///
-  /// let error = MalformedFixedUnicodeEscape::fixed(
-  ///     InvalidUnicodeHexDigits::default(),
+  /// let error = MalformedFixedUnicodeEscape::new(
+  ///     InvalidUnicodeHexDigits::<char>::default(),
   ///     Span::new(10, 16)
   /// );
   /// assert_eq!(error.span(), Span::new(10, 16));
@@ -549,7 +548,7 @@ impl<Char> MalformedFixedUnicodeEscape<Char> {
   /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidUnicodeHexDigits};
   /// use logosky::utils::{Span, PositionedChar};
   ///
-  /// let mut error = MalformedFixedUnicodeEscape::fixed(
+  /// let mut error = MalformedFixedUnicodeEscape::new(
   ///     InvalidUnicodeHexDigits::from(PositionedChar::with_position('G', 12)),
   ///     Span::new(10, 16)
   /// );
@@ -849,7 +848,7 @@ impl core::error::Error for EmptyVariableUnicodeEscape {}
 /// use logosky::utils::{Lexeme, PositionedChar};
 ///
 /// // Error for: \u{GGGG}
-/// let error = MalformedVariableUnicodeSequence::from_char(12, 'G');
+/// let error = MalformedVariableUnicodeSequence::<char>::from_char(12, 'G');
 /// assert_eq!(
 ///     format!("{}", error),
 ///     "invalid variable-length unicode escape character 'G' at position 12"
@@ -857,7 +856,7 @@ impl core::error::Error for EmptyVariableUnicodeEscape {}
 ///
 /// // Error for a span of invalid characters
 /// let error: MalformedVariableUnicodeSequence<char> =
-///     MalformedVariableUnicodeSequence::from_span((10, 15));
+///     MalformedVariableUnicodeSequence::from_span((10, 15).into());
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct MalformedVariableUnicodeSequence<Char = char>(Lexeme<Char>);
@@ -894,7 +893,25 @@ impl<Char> MalformedVariableUnicodeSequence<Char> {
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_char(pos: usize, ch: Char) -> Self {
-    Self(Lexeme::Char(PositionedChar::with_position(ch, pos)))
+    Self::from_positioned_char(PositionedChar::with_position(ch, pos))
+  }
+
+  /// Creates a new malformed variable-length unicode escape error from a positioned character.
+  ///
+  /// ## Examples
+  ///
+  /// ```
+  /// use logosky::{error::MalformedVariableUnicodeSequence, utils::PositionedChar};
+  ///
+  /// let error = MalformedVariableUnicodeSequence::from_positioned_char(PositionedChar::with_position('X', 42));
+  /// assert_eq!(
+  ///     format!("{}", error),
+  ///     "invalid variable-length unicode escape character 'X' at position 42"
+  /// );
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn from_positioned_char(ch: PositionedChar<Char>) -> Self {
+    Self(Lexeme::Char(ch))
   }
 
   /// Creates a new malformed variable-length unicode escape error from a span.
@@ -1121,18 +1138,20 @@ impl core::error::Error for TooManyDigitsInVariableUnicodeEscape {}
 /// use logosky::utils::Span;
 ///
 /// // Empty braces
-/// let error = VariableUnicodeEscapeError::empty(Span::new(10, 14));
+/// let error = VariableUnicodeEscapeError::<char>::empty(Span::new(10, 14));
 /// assert!(error.is_empty());
 ///
 /// // Too many digits
-/// let error = VariableUnicodeEscapeError::too_many_digits(Span::new(5, 16), 7);
+/// let error = VariableUnicodeEscapeError::<char>::too_many_digits(Span::new(5, 16), 7);
 /// assert!(error.is_too_many_digits());
 ///
 /// // Surrogate value
-/// let error = VariableUnicodeEscapeError::surrogate(Span::new(10, 18), 0xD800);
+/// let error = VariableUnicodeEscapeError::<char>::surrogate(Span::new(10, 18), 0xD800);
 /// assert!(error.is_invalid_scalar());
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, From, IsVariant, TryUnwrap, Unwrap)]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum VariableUnicodeEscapeError<Char = char> {
   /// The opening brace was not closed: `\u{1234`.
   Unclosed(Unclosed<Brace>),
@@ -1344,7 +1363,7 @@ pub enum UnpairedSurrogateHint {
 /// assert!(error.is_incomplete());
 ///
 /// // Unpaired high surrogate: \uD800
-/// let error = FixedUnicodeEscapeError::unpaired_high_surrogate(
+/// let error = FixedUnicodeEscapeError::<char>::unpaired_high_surrogate(
 ///     Lexeme::Span(Span::new(5, 11))
 /// );
 /// assert!(error.is_unpaired_surrogate());
@@ -1382,7 +1401,7 @@ impl<Char> FixedUnicodeEscapeError<Char> {
   /// use logosky::error::FixedUnicodeEscapeError;
   /// use logosky::utils::{Lexeme, Span};
   ///
-  /// let error = FixedUnicodeEscapeError::unpaired_high_surrogate(
+  /// let error = FixedUnicodeEscapeError::<char>::unpaired_high_surrogate(
   ///     Lexeme::Span(Span::new(10, 16))
   /// );
   /// assert!(error.is_unpaired_surrogate());
@@ -1400,7 +1419,7 @@ impl<Char> FixedUnicodeEscapeError<Char> {
   /// use logosky::error::FixedUnicodeEscapeError;
   /// use logosky::utils::{Lexeme, Span};
   ///
-  /// let error = FixedUnicodeEscapeError::unpaired_low_surrogate(
+  /// let error = FixedUnicodeEscapeError::<char>::unpaired_low_surrogate(
   ///     Lexeme::Span(Span::new(10, 16))
   /// );
   /// assert!(error.is_unpaired_surrogate());
@@ -1462,13 +1481,13 @@ impl<Char> FixedUnicodeEscapeError<Char> {
 /// use logosky::utils::{Lexeme, Span};
 ///
 /// // Incomplete fixed-width escape: \uAB
-/// let error = UnicodeEscapeError::incomplete_fixed_unicode_escape(
+/// let error = UnicodeEscapeError::<char>::incomplete_fixed_unicode_escape(
 ///     Lexeme::Span(Span::new(10, 14))
 /// );
 /// assert!(error.is_fixed());
 ///
 /// // Unpaired high surrogate: \uD800
-/// let error = UnicodeEscapeError::unpaired_high_surrogate(
+/// let error = UnicodeEscapeError::<char>::unpaired_high_surrogate(
 ///     Lexeme::Span(Span::new(5, 11))
 /// );
 /// assert!(error.is_fixed());
@@ -1481,20 +1500,20 @@ impl<Char> FixedUnicodeEscapeError<Char> {
 /// use logosky::utils::Span;
 ///
 /// // Empty braces: \u{}
-/// let error = UnicodeEscapeError::empty_variable_unicode_escape(
+/// let error = UnicodeEscapeError::<char>::empty_variable_unicode_escape(
 ///     Span::new(10, 14)
 /// );
 /// assert!(error.is_variable());
 ///
 /// // Too many digits: \u{1234567}
-/// let error = UnicodeEscapeError::too_many_digits_in_variable_unicode_escape(
+/// let error = UnicodeEscapeError::<char>::too_many_digits_in_variable_unicode_escape(
 ///     Span::new(5, 16),
 ///     7
 /// );
 /// assert!(error.is_variable());
 ///
 /// // Surrogate value: \u{D800}
-/// let error = UnicodeEscapeError::surrogate_variable_unicode_escape(
+/// let error = UnicodeEscapeError::<char>::surrogate_variable_unicode_escape(
 ///     Span::new(10, 18),
 ///     0xD800
 /// );
@@ -1519,7 +1538,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// use logosky::error::UnicodeEscapeError;
   /// use logosky::utils::{Lexeme, Span};
   ///
-  /// let error = UnicodeEscapeError::unpaired_high_surrogate(
+  /// let error = UnicodeEscapeError::<char>::unpaired_high_surrogate(
   ///     Lexeme::Span(Span::new(10, 16))
   /// );
   /// assert!(error.is_fixed());
@@ -1537,7 +1556,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// use logosky::error::UnicodeEscapeError;
   /// use logosky::utils::{Lexeme, Span};
   ///
-  /// let error = UnicodeEscapeError::unpaired_low_surrogate(
+  /// let error = UnicodeEscapeError::<char>::unpaired_low_surrogate(
   ///     Lexeme::Span(Span::new(10, 16))
   /// );
   /// assert!(error.is_fixed());
@@ -1555,7 +1574,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// use logosky::error::UnicodeEscapeError;
   /// use logosky::utils::{Lexeme, Span};
   ///
-  /// let error = UnicodeEscapeError::incomplete_fixed_unicode_escape(
+  /// let error = UnicodeEscapeError::<char>::incomplete_fixed_unicode_escape(
   ///     Lexeme::Span(Span::new(10, 14))
   /// );
   /// assert!(error.is_fixed());
@@ -1588,7 +1607,7 @@ impl<Char> UnicodeEscapeError<Char> {
     span: Span,
   ) -> Self {
     Self::Fixed(FixedUnicodeEscapeError::Malformed(
-      MalformedFixedUnicodeEscape::fixed(digits, span),
+      MalformedFixedUnicodeEscape::new(digits, span),
     ))
   }
 
@@ -1600,7 +1619,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// use logosky::error::UnicodeEscapeError;
   /// use logosky::utils::Span;
   ///
-  /// let error = UnicodeEscapeError::empty_variable_unicode_escape(
+  /// let error = UnicodeEscapeError::<char>::empty_variable_unicode_escape(
   ///     Span::new(10, 14)
   /// );
   /// assert!(error.is_variable());
@@ -1618,7 +1637,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// use logosky::error::UnicodeEscapeError;
   /// use logosky::utils::Span;
   ///
-  /// let error = UnicodeEscapeError::too_many_digits_in_variable_unicode_escape(
+  /// let error = UnicodeEscapeError::<char>::too_many_digits_in_variable_unicode_escape(
   ///     Span::new(5, 16),
   ///     7
   /// );
@@ -1637,7 +1656,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// use logosky::error::UnicodeEscapeError;
   /// use logosky::utils::Span;
   ///
-  /// let error = UnicodeEscapeError::unclosed_variable_unicode_escape(
+  /// let error = UnicodeEscapeError::<char>::unclosed_variable_unicode_escape(
   ///     Span::new(10, 15)
   /// );
   /// assert!(error.is_variable());
@@ -1655,7 +1674,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// use logosky::error::UnicodeEscapeError;
   /// use logosky::utils::Span;
   ///
-  /// let error = UnicodeEscapeError::surrogate_variable_unicode_escape(
+  /// let error = UnicodeEscapeError::<char>::surrogate_variable_unicode_escape(
   ///     Span::new(10, 18),
   ///     0xD800
   /// );
@@ -1674,7 +1693,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// use logosky::error::UnicodeEscapeError;
   /// use logosky::utils::Span;
   ///
-  /// let error = UnicodeEscapeError::overflow_variable_unicode_escape(
+  /// let error = UnicodeEscapeError::<char>::overflow_variable_unicode_escape(
   ///     Span::new(10, 20),
   ///     0x110000
   /// );
@@ -1692,7 +1711,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// ```
   /// use logosky::error::UnicodeEscapeError;
   ///
-  /// let error = UnicodeEscapeError::invalid_variable_unicode_escape_char(12, 'G');
+  /// let error = UnicodeEscapeError::<char>::invalid_variable_unicode_escape_char(12, 'G');
   /// assert!(error.is_variable());
   /// ```
   #[inline]
@@ -1711,7 +1730,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// use logosky::utils::Span;
   ///
   /// let error: UnicodeEscapeError =
-  ///     UnicodeEscapeError::invalid_variable_unicode_escape_sequence(
+  ///     UnicodeEscapeError::<char>::invalid_variable_unicode_escape_sequence(
   ///         Span::new(10, 15)
   ///     );
   /// assert!(error.is_variable());
@@ -1734,7 +1753,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// use logosky::error::UnicodeEscapeError;
   /// use logosky::utils::Span;
   ///
-  /// let mut error = UnicodeEscapeError::empty_variable_unicode_escape(
+  /// let mut error = UnicodeEscapeError::<char>::empty_variable_unicode_escape(
   ///     Span::new(10, 14)
   /// );
   /// error.bump(5);

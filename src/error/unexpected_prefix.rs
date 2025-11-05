@@ -17,7 +17,7 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedPrefix, Span, Lexeme, PositionedChar};
+  /// use logosky::{utils::{Span, Lexeme, PositionedChar}, error::UnexpectedPrefix};
   ///
   /// let error: UnexpectedPrefix<char, ()> = UnexpectedPrefix::new(
   ///     Span::new(1, 5),
@@ -49,15 +49,39 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedPrefix, Span, PositionedChar};
+  /// use logosky::{utils::{PositionedChar, Span}, error::UnexpectedPrefix};
   ///
   /// let error: UnexpectedPrefix<char, ()> = UnexpectedPrefix::from_char(
+  ///    Span::new(1, 5),
+  ///    0,
+  ///   'x'
+  /// );
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn from_char(token: Span, pos: usize, ch: Char) -> Self
+  where
+    Char: CharLen,
+  {
+    Self::from_positioned_char(token, PositionedChar::with_position(ch, pos))
+  }
+
+  /// Create a new `UnexpectedPrefix` error from the given token span and character with position.
+  ///
+  /// ## Panics
+  /// - If the positioned character's position is before the token span ends.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// use logosky::{utils::{PositionedChar, Span}, error::UnexpectedPrefix};
+  ///
+  /// let error: UnexpectedPrefix<char, ()> = UnexpectedPrefix::from_positioned_char(
   ///    Span::new(1, 5),
   ///    PositionedChar::with_position('x', 0)
   /// );
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn from_char(token: Span, ch: PositionedChar<Char>) -> Self
+  pub fn from_positioned_char(token: Span, ch: PositionedChar<Char>) -> Self
   where
     Char: CharLen,
   {
@@ -89,7 +113,7 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedPrefix, Span, Lexeme};
+  /// use logosky::{utils::{Span, Lexeme}, error::UnexpectedPrefix};
   ///
   /// let error: UnexpectedPrefix<char, ()> = UnexpectedPrefix::from_prefix(
   ///   Span::new(6, 10),
@@ -109,7 +133,7 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedPrefix, Span, Lexeme, PositionedChar};
+  /// use logosky::{utils::{Span, Lexeme, PositionedChar}, error::UnexpectedPrefix};
   ///
   /// let error: UnexpectedPrefix<char, ()> = UnexpectedPrefix::new(
   ///   Span::new(1, 5),
@@ -135,7 +159,7 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedPrefix, Span, Lexeme, PositionedChar};
+  /// use logosky::{utils::{Span, Lexeme, PositionedChar}, error::UnexpectedPrefix};
   ///
   /// let error: UnexpectedPrefix<char, ()> = UnexpectedPrefix::new(
   ///     Span::new(1, 5),
@@ -153,7 +177,7 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedPrefix, Span, Lexeme, PositionedChar};
+  /// use logosky::{utils::{Span, Lexeme, PositionedChar}, error::UnexpectedPrefix};
   ///
   /// let error: UnexpectedPrefix<char, ()> = UnexpectedPrefix::new(
   ///    Span::new(1, 5),
@@ -175,7 +199,7 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedPrefix, Span, Lexeme, PositionedChar};
+  /// use logosky::{utils::{Span, Lexeme, PositionedChar}, error::UnexpectedPrefix};
   ///
   /// let error: UnexpectedPrefix<char, ()> = UnexpectedPrefix::new(
   ///   Span::new(1, 5),
@@ -201,7 +225,7 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedPrefix, Span, Lexeme, PositionedChar};
+  /// use logosky::{utils::{Span, Lexeme, PositionedChar}, error::UnexpectedPrefix};
   ///
   /// let mut error: UnexpectedPrefix<char, ()> = UnexpectedPrefix::new(
   ///   Span::new(1, 5),

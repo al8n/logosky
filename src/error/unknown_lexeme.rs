@@ -39,9 +39,9 @@ use crate::utils::{CharLen, Lexeme, PositionedChar, Span, human_display::Display
 /// ## Basic Error with String Knowledge
 ///
 /// ```rust
-/// use logosky::utils::{UnknownLexeme, PositionedChar};
+/// use logosky::{utils::PositionedChar, error::UnknownLexeme};
 ///
-/// let error = UnknownLexeme::from_char(
+/// let error = UnknownLexeme::from_positioned_char(
 ///     PositionedChar::with_position('£', 42),
 ///     "valid characters: letters, digits, or '_'"
 /// );
@@ -54,7 +54,7 @@ use crate::utils::{CharLen, Lexeme, PositionedChar, Span, human_display::Display
 /// ## With Token Kind Knowledge
 ///
 /// ```rust,ignore
-/// use logosky::utils::{UnknownLexeme, Span};
+/// use logosky::{utils::Span, error::UnknownLexeme};
 ///
 /// #[derive(Debug, Clone)]
 /// enum ValidTokens {
@@ -77,9 +77,9 @@ use crate::utils::{CharLen, Lexeme, PositionedChar, Span, human_display::Display
 /// ## Mapping Knowledges
 ///
 /// ```rust
-/// use logosky::utils::{UnknownLexeme, PositionedChar};
+/// use logosky::{utils::PositionedChar, error::UnknownLexeme};
 ///
-/// let error = UnknownLexeme::from_char(
+/// let error = UnknownLexeme::from_positioned_char(
 ///     PositionedChar::with_position('@', 5),
 ///     "digit"
 /// );
@@ -93,9 +93,9 @@ use crate::utils::{CharLen, Lexeme, PositionedChar, Span, human_display::Display
 /// ## Accessing Lexeme via Deref
 ///
 /// ```rust
-/// use logosky::utils::{UnknownLexeme, PositionedChar};
+/// use logosky::{utils::PositionedChar, error::UnknownLexeme};
 ///
-/// let error = UnknownLexeme::from_char(
+/// let error = UnknownLexeme::from_positioned_char(
 ///     PositionedChar::with_position('!', 10),
 ///     "identifier"
 /// );
@@ -157,7 +157,7 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, Lexeme, PositionedChar};
+  /// use logosky::{utils::{Lexeme, PositionedChar}, error::UnknownLexeme};
   ///
   /// let lexeme = Lexeme::from(PositionedChar::with_position('§', 5));
   /// let error = UnknownLexeme::new(lexeme, "valid: identifier");
@@ -174,9 +174,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar};
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
   ///
-  /// let error = UnknownLexeme::from_char(
+  /// let error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('$', 42),
   ///     "valid: alphanumeric character"
   /// );
@@ -185,7 +185,27 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// assert_eq!(error.unwrap_char().position(), 42);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn from_char(pc: PositionedChar<Char>, knowledge: Knowledge) -> Self {
+  pub const fn from_char(pos: usize, ch: Char, knowledge: Knowledge) -> Self {
+    Self::from_positioned_char(PositionedChar::with_position(ch, pos), knowledge)
+  }
+
+  /// Constructs an error from a positioned character and diagnostic knowledge.
+  ///
+  /// # Example
+  ///
+  /// ```rust
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
+  ///
+  /// let error = UnknownLexeme::from_positioned_char(
+  ///     PositionedChar::with_position('$', 42),
+  ///     "valid: alphanumeric character"
+  /// );
+  ///
+  /// assert!(error.is_char());
+  /// assert_eq!(error.unwrap_char().position(), 42);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn from_positioned_char(pc: PositionedChar<Char>, knowledge: Knowledge) -> Self {
     Self::new(Lexeme::Char(pc), knowledge)
   }
 
@@ -196,7 +216,7 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, Span};
+  /// use logosky::{utils::Span, error::UnknownLexeme};
   ///
   /// let error: UnknownLexeme<char, _> = UnknownLexeme::from_span_const(
   ///     Span::new(10, 15),
@@ -215,7 +235,7 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::UnknownLexeme;
+  /// use logosky::error::UnknownLexeme;
   ///
   /// let error: UnknownLexeme<char, _> = UnknownLexeme::from_span(10..15, "valid: closing brace");
   ///
@@ -232,9 +252,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar};
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
   ///
-  /// let error = UnknownLexeme::from_char(
+  /// let error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('x', 5),
   ///     "digit"
   /// );
@@ -251,9 +271,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar};
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
   ///
-  /// let error = UnknownLexeme::from_char(
+  /// let error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('x', 5),
   ///     "valid: digit"
   /// );
@@ -270,9 +290,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar};
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
   ///
-  /// let mut error = UnknownLexeme::from_char(
+  /// let mut error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('x', 5),
   ///     "digit"
   /// );
@@ -290,9 +310,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar};
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
   ///
-  /// let mut error = UnknownLexeme::from_char(
+  /// let mut error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('x', 5),
   ///     String::from("valid: digit")
   /// );
@@ -310,9 +330,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar};
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
   ///
-  /// let error = UnknownLexeme::from_char(
+  /// let error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('!', 10),
   ///     "identifier"
   /// );
@@ -331,9 +351,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar};
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
   ///
-  /// let error = UnknownLexeme::from_char(
+  /// let error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('!', 10),
   ///     "identifier"
   /// );
@@ -351,9 +371,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar};
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
   ///
-  /// let error = UnknownLexeme::from_char(
+  /// let error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('!', 10),
   ///     "identifier"
   /// );
@@ -373,9 +393,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar};
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
   ///
-  /// let error = UnknownLexeme::from_char(
+  /// let error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('€', 5),
   ///     "ASCII character"
   /// );
@@ -396,9 +416,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar, Span};
+  /// use logosky::{utils::{PositionedChar, Span}, error::UnknownLexeme};
   ///
-  /// let error = UnknownLexeme::from_char(
+  /// let error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('x', 10),
   ///     "digit"
   /// );
@@ -418,9 +438,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar};
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
   ///
-  /// let error = UnknownLexeme::from_char(
+  /// let error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('a', 5),
   ///     "digit"
   /// );
@@ -445,9 +465,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar};
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
   ///
-  /// let error = UnknownLexeme::from_char(
+  /// let error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('!', 5),
   ///     "digit"
   /// );
@@ -471,9 +491,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar};
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
   ///
-  /// let error = UnknownLexeme::from_char(
+  /// let error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('a', 5),
   ///     "number"
   /// );
@@ -505,9 +525,9 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// # Example
   ///
   /// ```rust
-  /// use logosky::utils::{UnknownLexeme, PositionedChar};
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
   ///
-  /// let mut error = UnknownLexeme::from_char(
+  /// let mut error = UnknownLexeme::from_positioned_char(
   ///     PositionedChar::with_position('x', 5),
   ///     "digit"
   /// );

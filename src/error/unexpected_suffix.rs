@@ -17,7 +17,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme, PositionedChar};
+  /// use logosky::{utils::{Span, Lexeme, PositionedChar}, error::UnexpectedSuffix};
   ///
   /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::new(
   ///     Span::new(0, 5),
@@ -46,15 +46,36 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedSuffix, Span, PositionedChar};
+  /// use logosky::{utils::{Span, PositionedChar}, error::UnexpectedSuffix};
   ///
   /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::from_char(
+  ///    Span::new(0, 5),
+  ///    5,
+  ///   'x'
+  /// );
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn from_char(token: Span, pos: usize, ch: Char) -> Self {
+    Self::from_positioned_char(token, PositionedChar::with_position(ch, pos))
+  }
+
+  /// Create a new `UnexpectedSuffix` error from the given token span and character with position.
+  ///
+  /// ## Panics
+  /// - If the positioned character's position is before the token span ends.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// use logosky::{utils::{Span, PositionedChar}, error::UnexpectedSuffix};
+  ///
+  /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::from_positioned_char(
   ///    Span::new(0, 5),
   ///    PositionedChar::with_position('x', 5)
   /// );
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn from_char(token: Span, ch: PositionedChar<Char>) -> Self {
+  pub const fn from_positioned_char(token: Span, ch: PositionedChar<Char>) -> Self {
     Self::new(token, Lexeme::Char(ch))
   }
 
@@ -83,7 +104,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme};
+  /// use logosky::{utils::{Span, Lexeme}, error::UnexpectedSuffix};
   ///
   /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::from_suffix(
   ///   Span::new(0, 5),
@@ -100,7 +121,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme, PositionedChar};
+  /// use logosky::{utils::{Span, Lexeme, PositionedChar}, error::UnexpectedSuffix};
   ///
   /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::new(
   ///   Span::new(0, 5),
@@ -128,7 +149,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme, PositionedChar};
+  /// use logosky::{utils::{Span, Lexeme, PositionedChar}, error::UnexpectedSuffix};
   ///
   /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::new(
   ///     Span::new(0, 5),
@@ -146,7 +167,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme, PositionedChar};
+  /// use logosky::{utils::{Span, Lexeme, PositionedChar}, error::UnexpectedSuffix};
   ///
   /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::new(
   ///    Span::new(0, 5),
@@ -168,7 +189,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme, PositionedChar};
+  /// use logosky::{utils::{Span, Lexeme, PositionedChar}, error::UnexpectedSuffix};
   ///
   /// let error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::new(
   ///   Span::new(0, 5),
@@ -194,7 +215,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   /// ## Examples
   ///
   /// ```rust
-  /// use logosky::utils::{UnexpectedSuffix, Span, Lexeme, PositionedChar};
+  /// use logosky::{utils::{Span, Lexeme, PositionedChar}, error::UnexpectedSuffix};
   ///
   /// let mut error: UnexpectedSuffix<char, ()> = UnexpectedSuffix::new(
   ///   Span::new(0, 5),

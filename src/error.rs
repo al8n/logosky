@@ -10,6 +10,7 @@ pub use unexpected_lexeme::*;
 pub use unexpected_prefix::*;
 pub use unexpected_suffix::*;
 pub use unexpected_token::*;
+pub use unicode_escape::*;
 pub use unknown_lexeme::*;
 
 mod errors;
@@ -26,5 +27,4 @@ mod unexpected_suffix;
 mod unexpected_token;
 mod unknown_lexeme;
 
-/// Common unicode lexing errors
-pub mod unicode_escape;
+mod unicode_escape;

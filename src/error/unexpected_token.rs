@@ -20,7 +20,7 @@
 //! When the parser reaches the end of input unexpectedly, use constructors without a found token:
 //!
 //! ```
-//! use logosky::utils::{UnexpectedToken, Span};
+//! use logosky::{utils::Span, error::UnexpectedToken};
 //!
 //! // Simple end-of-input error
 //! let error: UnexpectedToken<&str, &str> = UnexpectedToken::expected_one(
@@ -35,7 +35,7 @@
 //! When a specific token was found but something else was expected:
 //!
 //! ```
-//! use logosky::utils::{UnexpectedToken, Expected, Span};
+//! use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
 //!
 //! let error = UnexpectedToken::with_found(
 //!     Span::new(10, 15),
@@ -61,7 +61,7 @@ use crate::utils::{Expected, Span};
 /// # Examples
 ///
 /// ```
-/// use logosky::utils::{Expected, UnexpectedToken, Span};
+/// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
 ///
 /// // Error when expecting a specific token but got something else
 /// let error = UnexpectedToken::with_found(
@@ -106,7 +106,7 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{Expected, UnexpectedToken, Span};
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
   /// let error: UnexpectedToken<&str, &str> = UnexpectedToken::new(
   ///     Span::new(100, 100),
@@ -129,7 +129,7 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{UnexpectedToken, Span};
+  /// use logosky::{utils::Span, error::UnexpectedToken};
   ///
   /// let error: UnexpectedToken<&str, &str> = UnexpectedToken::expected_one(
   ///     Span::new(50, 50),
@@ -151,7 +151,7 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{UnexpectedToken, Span};
+  /// use logosky::{utils::Span, error::UnexpectedToken};
   ///
   /// let error: UnexpectedToken<&str, &str> = UnexpectedToken::expected_one_of(
   ///     Span::new(25, 25),
@@ -177,7 +177,7 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{Expected, UnexpectedToken, Span};
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
   /// // With a found token
   /// let error = UnexpectedToken::maybe_found(
@@ -214,7 +214,7 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{Expected, UnexpectedToken, Span};
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
   /// let error = UnexpectedToken::with_found(
   ///     Span::new(5, 10),
@@ -234,7 +234,7 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{Expected, UnexpectedToken, Span};
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
   /// let error = UnexpectedToken::with_found(
   ///     Span::new(10, 15),
@@ -255,7 +255,7 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{Expected, UnexpectedToken, Span};
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
   /// let error = UnexpectedToken::with_found(
   ///     Span::new(0, 10),
@@ -280,7 +280,7 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{Expected, UnexpectedToken, Span};
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
   /// let error = UnexpectedToken::with_found(
   ///     Span::new(5, 6),
@@ -305,7 +305,7 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{Expected, UnexpectedToken, Span};
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
   /// let mut error = UnexpectedToken::with_found(
   ///     Span::new(10, 15),
@@ -328,7 +328,7 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{Expected, UnexpectedToken, Span};
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
   /// let error = UnexpectedToken::with_found(
   ///     Span::new(5, 6),

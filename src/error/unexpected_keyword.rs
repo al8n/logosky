@@ -21,7 +21,7 @@
 //! # Example
 //!
 //! ```
-//! use logosky::utils::{UnexpectedKeyword, Span};
+//! use logosky::{utils::Span, error::UnexpectedKeyword};
 //!
 //! // Parser expected "async" but found "sync"
 //! let error = UnexpectedKeyword::expected_one(
@@ -53,7 +53,7 @@ use crate::utils::{Expected, Span};
 /// # Examples
 ///
 /// ```
-/// use logosky::utils::{Expected, UnexpectedKeyword, Span};
+/// use logosky::{utils::{Expected, Span}, error::UnexpectedKeyword};
 ///
 /// // Error when expecting a specific keyword
 /// let error = UnexpectedKeyword::expected_one(
@@ -92,7 +92,7 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{Expected, UnexpectedKeyword, Span};
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedKeyword};
   ///
   /// let error = UnexpectedKeyword::new(
   ///     Span::new(5, 8),
@@ -119,7 +119,7 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{UnexpectedKeyword, Span};
+  /// use logosky::{utils::Span, error::UnexpectedKeyword};
   ///
   /// let error = UnexpectedKeyword::expected_one(
   ///     Span::new(0, 3),
@@ -141,7 +141,7 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{UnexpectedKeyword, Span};
+  /// use logosky::{utils::Span, error::UnexpectedKeyword};
   ///
   /// let error = UnexpectedKeyword::expected_one_of(
   ///     Span::new(10, 18),
@@ -164,7 +164,7 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{UnexpectedKeyword, Span};
+  /// use logosky::{utils::Span, error::UnexpectedKeyword};
   ///
   /// let error = UnexpectedKeyword::expected_one(
   ///     Span::new(20, 26),
@@ -183,7 +183,7 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{UnexpectedKeyword, Span};
+  /// use logosky::{utils::Span, error::UnexpectedKeyword};
   ///
   /// let error = UnexpectedKeyword::expected_one(
   ///     Span::new(0, 6),
@@ -202,7 +202,7 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{Expected, UnexpectedKeyword, Span};
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedKeyword};
   ///
   /// let error = UnexpectedKeyword::expected_one(
   ///     Span::new(5, 11),
@@ -227,7 +227,7 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::utils::{UnexpectedKeyword, Span};
+  /// use logosky::{utils::Span, error::UnexpectedKeyword};
   ///
   /// let mut error = UnexpectedKeyword::expected_one(
   ///     Span::new(10, 13),
