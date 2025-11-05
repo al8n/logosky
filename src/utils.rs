@@ -1,5 +1,6 @@
 use core::ops::Range;
 
+pub use const_generic_vec::*;
 pub use escaped::*;
 pub use expected::*;
 pub use generic_vec::*;
@@ -27,14 +28,15 @@ pub mod syntax_tree_display;
 /// Bounded, stack-allocated vectors for no-alloc environments.
 pub mod generic_vec;
 
+/// Bounded, stack-allocated vectors for no-alloc environments based on const generic arrays.
+pub mod const_generic_vec;
+
 /// Syntax definitions and traits.
 pub mod syntax;
 
 /// Common delimiters used in lexing and parsing.
 pub mod delimiter;
 
-#[cfg(feature = "generic-array")]
-#[cfg_attr(docsrs, doc(cfg(feature = "generic-array")))]
 pub use generic_array::typenum;
 
 /// A module for container types with small size optimizations.

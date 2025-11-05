@@ -3,17 +3,6 @@
 //! This module provides types for representing syntax elements with a known number
 //! of components, and errors for tracking missing components during parsing.
 //!
-//! Two implementations are provided:
-//! - **Const-generic** (default): Uses `const COMPONENTS: usize` for component count
-//! - **Type-level** (with `generic-array` feature): Uses `typenum` for type-level component count
-//!
-//! The implementation is chosen at compile time based on feature flags.
-//!
-//! # Feature Flags
-//!
-//! - Without `generic-array`: Uses const-generic implementation
-//! - With `generic-array`: Uses type-level implementation with `generic_array::ArrayLength`
-//!
 //! # Design Philosophy
 //!
 //! When parsing syntax elements that require multiple components (like variable declarations,
@@ -26,63 +15,9 @@
 //!
 //! # Examples
 //!
-//! ## Const-Generic Version (Default)
-//!
 //! ```rust
-//! # #[cfg(not(feature = "generic-array"))] {
-//! use logosky::utils::syntax::{Syntax, IncompleteSyntax};
-//! use core::fmt;
-//!
-//! #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-//! enum VarDeclComponent {
-//!     VarKeyword,
-//!     Identifier,
-//!     TypeAnnotation,
-//!     Initializer,
-//! }
-//!
-//! impl fmt::Display for VarDeclComponent {
-//!     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//!         match self {
-//!             Self::VarKeyword => write!(f, "'var' keyword"),
-//!             Self::Identifier => write!(f, "identifier"),
-//!             Self::TypeAnnotation => write!(f, "type annotation"),
-//!             Self::Initializer => write!(f, "initializer"),
-//!         }
-//!     }
-//! }
-//!
-//! struct VarDecl;
-//!
-//! impl Syntax for VarDecl {
-//!     type Component = VarDeclComponent;
-//!     const COMPONENTS: usize = 4;
-//!
-//!     fn possible_components() -> [Self::Component; 4] {
-//!         [
-//!             VarDeclComponent::VarKeyword,
-//!             VarDeclComponent::Identifier,
-//!             VarDeclComponent::TypeAnnotation,
-//!             VarDeclComponent::Initializer,
-//!         ]
-//!     }
-//! }
-//!
-//! // Track missing components during parsing
-//! let mut error = IncompleteSyntax::<VarDecl>::new(VarDeclComponent::Identifier);
-//! error.push(VarDeclComponent::Initializer);
-//!
-//! // Error message shows all missing components
-//! assert!(format!("{}", error).contains("identifier"));
-//! assert!(format!("{}", error).contains("initializer"));
-//! # }
-//! ```
-//!
-//! ## Type-Level Version (with generic-array feature)
-//!
-//! ```rust
-//! # #[cfg(feature = "generic-array")] {
-//! use logosky::utils::syntax::{Syntax, IncompleteSyntax, typenum::U3};
+//! # {
+//! use logosky::{utils::{syntax::Syntax, typenum::U3}, error::IncompleteSyntax};
 //! use core::fmt;
 //!
 //! #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -121,16 +56,100 @@
 //! assert_eq!(error.len(), 1);
 //! # }
 //! ```
+use generic_array::{ArrayLength, GenericArray};
 
-// Conditionally include the appropriate implementation
-#[cfg(not(feature = "generic-array"))]
-mod const_generic;
-#[cfg(not(feature = "generic-array"))]
-pub use const_generic::{IncompleteSyntax, Syntax};
+pub use generic_array::{GenericArrayIter, typenum};
 
-#[cfg(feature = "generic-array")]
-#[cfg_attr(docsrs, doc(cfg(feature = "generic-array")))]
-mod type_level;
-#[cfg(feature = "generic-array")]
-#[cfg_attr(docsrs, doc(cfg(feature = "generic-array")))]
-pub use type_level::{GenericArrayIter, IncompleteSyntax, Syntax, typenum};
+use core::{
+  fmt::{Debug, Display},
+  hash::Hash,
+};
+
+/// A trait representing a syntax with a type-level number of components.
+///
+/// This trait defines the structure of a syntax element that has a known number
+/// of required components. It uses `typenum` for type-level component count,
+/// enabling compile-time arithmetic and better integration with generic-array-based code.
+///
+/// # Type Parameters
+///
+/// - `Component`: The type representing individual syntax components (usually an enum)
+/// - `COMPONENTS`: A type-level unsigned integer (via `ArrayLength`) specifying component count
+///
+/// # Examples
+///
+/// ```rust
+/// # {
+/// use logosky::utils::{syntax::Syntax, typenum};
+/// use typenum::U5;
+/// use core::fmt;
+///
+/// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// enum LetStatementComponent {
+///     LetKeyword,
+///     Identifier,
+///     Equals,
+///     Expression,
+///     Semicolon,
+/// }
+///
+/// impl fmt::Display for LetStatementComponent {
+///     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+///         match self {
+///             Self::LetKeyword => write!(f, "'let' keyword"),
+///             Self::Identifier => write!(f, "identifier"),
+///             Self::Equals => write!(f, "'=' operator"),
+///             Self::Expression => write!(f, "expression"),
+///             Self::Semicolon => write!(f, "';' semicolon"),
+///         }
+///     }
+/// }
+///
+/// struct LetStatement;
+///
+/// impl Syntax for LetStatement {
+///     type Component = LetStatementComponent;
+///     type COMPONENTS = U5;
+///
+///     fn possible_components() -> generic_array::GenericArray<Self::Component, Self::COMPONENTS> {
+///         [
+///             LetStatementComponent::LetKeyword,
+///             LetStatementComponent::Identifier,
+///             LetStatementComponent::Equals,
+///             LetStatementComponent::Expression,
+///             LetStatementComponent::Semicolon,
+///         ].into_iter().collect()
+///     }
+/// }
+/// # }
+/// ```
+pub trait Syntax {
+  /// The component type of this syntax.
+  ///
+  /// Usually this is an enum representing different variants of syntax components.
+  /// This type is used for error reporting to specify which components are missing.
+  type Component: Display + Debug + Clone + PartialEq + Eq + Hash;
+
+  /// The number of components in this syntax, represented as a type-level unsigned integer.
+  ///
+  /// Uses `typenum` to represent the count at the type level, enabling compile-time
+  /// arithmetic without requiring unstable `generic_const_exprs` feature.
+  ///
+  /// # Examples
+  ///
+  /// ```rust,ignore
+  /// use typenum::U3; // For a syntax with 3 components
+  ///
+  /// impl Syntax for MySyntax {
+  ///     type COMPONENTS = U3;
+  ///     // ...
+  /// }
+  /// ```
+  type COMPONENTS: ArrayLength + Debug + Eq + Hash;
+
+  /// Returns an array containing all possible components for this syntax.
+  ///
+  /// The array should contain all components that can be part of this syntax element,
+  /// in a canonical order.
+  fn possible_components() -> GenericArray<Self::Component, Self::COMPONENTS>;
+}

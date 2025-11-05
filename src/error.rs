@@ -1,7 +1,9 @@
 pub use errors::Errors;
 
+pub use hex_escape::*;
 pub use incomplete_syntax::*;
 pub use incomplete_token::*;
+pub use invalid_hex_digits::*;
 pub use malformed_literal::*;
 pub use unclosed::*;
 pub use unexpected_end::*;
@@ -15,6 +17,7 @@ pub use unknown_lexeme::*;
 
 mod errors;
 
+mod hex_escape;
 mod incomplete_syntax;
 mod incomplete_token;
 mod malformed_literal;
@@ -27,4 +30,5 @@ mod unexpected_suffix;
 mod unexpected_token;
 mod unknown_lexeme;
 
+mod invalid_hex_digits;
 mod unicode_escape;

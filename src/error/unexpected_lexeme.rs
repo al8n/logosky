@@ -3,7 +3,7 @@ use derive_more::{Display, IsVariant};
 use crate::utils::{CharLen, Lexeme, PositionedChar, Span};
 
 /// A specialized `UnexpectedLexeme` for line terminators.
-/// 
+///
 /// This type represents an unexpected line terminator character
 /// encountered during lexing or parsing, along with a hint
 /// describing what was expected instead.

@@ -1,7 +1,4 @@
 //! Const-generic based bounded vector implementation.
-//!
-//! This implementation uses const generics (stable since Rust 1.51) to specify
-//! the capacity at compile time using a `const N: usize` parameter.
 
 use core::{
   mem::MaybeUninit,
@@ -10,7 +7,7 @@ use core::{
 
 /// A stack-allocated, fixed-capacity vector that silently drops elements when full.
 ///
-/// `GenericVec` is a `no_std` compatible, zero-allocation container that can hold
+/// `ConstGenericVec` is a `no_std` compatible, zero-allocation container that can hold
 /// at most `N` elements. It's designed specifically for error collection in no-alloc
 /// environments where you want to collect the first N errors before giving up.
 ///
@@ -34,16 +31,16 @@ use core::{
 /// |------|------------|-------------------|----------|
 /// | `Vec` | Heap | Grows dynamically | Standard environments |
 /// | `ArrayVec` | Stack | Panics or returns error | Critical correctness |
-/// | `GenericVec` | Stack | Silently drops | Error collection |
+/// | `ConstGenericVec` | Stack | Silently drops | Error collection |
 ///
 /// # Examples
 ///
 /// ## Basic Usage
 ///
 /// ```rust
-/// use logosky::utils::GenericVec;
+/// use logosky::utils::ConstGenericVec;
 ///
-/// let mut errors: GenericVec<&str, 8> = GenericVec::new();
+/// let mut errors: ConstGenericVec<&str, 8> = ConstGenericVec::new();
 ///
 /// errors.push("error 1");
 /// errors.push("error 2");
@@ -54,10 +51,10 @@ use core::{
 /// ## Error Collection Pattern
 ///
 /// ```rust
-/// use logosky::utils::GenericVec;
+/// use logosky::utils::ConstGenericVec;
 ///
-/// fn parse(input: &str) -> Result<(), GenericVec<String, 10>> {
-///     let mut errors = GenericVec::new();
+/// fn parse(input: &str) -> Result<(), ConstGenericVec<String, 10>> {
+///     let mut errors = ConstGenericVec::new();
 ///
 ///     for (i, line) in input.lines().enumerate() {
 ///         if line.trim().is_empty() {
@@ -76,9 +73,9 @@ use core::{
 /// ## Overflow Behavior
 ///
 /// ```rust
-/// use logosky::utils::GenericVec;
+/// use logosky::utils::ConstGenericVec;
 ///
-/// let mut vec: GenericVec<i32, 2> = GenericVec::new();
+/// let mut vec: ConstGenericVec<i32, 2> = ConstGenericVec::new();
 /// vec.push(1);
 /// vec.push(2);
 /// vec.push(3); // Silently dropped
@@ -88,12 +85,12 @@ use core::{
 /// assert_eq!(vec.as_slice(), &[1, 2]);
 /// ```
 #[derive(Debug)]
-pub struct GenericVec<T, const N: usize> {
+pub struct ConstGenericVec<T, const N: usize> {
   values: [MaybeUninit<T>; N],
   len: usize,
 }
 
-impl<T, const N: usize> Clone for GenericVec<T, N>
+impl<T, const N: usize> Clone for ConstGenericVec<T, N>
 where
   T: Clone,
 {
@@ -110,17 +107,17 @@ where
   }
 }
 
-impl<T, const N: usize> FromIterator<T> for GenericVec<T, N> {
-  /// Creates a `GenericVec` from an iterator, collecting at most `N` elements.
+impl<T, const N: usize> FromIterator<T> for ConstGenericVec<T, N> {
+  /// Creates a `ConstGenericVec` from an iterator, collecting at most `N` elements.
   ///
   /// Elements beyond the capacity are silently dropped.
   ///
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let vec: GenericVec<i32, 4> = (0..10).collect();
+  /// let vec: ConstGenericVec<i32, 4> = (0..10).collect();
   /// assert_eq!(vec.len(), 4);
   /// assert_eq!(vec.as_slice(), &[0, 1, 2, 3]);
   /// ```
@@ -134,21 +131,21 @@ impl<T, const N: usize> FromIterator<T> for GenericVec<T, N> {
   }
 }
 
-impl<T, const N: usize> AsRef<[T]> for GenericVec<T, N> {
+impl<T, const N: usize> AsRef<[T]> for ConstGenericVec<T, N> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_ref(&self) -> &[T] {
     self
   }
 }
 
-impl<T, const N: usize> AsMut<[T]> for GenericVec<T, N> {
+impl<T, const N: usize> AsMut<[T]> for ConstGenericVec<T, N> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_mut(&mut self) -> &mut [T] {
     self
   }
 }
 
-impl<T, const N: usize> core::ops::Deref for GenericVec<T, N> {
+impl<T, const N: usize> core::ops::Deref for ConstGenericVec<T, N> {
   type Target = [T];
 
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -157,29 +154,29 @@ impl<T, const N: usize> core::ops::Deref for GenericVec<T, N> {
   }
 }
 
-impl<T, const N: usize> core::ops::DerefMut for GenericVec<T, N> {
+impl<T, const N: usize> core::ops::DerefMut for ConstGenericVec<T, N> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn deref_mut(&mut self) -> &mut Self::Target {
     self.as_mut_slice()
   }
 }
 
-impl<T, const N: usize> Default for GenericVec<T, N> {
+impl<T, const N: usize> Default for ConstGenericVec<T, N> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn default() -> Self {
     Self::new()
   }
 }
 
-impl<T, const N: usize> GenericVec<T, N> {
-  /// Create a new empty `GenericVec`.
+impl<T, const N: usize> ConstGenericVec<T, N> {
+  /// Create a new empty `ConstGenericVec`.
   ///
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let vec: GenericVec<i32, 10> = GenericVec::new();
+  /// let vec: ConstGenericVec<i32, 10> = ConstGenericVec::new();
   /// assert_eq!(vec.len(), 0);
   /// assert_eq!(vec.capacity(), 10);
   /// ```
@@ -196,9 +193,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let vec: GenericVec<i32, 16> = GenericVec::new();
+  /// let vec: ConstGenericVec<i32, 16> = ConstGenericVec::new();
   /// assert_eq!(vec.capacity(), 16);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -211,9 +208,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 4> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 4> = ConstGenericVec::new();
   /// assert_eq!(vec.len(), 0);
   /// vec.push(1);
   /// assert_eq!(vec.len(), 1);
@@ -228,9 +225,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 4> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 4> = ConstGenericVec::new();
   /// assert!(vec.is_empty());
   /// vec.push(1);
   /// assert!(!vec.is_empty());
@@ -247,9 +244,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 2> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 2> = ConstGenericVec::new();
   /// assert!(!vec.is_full());
   /// vec.push(1);
   /// vec.push(2);
@@ -265,9 +262,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 5> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 5> = ConstGenericVec::new();
   /// vec.push(1);
   /// vec.push(2);
   /// assert_eq!(vec.remaining_capacity(), 3);
@@ -279,15 +276,15 @@ impl<T, const N: usize> GenericVec<T, N> {
 
   /// Push a value to the end of the vector.
   ///
-  /// If the vector is at capacity, the value is **silently dropped** without error.
+  /// If the vector is at capacity, the value is returned back to the caller.
   /// This is intentional behavior for error collection in no-alloc parsers.
   ///
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 2> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 2> = ConstGenericVec::new();
   /// vec.push(1);
   /// vec.push(2);
   /// vec.push(3); // Dropped silently
@@ -296,12 +293,14 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// assert_eq!(vec.as_slice(), &[1, 2]);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn push(&mut self, value: T) {
+  pub const fn push(&mut self, value: T) -> Option<T> {
     if self.len < N {
       self.values[self.len].write(value);
       self.len += 1;
+      None
+    } else {
+      Some(value)
     }
-    // Value is implicitly dropped if capacity exceeded
   }
 
   /// Attempts to push a value, returning `Err(value)` if the vector is full.
@@ -311,9 +310,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 2> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 2> = ConstGenericVec::new();
   /// assert!(vec.try_push(1).is_ok());
   /// assert!(vec.try_push(2).is_ok());
   /// assert_eq!(vec.try_push(3), Err(3)); // Full!
@@ -339,9 +338,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 4> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 4> = ConstGenericVec::new();
   /// unsafe {
   ///     vec.push_unchecked(1);
   ///     vec.push_unchecked(2);
@@ -359,9 +358,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 4> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 4> = ConstGenericVec::new();
   /// vec.push(1);
   /// vec.push(2);
   /// assert_eq!(vec.pop(), Some(2));
@@ -384,9 +383,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 4> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 4> = ConstGenericVec::new();
   /// vec.push(1);
   /// vec.push(2);
   /// vec.clear();
@@ -413,9 +412,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 8> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 8> = ConstGenericVec::new();
   /// vec.push(1);
   /// vec.push(2);
   /// vec.push(3);
@@ -462,9 +461,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 8> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 8> = ConstGenericVec::new();
   /// vec.push(1);
   /// vec.push(2);
   /// vec.push(3);
@@ -489,9 +488,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 4> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 4> = ConstGenericVec::new();
   /// vec.push(1);
   /// vec.push(2);
   /// vec.push(3);
@@ -509,9 +508,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 4> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 4> = ConstGenericVec::new();
   /// vec.push(1);
   /// vec.push(2);
   ///
@@ -530,9 +529,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 4> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 4> = ConstGenericVec::new();
   /// vec.push(1);
   /// vec.push(2);
   ///
@@ -550,9 +549,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 4> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 4> = ConstGenericVec::new();
   /// vec.push(1);
   /// vec.push(2);
   ///
@@ -571,9 +570,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 4> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 4> = ConstGenericVec::new();
   /// vec.push(1);
   ///
   /// let ptr = vec.as_ptr();
@@ -591,9 +590,9 @@ impl<T, const N: usize> GenericVec<T, N> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::utils::GenericVec;
+  /// use logosky::utils::ConstGenericVec;
   ///
-  /// let mut vec: GenericVec<i32, 4> = GenericVec::new();
+  /// let mut vec: ConstGenericVec<i32, 4> = ConstGenericVec::new();
   /// vec.push(1);
   ///
   /// let ptr = vec.as_mut_ptr();
@@ -608,13 +607,13 @@ impl<T, const N: usize> GenericVec<T, N> {
   }
 }
 
-impl<T, const N: usize> Drop for GenericVec<T, N> {
+impl<T, const N: usize> Drop for ConstGenericVec<T, N> {
   fn drop(&mut self) {
     self.clear();
   }
 }
 
-impl<T, I, const N: usize> core::ops::Index<I> for GenericVec<T, N>
+impl<T, I, const N: usize> core::ops::Index<I> for ConstGenericVec<T, N>
 where
   I: core::slice::SliceIndex<[T]>,
 {
@@ -626,7 +625,7 @@ where
   }
 }
 
-impl<T, I, const N: usize> core::ops::IndexMut<I> for GenericVec<T, N>
+impl<T, I, const N: usize> core::ops::IndexMut<I> for ConstGenericVec<T, N>
 where
   I: core::slice::SliceIndex<[T]>,
 {
@@ -636,30 +635,30 @@ where
   }
 }
 
-impl<T: PartialEq, const N: usize> PartialEq for GenericVec<T, N> {
+impl<T: PartialEq, const N: usize> PartialEq for ConstGenericVec<T, N> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn eq(&self, other: &Self) -> bool {
     self.as_slice() == other.as_slice()
   }
 }
 
-impl<T: Eq, const N: usize> Eq for GenericVec<T, N> {}
+impl<T: Eq, const N: usize> Eq for ConstGenericVec<T, N> {}
 
-impl<T: PartialOrd, const N: usize> PartialOrd for GenericVec<T, N> {
+impl<T: PartialOrd, const N: usize> PartialOrd for ConstGenericVec<T, N> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
     self.as_slice().partial_cmp(other.as_slice())
   }
 }
 
-impl<T: Ord, const N: usize> Ord for GenericVec<T, N> {
+impl<T: Ord, const N: usize> Ord for ConstGenericVec<T, N> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn cmp(&self, other: &Self) -> core::cmp::Ordering {
     self.as_slice().cmp(other.as_slice())
   }
 }
 
-impl<T: core::hash::Hash, const N: usize> core::hash::Hash for GenericVec<T, N> {
+impl<T: core::hash::Hash, const N: usize> core::hash::Hash for ConstGenericVec<T, N> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
     self.as_slice().hash(state);

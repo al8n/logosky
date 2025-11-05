@@ -46,21 +46,8 @@ use crate::utils::GenericVec;
 ///
 /// Uses a stack-allocated `GenericVec` with capacity for 2 errors.
 /// When the capacity is exceeded, additional errors are silently dropped.
-#[cfg(all(
-  not(any(feature = "alloc", feature = "std")),
-  feature = "generic-array"
-))]
+#[cfg(not(any(feature = "alloc", feature = "std")))]
 pub type DefaultContainer<E> = GenericVec<E, super::typenum::U2>;
-
-/// Default error container for no-alloc environments.
-///
-/// Uses a stack-allocated `GenericVec` with capacity for 2 errors.
-/// When the capacity is exceeded, additional errors are silently dropped.
-#[cfg(all(
-  not(any(feature = "alloc", feature = "std")),
-  not(feature = "generic-array")
-))]
-pub type DefaultContainer<E> = GenericVec<E, 2>;
 
 /// Default error container for alloc/std environments.
 ///

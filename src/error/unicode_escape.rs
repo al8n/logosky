@@ -62,11 +62,11 @@
 //! ## Detecting Malformed Fixed-Width Escapes
 //!
 //! ```
-//! use logosky::error::{UnicodeEscapeError, InvalidUnicodeHexDigits};
+//! use logosky::error::{UnicodeEscapeError, InvalidFixedUnicodeHexDigits};
 //! use logosky::utils::{Span, PositionedChar};
 //!
 //! // Invalid hex digit 'G' at position 12
-//! let mut digits = InvalidUnicodeHexDigits::<char>::default();
+//! let mut digits = InvalidFixedUnicodeHexDigits::<char>::from_char(12, 'G');
 //! // ... collect invalid digits ...
 //!
 //! let error = UnicodeEscapeError::<char>::malformed_fixed_unicode_escape(
@@ -105,70 +105,6 @@ use crate::{
 };
 use derive_more::{Display, From, IsVariant, TryUnwrap, Unwrap};
 
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
-enum InvalidUnicodeHexDigitsRepr<Char = char> {
-  #[default]
-  Zero,
-  One(PositionedChar<Char>),
-  Two([PositionedChar<Char>; 2]),
-  Three([PositionedChar<Char>; 3]),
-  Four([PositionedChar<Char>; 4]),
-}
-
-impl<Char> InvalidUnicodeHexDigitsRepr<Char> {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  const fn len(&self) -> usize {
-    match self {
-      Self::Zero => 0,
-      Self::One(_) => 1,
-      Self::Two(_) => 2,
-      Self::Three(_) => 3,
-      Self::Four(_) => 4,
-    }
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  const fn bump(&mut self, n: usize) -> &mut Self {
-    match self {
-      Self::Zero => {}
-      Self::One(a) => {
-        a.bump_position(n);
-      }
-      Self::Two([a, b]) => {
-        a.bump_position(n);
-        b.bump_position(n);
-      }
-      Self::Three([a, b, c]) => {
-        a.bump_position(n);
-        b.bump_position(n);
-        c.bump_position(n);
-      }
-      Self::Four([a, b, c, d]) => {
-        a.bump_position(n);
-        b.bump_position(n);
-        c.bump_position(n);
-        d.bump_position(n);
-      }
-    }
-    self
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn push(&mut self, ch: PositionedChar<Char>) -> bool {
-    *self = match core::mem::take(self) {
-      Self::Zero => Self::One(ch),
-      Self::One(a) => Self::Two([a, ch]),
-      Self::Two([a, b]) => Self::Three([a, b, ch]),
-      Self::Three([a, b, c]) => Self::Four([a, b, c, ch]),
-      Self::Four(_) => {
-        return false;
-        // panic!("InvalidUnicodeHexDigits can only hold up to 4 digits, tried to push a 5th");
-      }
-    };
-    true
-  }
-}
-
 /// A zero-copy container for storing 1-4 invalid unicode hex digit characters.
 ///
 /// This structure is designed for fixed-width unicode escapes (`\uXXXX`) which
@@ -189,199 +125,30 @@ impl<Char> InvalidUnicodeHexDigitsRepr<Char> {
 /// # Examples
 ///
 /// ```
-/// use logosky::error::InvalidUnicodeHexDigits;
+/// use logosky::error::InvalidFixedUnicodeHexDigits;
 /// use logosky::utils::PositionedChar;
 ///
 /// // Create from a single invalid character
-/// let digit = InvalidUnicodeHexDigits::from(
+/// let digit = InvalidFixedUnicodeHexDigits::from(
 ///     PositionedChar::with_position('G', 12)
 /// );
 /// assert_eq!(digit.len(), 1);
 ///
 /// // Create from multiple invalid characters
-/// let digits = InvalidUnicodeHexDigits::from([
+/// let digits = InvalidFixedUnicodeHexDigits::from_array([
 ///     PositionedChar::with_position('G', 12),
 ///     PositionedChar::with_position('H', 13),
+///     PositionedChar::with_position('I', 14),
+///     PositionedChar::with_position('J', 15),
 /// ]);
-/// assert_eq!(digits.len(), 2);
+/// assert_eq!(digits.len(), 4);
 ///
 /// // Access as a slice
 /// for ch in digits.iter() {
 ///     println!("Invalid hex digit at position {}", ch.position());
 /// }
 /// ```
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct InvalidUnicodeHexDigits<Char = char>(InvalidUnicodeHexDigitsRepr<Char>);
-
-impl<Char> Default for InvalidUnicodeHexDigits<Char> {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn default() -> Self {
-    Self(InvalidUnicodeHexDigitsRepr::Zero)
-  }
-}
-
-impl<Char> From<PositionedChar<Char>> for InvalidUnicodeHexDigits<Char> {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn from(c: PositionedChar<Char>) -> Self {
-    Self(InvalidUnicodeHexDigitsRepr::One(c))
-  }
-}
-
-impl<Char> From<[PositionedChar<Char>; 2]> for InvalidUnicodeHexDigits<Char> {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn from(c: [PositionedChar<Char>; 2]) -> Self {
-    Self(InvalidUnicodeHexDigitsRepr::Two(c))
-  }
-}
-
-impl<Char> From<[PositionedChar<Char>; 3]> for InvalidUnicodeHexDigits<Char> {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn from(c: [PositionedChar<Char>; 3]) -> Self {
-    Self(InvalidUnicodeHexDigitsRepr::Three(c))
-  }
-}
-
-impl<Char> From<[PositionedChar<Char>; 4]> for InvalidUnicodeHexDigits<Char> {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn from(c: [PositionedChar<Char>; 4]) -> Self {
-    Self(InvalidUnicodeHexDigitsRepr::Four(c))
-  }
-}
-
-impl<Char> InvalidUnicodeHexDigits<Char> {
-  /// Creates a new `InvalidUnicodeHexDigits` from an iterator.
-  ///
-  /// Returns `None` if the iterator yields more than 4 items, as the container
-  /// is designed to hold at most 4 characters (matching `\uXXXX` format).
-  ///
-  /// ## Examples
-  ///
-  /// ```
-  /// use logosky::error::InvalidUnicodeHexDigits;
-  /// use logosky::utils::PositionedChar;
-  ///
-  /// let chars = vec![
-  ///     PositionedChar::with_position('G', 10),
-  ///     PositionedChar::with_position('H', 11),
-  /// ];
-  ///
-  /// let digits = InvalidUnicodeHexDigits::try_from_iter(chars).unwrap();
-  /// assert_eq!(digits.len(), 2);
-  /// ```
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn try_from_iter<I>(iter: I) -> Option<Self>
-  where
-    I: IntoIterator<Item = PositionedChar<Char>>,
-  {
-    let mut repr = InvalidUnicodeHexDigitsRepr::Zero;
-    for ch in iter {
-      if !repr.push(ch) {
-        return None;
-      }
-    }
-    Some(Self(repr))
-  }
-
-  /// Returns the number of invalid hex digits stored.
-  ///
-  /// The length will be in the range `0..=4`.
-  ///
-  /// ## Examples
-  ///
-  /// ```
-  /// use logosky::error::InvalidUnicodeHexDigits;
-  /// use logosky::utils::PositionedChar;
-  ///
-  /// let digits = InvalidUnicodeHexDigits::from(
-  ///     PositionedChar::with_position('Z', 5)
-  /// );
-  /// assert_eq!(digits.len(), 1);
-  /// ```
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn len(&self) -> usize {
-    self.0.len()
-  }
-
-  /// Returns `true` if no invalid hex digits are stored.
-  ///
-  /// ## Examples
-  ///
-  /// ```
-  /// use logosky::error::InvalidUnicodeHexDigits;
-  ///
-  /// let digits: InvalidUnicodeHexDigits = Default::default();
-  /// assert!(digits.is_empty());
-  /// ```
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn is_empty(&self) -> bool {
-    matches!(self.0, InvalidUnicodeHexDigitsRepr::Zero)
-  }
-
-  /// Bumps the position of all stored characters by `n`.
-  ///
-  /// This is useful when adjusting error positions after processing or
-  /// when combining errors from different parsing contexts.
-  ///
-  /// ## Examples
-  ///
-  /// ```
-  /// use logosky::error::InvalidUnicodeHexDigits;
-  /// use logosky::utils::PositionedChar;
-  ///
-  /// let mut digits = InvalidUnicodeHexDigits::from(
-  ///     PositionedChar::with_position('G', 10)
-  /// );
-  /// digits.bump(5);
-  /// assert_eq!(digits[0].position(), 15);
-  /// ```
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn bump(&mut self, n: usize) -> &mut Self {
-    self.0.bump(n);
-    self
-  }
-}
-
-impl<Char> AsRef<[PositionedChar<Char>]> for InvalidUnicodeHexDigits<Char> {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn as_ref(&self) -> &[PositionedChar<Char>] {
-    self
-  }
-}
-
-impl<Char> AsMut<[PositionedChar<Char>]> for InvalidUnicodeHexDigits<Char> {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn as_mut(&mut self) -> &mut [PositionedChar<Char>] {
-    self
-  }
-}
-
-impl<Char> core::ops::Deref for InvalidUnicodeHexDigits<Char> {
-  type Target = [PositionedChar<Char>];
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn deref(&self) -> &Self::Target {
-    match &self.0 {
-      InvalidUnicodeHexDigitsRepr::Zero => &[],
-      InvalidUnicodeHexDigitsRepr::One(a) => core::slice::from_ref(a),
-      InvalidUnicodeHexDigitsRepr::Two(ab) => ab,
-      InvalidUnicodeHexDigitsRepr::Three(abc) => abc,
-      InvalidUnicodeHexDigitsRepr::Four(abcd) => abcd,
-    }
-  }
-}
-
-impl<Char> core::ops::DerefMut for InvalidUnicodeHexDigits<Char> {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    match &mut self.0 {
-      InvalidUnicodeHexDigitsRepr::Zero => &mut [],
-      InvalidUnicodeHexDigitsRepr::One(a) => core::slice::from_mut(a),
-      InvalidUnicodeHexDigitsRepr::Two(ab) => ab,
-      InvalidUnicodeHexDigitsRepr::Three(abc) => abc,
-      InvalidUnicodeHexDigitsRepr::Four(abcd) => abcd,
-    }
-  }
-}
+pub type InvalidFixedUnicodeHexDigits<Char = char> = crate::error::InvalidHexDigits<Char, 4>;
 
 /// A malformed fixed-width unicode escape sequence error.
 ///
@@ -396,11 +163,11 @@ impl<Char> core::ops::DerefMut for InvalidUnicodeHexDigits<Char> {
 /// # Examples
 ///
 /// ```
-/// use logosky::error::{MalformedFixedUnicodeEscape, InvalidUnicodeHexDigits};
+/// use logosky::error::{MalformedFixedUnicodeEscape, InvalidFixedUnicodeHexDigits};
 /// use logosky::utils::{Span, PositionedChar};
 ///
 /// // Create error for malformed escape like \uGHIJ
-/// let digits = InvalidUnicodeHexDigits::from([
+/// let digits = InvalidFixedUnicodeHexDigits::from_array([
 ///     PositionedChar::with_position('G', 12),
 ///     PositionedChar::with_position('H', 13),
 ///     PositionedChar::with_position('I', 14),
@@ -414,9 +181,9 @@ impl<Char> core::ops::DerefMut for InvalidUnicodeHexDigits<Char> {
 ///
 /// assert_eq!(error.span(), Span::new(10, 16));
 /// ```
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MalformedFixedUnicodeEscape<Char = char> {
-  digits: InvalidUnicodeHexDigits<Char>,
+  digits: InvalidFixedUnicodeHexDigits<Char>,
   span: Span,
 }
 
@@ -426,16 +193,16 @@ impl<Char> MalformedFixedUnicodeEscape<Char> {
   /// ## Examples
   ///
   /// ```
-  /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidUnicodeHexDigits};
+  /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidFixedUnicodeHexDigits};
   /// use logosky::utils::{Span, PositionedChar};
   ///
-  /// let digits = InvalidUnicodeHexDigits::from(
+  /// let digits = InvalidFixedUnicodeHexDigits::from(
   ///     PositionedChar::with_position('Z', 12)
   /// );
   /// let error = MalformedFixedUnicodeEscape::new(digits, Span::new(10, 14));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn new(digits: InvalidUnicodeHexDigits<Char>, span: Span) -> Self {
+  pub const fn new(digits: InvalidFixedUnicodeHexDigits<Char>, span: Span) -> Self {
     Self { digits, span }
   }
 
@@ -447,10 +214,10 @@ impl<Char> MalformedFixedUnicodeEscape<Char> {
   /// ## Examples
   ///
   /// ```
-  /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidUnicodeHexDigits};
+  /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidFixedUnicodeHexDigits};
   /// use logosky::utils::Span;
   ///
-  /// let digits = InvalidUnicodeHexDigits::<char>::default();
+  /// let digits = InvalidFixedUnicodeHexDigits::<char>::from_char(12, 'G');
   /// let error = MalformedFixedUnicodeEscape::new(digits, Span::new(10, 14));
   /// assert!(error.is_incomplete()); // Only 4 chars, not 6
   /// ```
@@ -464,21 +231,21 @@ impl<Char> MalformedFixedUnicodeEscape<Char> {
   /// ## Examples
   ///
   /// ```
-  /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidUnicodeHexDigits};
+  /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidFixedUnicodeHexDigits};
   /// use logosky::utils::{Span, PositionedChar};
   ///
-  /// let digits = InvalidUnicodeHexDigits::from(
+  /// let digits = InvalidFixedUnicodeHexDigits::from(
   ///     PositionedChar::with_position('G', 12)
   /// );
   /// let error = MalformedFixedUnicodeEscape::new(digits, Span::new(10, 14));
   /// assert_eq!(error.digits().len(), 1);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn digits(&self) -> InvalidUnicodeHexDigits<Char>
+  pub fn digits(&self) -> InvalidFixedUnicodeHexDigits<Char>
   where
-    Char: Copy,
+    Char: Clone,
   {
-    self.digits
+    self.digits.clone()
   }
 
   /// Returns a reference to the invalid unicode hex digits.
@@ -486,23 +253,23 @@ impl<Char> MalformedFixedUnicodeEscape<Char> {
   /// ## Examples
   ///
   /// ```
-  /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidUnicodeHexDigits};
+  /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidFixedUnicodeHexDigits};
   /// use logosky::utils::{Span, PositionedChar};
   ///
-  /// let digits = InvalidUnicodeHexDigits::from(
+  /// let digits = InvalidFixedUnicodeHexDigits::from(
   ///     PositionedChar::with_position('G', 12)
   /// );
   /// let error = MalformedFixedUnicodeEscape::new(digits, Span::new(10, 14));
   /// assert_eq!(error.digits_ref().len(), 1);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn digits_ref(&self) -> &InvalidUnicodeHexDigits<Char> {
+  pub const fn digits_ref(&self) -> &InvalidFixedUnicodeHexDigits<Char> {
     &self.digits
   }
 
   /// Returns a mutable reference to the invalid unicode hex digits.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn digits_mut(&mut self) -> &mut InvalidUnicodeHexDigits<Char> {
+  pub const fn digits_mut(&mut self) -> &mut InvalidFixedUnicodeHexDigits<Char> {
     &mut self.digits
   }
 
@@ -511,11 +278,11 @@ impl<Char> MalformedFixedUnicodeEscape<Char> {
   /// ## Examples
   ///
   /// ```
-  /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidUnicodeHexDigits};
+  /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidFixedUnicodeHexDigits};
   /// use logosky::utils::Span;
   ///
   /// let error = MalformedFixedUnicodeEscape::new(
-  ///     InvalidUnicodeHexDigits::<char>::default(),
+  ///     InvalidFixedUnicodeHexDigits::<char>::from_char(12, 'G'),
   ///     Span::new(10, 16)
   /// );
   /// assert_eq!(error.span(), Span::new(10, 16));
@@ -545,11 +312,11 @@ impl<Char> MalformedFixedUnicodeEscape<Char> {
   /// ## Examples
   ///
   /// ```
-  /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidUnicodeHexDigits};
+  /// use logosky::error::{MalformedFixedUnicodeEscape, InvalidFixedUnicodeHexDigits};
   /// use logosky::utils::{Span, PositionedChar};
   ///
   /// let mut error = MalformedFixedUnicodeEscape::new(
-  ///     InvalidUnicodeHexDigits::from(PositionedChar::with_position('G', 12)),
+  ///     InvalidFixedUnicodeHexDigits::from(PositionedChar::with_position('G', 12)),
   ///     Span::new(10, 16)
   /// );
   /// error.bump(5);
@@ -1589,10 +1356,10 @@ impl<Char> UnicodeEscapeError<Char> {
   /// ## Examples
   ///
   /// ```
-  /// use logosky::error::{UnicodeEscapeError, InvalidUnicodeHexDigits};
+  /// use logosky::error::{UnicodeEscapeError, InvalidFixedUnicodeHexDigits};
   /// use logosky::utils::{Span, PositionedChar};
   ///
-  /// let digits = InvalidUnicodeHexDigits::from(
+  /// let digits = InvalidFixedUnicodeHexDigits::from(
   ///     PositionedChar::with_position('G', 12)
   /// );
   /// let error = UnicodeEscapeError::malformed_fixed_unicode_escape(
@@ -1603,7 +1370,7 @@ impl<Char> UnicodeEscapeError<Char> {
   /// ```
   #[inline]
   pub const fn malformed_fixed_unicode_escape(
-    digits: InvalidUnicodeHexDigits<Char>,
+    digits: InvalidFixedUnicodeHexDigits<Char>,
     span: Span,
   ) -> Self {
     Self::Fixed(FixedUnicodeEscapeError::Malformed(

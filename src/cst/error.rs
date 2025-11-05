@@ -2,7 +2,7 @@ pub use node_mismatch::*;
 use rowan::Language;
 pub use token_mismatch::*;
 
-use crate::{cst::CstNode, utils::syntax::IncompleteSyntax};
+use crate::{cst::CstNode, error::IncompleteSyntax};
 
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 
