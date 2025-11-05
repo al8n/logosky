@@ -1,6 +1,6 @@
 use derive_more::{Display, IsVariant};
 
-use super::{CharLen, Lexeme, PositionedChar, Span};
+use crate::utils::{CharLen, Lexeme, PositionedChar, Span};
 
 /// An enumeration of line terminator types.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, IsVariant, Display)]

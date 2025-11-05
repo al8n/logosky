@@ -1,22 +1,12 @@
 use core::ops::Range;
 
-pub use errors::Errors;
+pub use escaped::*;
 pub use expected::*;
-pub use generic_vec::GenericVec;
-pub use incomplete_token::*;
+pub use generic_vec::*;
 pub use lexeme::*;
-pub use malformed_literal::*;
 pub use message::Message;
 pub use positioned_char::*;
 pub use to_equivalent::*;
-pub use unclosed::*;
-pub use unexpected_end::*;
-pub use unexpected_keyword::*;
-pub use unexpected_lexeme::*;
-pub use unexpected_prefix::*;
-pub use unexpected_suffix::*;
-pub use unexpected_token::*;
-pub use unknown_lexeme::*;
 
 /// Trackers for preventing infinite recursion in parsers.
 pub mod recursion_tracker;
@@ -38,9 +28,10 @@ pub mod syntax_tree_display;
 pub mod generic_vec;
 
 /// Syntax definitions and traits.
-#[cfg(feature = "generic-array")]
-#[cfg_attr(docsrs, doc(cfg(feature = "generic-array")))]
 pub mod syntax;
+
+/// Common delimiters used in lexing and parsing.
+pub mod delimiter;
 
 #[cfg(feature = "generic-array")]
 #[cfg_attr(docsrs, doc(cfg(feature = "generic-array")))]
@@ -51,22 +42,12 @@ pub use generic_array::typenum;
 #[cfg_attr(docsrs, doc(cfg(feature = "smallvec")))]
 pub mod container;
 
-mod errors;
+mod escaped;
 mod expected;
-mod incomplete_token;
 mod lexeme;
-mod malformed_literal;
 mod message;
 mod positioned_char;
 mod to_equivalent;
-mod unclosed;
-mod unexpected_end;
-mod unexpected_keyword;
-mod unexpected_lexeme;
-mod unexpected_prefix;
-mod unexpected_suffix;
-mod unexpected_token;
-mod unknown_lexeme;
 
 /// A lightweight span representing a range of positions in source input.
 ///

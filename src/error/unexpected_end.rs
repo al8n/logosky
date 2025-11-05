@@ -1,6 +1,6 @@
 use derive_more::Display;
 
-use super::Message;
+use crate::utils::Message;
 
 /// A zero-sized marker indicating the parser expected more bytes when the file ended.
 ///

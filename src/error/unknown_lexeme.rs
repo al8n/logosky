@@ -1,6 +1,4 @@
-use crate::utils::human_display::DisplayHuman;
-
-use super::{CharLen, Lexeme, PositionedChar, Span};
+use crate::utils::{CharLen, Lexeme, PositionedChar, Span, human_display::DisplayHuman};
 
 /// A zero-copy error structure combining an unrecognized lexeme with diagnostic knowledge.
 ///

@@ -1,4 +1,4 @@
-use super::{Lexeme, PositionedChar, Span};
+use crate::utils::{CharLen, Lexeme, PositionedChar, Span, human_display::DisplayHuman};
 
 /// An error indicating that an unexpected suffix was found after a valid token.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -111,7 +111,7 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn span(&self) -> Span
   where
-    Char: super::CharLen,
+    Char: CharLen,
   {
     let start = self.token.start();
     let end = match &self.suffix {
@@ -211,8 +211,8 @@ impl<Char, Knowledge> UnexpectedSuffix<Char, Knowledge> {
 
 impl<Char, Knowledge> core::fmt::Display for UnexpectedSuffix<Char, Knowledge>
 where
-  Char: super::human_display::DisplayHuman,
-  Knowledge: super::human_display::DisplayHuman,
+  Char: DisplayHuman,
+  Knowledge: DisplayHuman,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -256,7 +256,7 @@ where
 
 impl<Char, Knowledge> core::error::Error for UnexpectedSuffix<Char, Knowledge>
 where
-  Char: super::human_display::DisplayHuman + core::fmt::Debug,
-  Knowledge: super::human_display::DisplayHuman + core::fmt::Debug,
+  Char: DisplayHuman + core::fmt::Debug,
+  Knowledge: DisplayHuman + core::fmt::Debug,
 {
 }

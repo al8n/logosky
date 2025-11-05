@@ -1,13 +1,13 @@
-use super::{Span, human_display::DisplayHuman};
+use crate::utils::{Span, human_display::DisplayHuman};
 
-/// An incomplete token
+/// A malformed literal token
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct IncompleteToken<Knowledge> {
+pub struct MalformedLiteral<Knowledge> {
   span: Span,
   knowledge: Option<Knowledge>,
 }
 
-impl<Knowledge> core::fmt::Display for IncompleteToken<Knowledge>
+impl<Knowledge> core::fmt::Display for MalformedLiteral<Knowledge>
 where
   Knowledge: DisplayHuman,
 {
@@ -15,51 +15,52 @@ where
     match &self.knowledge {
       Some(knowledge) => write!(
         f,
-        "incomplete {} token at {}",
-        knowledge.display(),
-        self.span
+        "malformed literal at {}, did you mean {}?",
+        self.span,
+        knowledge.display()
       ),
-      None => write!(f, "incomplete token at {}", self.span),
+      None => write!(f, "malformed literal at {}", self.span),
     }
   }
 }
 
-impl<Knowledge> core::error::Error for IncompleteToken<Knowledge> where
+impl<Knowledge> core::error::Error for MalformedLiteral<Knowledge> where
   Knowledge: DisplayHuman + core::fmt::Debug
 {
 }
 
-impl<Knowledge> IncompleteToken<Knowledge> {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  const fn new_in(span: Span, knowledge: Option<Knowledge>) -> Self {
-    Self { span, knowledge }
-  }
-
-  /// Create a new IncompleteToken knowledge from a Span
+impl<Knowledge> MalformedLiteral<Knowledge> {
+  /// Create a new MalformedLiteral knowledge from a Span
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new(span: Span) -> Self {
-    Self::new_in(span, None)
+    Self {
+      span,
+      knowledge: None,
+    }
   }
 
-  /// Create a new IncompleteToken knowledge from a Span and Knowledge
+  /// Create a new MalformedLiteral knowledge from a Span and Knowledge
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_knowledge(span: Span, knowledge: Knowledge) -> Self {
-    Self::new_in(span, Some(knowledge))
+    Self {
+      span,
+      knowledge: Some(knowledge),
+    }
   }
 
-  /// Get the span of the incomplete knowledge
+  /// Get the span of the malformed literal knowledge
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn span(&self) -> Span {
     self.span
   }
 
-  /// Get the knowledge of the incomplete knowledge, if any
+  /// Get the knowledge of the malformed literal knowledge, if any
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn knowledge(&self) -> Option<&Knowledge> {
     self.knowledge.as_ref()
   }
 
-  /// Decompose the IncompleteToken knowledge into its components
+  /// Consume self and return the span and knowledge
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_components(self) -> (Span, Option<Knowledge>) {
     (self.span, self.knowledge)

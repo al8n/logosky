@@ -1,4 +1,4 @@
-use super::{Lexeme, PositionedChar, Span};
+use crate::utils::{CharLen, Lexeme, PositionedChar, Span, human_display::DisplayHuman};
 
 /// An error indicating that an unexpected prefix was found after a valid token.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -27,7 +27,7 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn new(token: Span, prefix: Lexeme<Char>) -> Self
   where
-    Char: super::CharLen,
+    Char: CharLen,
   {
     assert!(
       prefix.end() <= token.start(),
@@ -59,7 +59,7 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn from_char(token: Span, ch: PositionedChar<Char>) -> Self
   where
-    Char: super::CharLen,
+    Char: CharLen,
   {
     Self::new(token, Lexeme::Char(ch))
   }
@@ -99,7 +99,7 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn from_prefix(token: Span, span: Span) -> Self
   where
-    Char: super::CharLen,
+    Char: CharLen,
   {
     Self::new(token, Lexeme::Span(span))
   }
@@ -120,7 +120,7 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn span(&self) -> Span
   where
-    Char: super::CharLen,
+    Char: CharLen,
   {
     let end = self.token.end();
     let start = match &self.prefix {
@@ -218,8 +218,8 @@ impl<Char, Knowledge> UnexpectedPrefix<Char, Knowledge> {
 
 impl<Char, Knowledge> core::fmt::Display for UnexpectedPrefix<Char, Knowledge>
 where
-  Char: super::human_display::DisplayHuman,
-  Knowledge: super::human_display::DisplayHuman,
+  Char: DisplayHuman,
+  Knowledge: DisplayHuman,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -263,7 +263,7 @@ where
 
 impl<Char, Knowledge> core::error::Error for UnexpectedPrefix<Char, Knowledge>
 where
-  Char: super::human_display::DisplayHuman + core::fmt::Debug,
-  Knowledge: super::human_display::DisplayHuman + core::fmt::Debug,
+  Char: DisplayHuman + core::fmt::Debug,
+  Knowledge: DisplayHuman + core::fmt::Debug,
 {
 }

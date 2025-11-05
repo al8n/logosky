@@ -24,6 +24,9 @@ pub mod cst;
 /// Common utilities for working with tokens and lexers.
 pub mod utils;
 
+/// Common error types for lexers and parsers.
+pub mod error;
+
 /// Re-exports for chumsky integration.
 #[cfg(feature = "chumsky")]
 #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]

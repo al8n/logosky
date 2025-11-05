@@ -1,4 +1,4 @@
-use super::Span;
+use crate::utils::Span;
 
 /// Unclosed delimiter information.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -100,7 +100,7 @@ impl<Delimiter> Unclosed<Delimiter> {
   /// assert_eq!(unclosed.span(), Span::new(15, 20));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn bump(&mut self, offset: usize) {
+  pub const fn bump(&mut self, offset: usize) {
     self.span.bump(offset);
   }
 }
