@@ -74,6 +74,30 @@ impl DisplayHuman for OctalLiteral {
   }
 }
 
+/// A displayable string literal description.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Display)]
+#[display("string literal")]
+pub struct StringLiteral(pub(crate) ());
+
+impl DisplayHuman for StringLiteral {
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    ::core::fmt::Display::fmt(self, f)
+  }
+}
+
+/// A displayable character description.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Display)]
+#[display("characters")]
+pub struct Characters(pub(crate) ());
+
+impl DisplayHuman for Characters {
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    ::core::fmt::Display::fmt(self, f)
+  }
+}
+
 /// An enumeration of line terminator types.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, IsVariant, Display)]
 pub enum LineTerminator {

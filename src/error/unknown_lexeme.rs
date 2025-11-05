@@ -151,6 +151,50 @@ impl<Char, Knowledge> core::ops::DerefMut for UnknownLexeme<Char, Knowledge> {
   }
 }
 
+impl<Char> UnknownLexeme<Char, crate::utils::knowledge::Characters> {
+  /// Creates an `UnknownLexeme` with character knowledge.
+  ///
+  /// This is a convenience method for cases where no specific knowledge is provided.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::{utils::{Span, knowledge::Characters}, error::UnknownLexeme};
+  ///
+  /// let error = UnknownLexeme::<char, Characters>::unknown_characters(
+  ///     Span::new(7, 9)     
+  /// );
+  ///
+  /// assert!(!error.is_char());
+  /// assert_eq!(error.unwrap_char().position(), 7);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn unknown_characters(span: Span) -> Self {
+    Self::new(Lexeme::Span(span), sealed::Sealed::INIT)
+  }
+
+  /// Creates an `UnknownLexeme` with character knowledge.
+  ///
+  /// This is a convenience method for cases where no specific knowledge is provided.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::{utils::PositionedChar, error::UnknownLexeme};
+  ///
+  /// let error = UnknownLexeme::unknown_character(
+  ///     7, '#'
+  /// );
+  ///
+  /// assert!(error.is_char());
+  /// assert_eq!(error.unwrap_char().position(), 7);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn unknown_character(pos: usize, ch: Char) -> Self {
+    Self::from_char(pos, ch, sealed::Sealed::INIT)
+  }
+}
+
 impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   /// Creates a new `UnknownLexeme` from a lexeme and diagnostic knowledge.
   ///
@@ -539,5 +583,22 @@ impl<Char, Knowledge> UnknownLexeme<Char, Knowledge> {
   pub const fn bump(&mut self, n: usize) -> &mut Self {
     self.lexeme.bump(n);
     self
+  }
+}
+
+/// A marker trait for types that may represent unknown lexemes.
+pub trait MaybeUnknown: sealed::Sealed {}
+
+impl<T> MaybeUnknown for T where T: sealed::Sealed {}
+
+mod sealed {
+  use crate::utils::knowledge::Characters;
+
+  pub trait Sealed {
+    const INIT: Self;
+  }
+
+  impl Sealed for Characters {
+    const INIT: Self = Self(());
   }
 }
