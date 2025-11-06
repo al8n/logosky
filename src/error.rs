@@ -14,6 +14,7 @@ pub use unexpected_suffix::*;
 pub use unexpected_token::*;
 pub use unicode_escape::*;
 pub use unknown_lexeme::*;
+pub use unterminated::*;
 
 mod errors;
 
@@ -29,6 +30,7 @@ mod unexpected_prefix;
 mod unexpected_suffix;
 mod unexpected_token;
 mod unknown_lexeme;
+mod unterminated;
 
 mod invalid_hex_digits;
 mod unicode_escape;
