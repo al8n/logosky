@@ -705,6 +705,16 @@ impl<T: core::hash::Hash, const N: usize> core::hash::Hash for ConstGenericVec<T
   }
 }
 
+impl<'a, T, const N: usize> IntoIterator for &'a ConstGenericVec<T, N> {
+  type Item = &'a T;
+  type IntoIter = core::slice::Iter<'a, T>;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn into_iter(self) -> Self::IntoIter {
+    self.as_slice().iter()
+  }
+}
+
 impl<T, const N: usize> IntoIterator for ConstGenericVec<T, N> {
   type Item = T;
   type IntoIter = ConstGenericVecIter<T, N>;

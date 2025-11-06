@@ -155,26 +155,6 @@ impl<E> Errors<E> {
     Self::new_in(Vec::new())
   }
 
-  /// Creates a new error collection with the specified capacity.
-  ///
-  /// This pre-allocates space for `capacity` errors.
-  ///
-  /// # Examples
-  ///
-  /// ```rust
-  /// use logosky::error::Errors;
-  ///
-  /// let errors: Errors<String> = Errors::with_capacity(10);
-  /// assert_eq!(errors.capacity(), 10);
-  /// ```
-  #[inline]
-  pub fn with_capacity(capacity: usize) -> Self {
-    Self {
-      container: Vec::with_capacity(capacity),
-      _phantom: core::marker::PhantomData,
-    }
-  }
-
   /// Returns the number of errors the collection can hold without reallocating.
   ///
   /// # Examples
@@ -204,6 +184,26 @@ impl<E> Errors<E> {
   #[inline]
   pub fn reserve(&mut self, additional: usize) {
     self.container.reserve(additional);
+  }
+}
+
+impl<E, Container> Errors<E, Container>
+where
+  Container: super::ErrorContainer<E>,
+{
+  /// Creates a new empty error collection with the specified capacity.
+  ///
+  /// # Examples
+  ///
+  /// ```rust
+  /// use logosky::error::Errors;
+  ///
+  /// let errors: Errors<String> = Errors::with_capacity(5);
+  /// assert_eq!(errors.len(), 0);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn with_capacity(capacity: usize) -> Self {
+    Self::new_in(Container::with_capacity(capacity))
   }
 }
 

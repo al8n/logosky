@@ -834,6 +834,19 @@ where
   }
 }
 
+impl<'a, T, N> IntoIterator for &'a GenericVec<T, N>
+where
+  N: ArrayLength,
+{
+  type Item = &'a T;
+  type IntoIter = core::slice::Iter<'a, T>;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn into_iter(self) -> Self::IntoIter {
+    self.as_slice().iter()
+  }
+}
+
 impl<T, N> IntoIterator for GenericVec<T, N>
 where
   N: ArrayLength,
