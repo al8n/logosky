@@ -20,6 +20,9 @@
 //! use logosky::{utils::{syntax::Syntax, typenum::U3, Span}, error::IncompleteSyntax};
 //! use core::fmt;
 //!
+//! #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+//! struct MyLanguage;
+//!
 //! #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 //! enum WhileComponent {
 //!     WhileKeyword,
@@ -40,10 +43,20 @@
 //! struct WhileLoop;
 //!
 //! impl Syntax for WhileLoop {
+//!     type Lang = MyLanguage;
 //!     type Component = WhileComponent;
 //!     type COMPONENTS = U3;
+//!     type REQUIRED = U3;
 //!
 //!     fn possible_components() -> generic_array::GenericArray<Self::Component, U3> {
+//!         [
+//!             WhileComponent::WhileKeyword,
+//!             WhileComponent::Condition,
+//!             WhileComponent::Body,
+//!         ].into_iter().collect()
+//!     }
+//!
+//!     fn required_components() -> generic_array::GenericArray<Self::Component, Self::REQUIRED> {
 //!         [
 //!             WhileComponent::WhileKeyword,
 //!             WhileComponent::Condition,
@@ -82,6 +95,8 @@ use core::{
 /// use typenum::U5;
 /// use core::fmt;
 ///
+/// struct MyLanguage;
+///
 /// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// enum LetStatementComponent {
 ///     LetKeyword,
@@ -106,10 +121,22 @@ use core::{
 /// struct LetStatement;
 ///
 /// impl Syntax for LetStatement {
+///     type Lang = MyLanguage;
 ///     type Component = LetStatementComponent;
 ///     type COMPONENTS = U5;
+///     type REQUIRED = U5;
 ///
 ///     fn possible_components() -> generic_array::GenericArray<Self::Component, Self::COMPONENTS> {
+///         [
+///             LetStatementComponent::LetKeyword,
+///             LetStatementComponent::Identifier,
+///             LetStatementComponent::Equals,
+///             LetStatementComponent::Expression,
+///             LetStatementComponent::Semicolon,
+///         ].into_iter().collect()
+///     }
+///
+///     fn required_components() -> generic_array::GenericArray<Self::Component, Self::REQUIRED> {
 ///         [
 ///             LetStatementComponent::LetKeyword,
 ///             LetStatementComponent::Identifier,
@@ -122,6 +149,9 @@ use core::{
 /// # }
 /// ```
 pub trait Syntax {
+  /// The language this syntax belongs to.
+  type Lang;
+
   /// The component type of this syntax.
   ///
   /// Usually this is an enum representing different variants of syntax components.
@@ -145,9 +175,32 @@ pub trait Syntax {
   /// ```
   type COMPONENTS: ArrayLength + Debug + Eq + Hash;
 
+  /// The number of required components in this syntax, represented as a type-level unsigned integer.
+  ///
+  /// Uses `typenum` to represent the count at the type level, enabling compile-time
+  /// arithmetic without requiring unstable `generic_const_exprs` feature.
+  ///
+  /// # Examples
+  ///
+  /// ```rust,ignore
+  /// use typenum::U3; // For a syntax with 3 components
+  ///
+  /// impl Syntax for MySyntax {
+  ///     type COMPONENTS = U3;
+  ///     // ...
+  /// }
+  /// ```
+  type REQUIRED: ArrayLength + Debug + Eq + Hash;
+
   /// Returns an array containing all possible components for this syntax.
   ///
   /// The array should contain all components that can be part of this syntax element,
   /// in a canonical order.
   fn possible_components() -> GenericArray<Self::Component, Self::COMPONENTS>;
+
+  /// Returns an array containing all required components for this syntax.
+  ///
+  /// The array should contain all components that are required for this syntax element,
+  /// in a canonical order.
+  fn required_components() -> GenericArray<Self::Component, Self::REQUIRED>;
 }

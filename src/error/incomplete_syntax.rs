@@ -31,6 +31,9 @@
 //! use logosky::{utils::{syntax::Syntax, typenum::U3}, error::IncompleteSyntax};
 //! use core::fmt;
 //!
+//! #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+//! struct MyLanguage;
+//!
 //! #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 //! enum WhileComponent {
 //!     WhileKeyword,
@@ -53,12 +56,22 @@
 //! impl Syntax for WhileLoop {
 //!     type Component = WhileComponent;
 //!     type COMPONENTS = U3;
+//!     type REQUIRED = U3;
+//!     type Lang = MyLanguage;
 //!
 //!     fn possible_components() -> generic_array::GenericArray<Self::Component, U3> {
 //!         [
 //!             WhileComponent::WhileKeyword,
 //!             WhileComponent::Condition,
 //!             WhileComponent::Body,
+//!         ].into_iter().collect()
+//!     }
+//!
+//!     fn required_components() -> generic_array::GenericArray<Self::Component, U3> {
+//!         [
+//!            WhileComponent::WhileKeyword,
+//!            WhileComponent::Condition,
+//!            WhileComponent::Body,
 //!         ].into_iter().collect()
 //!     }
 //! }
@@ -102,6 +115,9 @@ use generic_array::typenum::Unsigned;
 /// use typenum::U3;
 /// use core::fmt;
 ///
+/// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// struct MyLanguage;
+///
 /// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// enum IfStatementComponent {
 ///     IfKeyword,
@@ -122,10 +138,20 @@ use generic_array::typenum::Unsigned;
 /// struct IfStatement;
 ///
 /// impl Syntax for IfStatement {
+///     type Lang = MyLanguage;
 ///     type Component = IfStatementComponent;
 ///     type COMPONENTS = U3;
+///     type REQUIRED = U3;
 ///
 ///     fn possible_components() -> generic_array::GenericArray<Self::Component, U3> {
+///         [
+///             IfStatementComponent::IfKeyword,
+///             IfStatementComponent::Condition,
+///             IfStatementComponent::ThenBlock,
+///         ].into_iter().collect()
+///     }
+///
+///     fn required_components() -> generic_array::GenericArray<Self::Component, U3> {
 ///         [
 ///             IfStatementComponent::IfKeyword,
 ///             IfStatementComponent::Condition,
@@ -162,11 +188,17 @@ use generic_array::typenum::Unsigned;
 /// #         match self { Self::A => write!(f, "A"), Self::B => write!(f, "B") }
 /// #     }
 /// # }
+/// # struct MyLang;
 /// # struct MySyntax;
 /// # impl Syntax for MySyntax {
 /// #     type Component = Component;
 /// #     type COMPONENTS = U2;
+/// #     type REQUIRED = U2;
+/// #     type Lang = MyLang;
 /// #     fn possible_components() -> generic_array::GenericArray<Component, U2> {
+/// #         [Component::A, Component::B].into_iter().collect()
+/// #     }
+/// #     fn required_components() -> generic_array::GenericArray<Component, U2> {
 /// #         [Component::A, Component::B].into_iter().collect()
 /// #     }
 /// # }
@@ -253,11 +285,17 @@ where
   /// # impl fmt::Display for Component {
   /// #     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "A") }
   /// # }
+  /// # struct MyLang;
   /// # struct MySyntax;
   /// # impl Syntax for MySyntax {
   /// #     type Component = Component;
   /// #     type COMPONENTS = U1;
+  /// #     type REQUIRED = U1;
+  /// #     type Lang = MyLang;
   /// #     fn possible_components() -> generic_array::GenericArray<Component, U1> {
+  /// #         [Component::A].into_iter().collect()
+  /// #     }
+  /// #     fn required_components() -> generic_array::GenericArray<Component, U1> {
   /// #         [Component::A].into_iter().collect()
   /// #     }
   /// # }
@@ -296,11 +334,17 @@ where
   /// #         match self { Self::A => write!(f, "A"), Self::B => write!(f, "B") }
   /// #     }
   /// # }
+  /// # struct MyLang;
   /// # struct MySyntax;
   /// # impl Syntax for MySyntax {
   /// #     type Component = Component;
   /// #     type COMPONENTS = U2;
+  /// #     type REQUIRED = U2;
+  /// #     type Lang = MyLang;
   /// #     fn possible_components() -> generic_array::GenericArray<Component, U2> {
+  /// #         [Component::A, Component::B].into_iter().collect()
+  /// #     }
+  /// #     fn required_components() -> generic_array::GenericArray<Component, U2> {
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
@@ -358,11 +402,17 @@ where
   /// #         match self { Self::A => write!(f, "A"), Self::B => write!(f, "B") }
   /// #     }
   /// # }
+  /// # struct MyLang;
   /// # struct MySyntax;
   /// # impl Syntax for MySyntax {
   /// #     type Component = Component;
   /// #     type COMPONENTS = U2;
+  /// #     type REQUIRED = U2;
+  /// #     type Lang = MyLang;
   /// #     fn possible_components() -> generic_array::GenericArray<Component, U2> {
+  /// #         [Component::A, Component::B].into_iter().collect()
+  /// #     }
+  /// #     fn required_components() -> generic_array::GenericArray<Component, U2> {
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
@@ -395,11 +445,17 @@ where
   /// # impl fmt::Display for Component {
   /// #     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "X") }
   /// # }
+  /// # struct MyLang;
   /// # struct MySyntax;
   /// # impl Syntax for MySyntax {
   /// #     type Component = Component;
   /// #     type COMPONENTS = U3;
+  /// #     type REQUIRED = U3;
+  /// #     type Lang = MyLang;
   /// #     fn possible_components() -> generic_array::GenericArray<Component, U3> {
+  /// #         [Component::A, Component::B, Component::C].into_iter().collect()
+  /// #     }
+  /// #     fn required_components() -> generic_array::GenericArray<Component, U3> {
   /// #         [Component::A, Component::B, Component::C].into_iter().collect()
   /// #     }
   /// # }
@@ -431,11 +487,17 @@ where
   /// #         match self { Self::A => write!(f, "A"), Self::B => write!(f, "B") }
   /// #     }
   /// # }
+  /// # struct MyLang;
   /// # struct MySyntax;
   /// # impl Syntax for MySyntax {
   /// #     type Component = Component;
   /// #     type COMPONENTS = U2;
+  /// #     type REQUIRED = U2;
+  /// #     type Lang = MyLang;
   /// #     fn possible_components() -> generic_array::GenericArray<Component, U2> {
+  /// #         [Component::A, Component::B].into_iter().collect()
+  /// #     }
+  /// #     fn required_components() -> generic_array::GenericArray<Component, U2> {
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
@@ -476,11 +538,17 @@ where
   /// #         match self { Self::A => write!(f, "A"), Self::B => write!(f, "B") }
   /// #     }
   /// # }
+  /// # struct MyLang;
   /// # struct MySyntax;
   /// # impl Syntax for MySyntax {
   /// #     type Component = Component;
   /// #     type COMPONENTS = U2;
+  /// #     type REQUIRED = U2;
+  /// #     type Lang = MyLang;
   /// #     fn possible_components() -> generic_array::GenericArray<Component, U2> {
+  /// #         [Component::A, Component::B].into_iter().collect()
+  /// #     }
+  /// #     fn required_components() -> generic_array::GenericArray<Component, U2> {
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
@@ -519,11 +587,17 @@ where
   /// # impl fmt::Display for Component {
   /// #     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "X") }
   /// # }
+  /// # struct MyLang;
   /// # struct MySyntax;
   /// # impl Syntax for MySyntax {
   /// #     type Component = Component;
   /// #     type COMPONENTS = U2;
+  /// #     type REQUIRED = U2;
+  /// #     type Lang = MyLang;
   /// #     fn possible_components() -> generic_array::GenericArray<Component, U2> {
+  /// #         [Component::A, Component::B].into_iter().collect()
+  /// #     }
+  /// #     fn required_components() -> generic_array::GenericArray<Component, U2> {
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
@@ -556,11 +630,17 @@ where
   /// #         match self { Self::A => write!(f, "A"), Self::B => write!(f, "B") }
   /// #     }
   /// # }
+  /// # struct MyLang;
   /// # struct MySyntax;
   /// # impl Syntax for MySyntax {
   /// #     type Component = Component;
   /// #     type COMPONENTS = U2;
+  /// #     type REQUIRED = U2;
+  /// #     type Lang = MyLang;
   /// #     fn possible_components() -> generic_array::GenericArray<Component, U2> {
+  /// #         [Component::A, Component::B].into_iter().collect()
+  /// #     }
+  /// #     fn required_components() -> generic_array::GenericArray<Component, U2> {
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
@@ -593,11 +673,17 @@ where
   /// #         match self { Self::A => write!(f, "A"), Self::B => write!(f, "B") }
   /// #     }
   /// # }
+  /// # struct MyLang;
   /// # struct MySyntax;
   /// # impl Syntax for MySyntax {
+  /// #     type Lang = MyLang;
   /// #     type Component = Component;
   /// #     type COMPONENTS = U2;
+  /// #     type REQUIRED = U2;
   /// #     fn possible_components() -> generic_array::GenericArray<Component, U2> {
+  /// #         [Component::A, Component::B].into_iter().collect()
+  /// #     }
+  /// #     fn required_components() -> generic_array::GenericArray<Component, U2> {
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
@@ -630,11 +716,17 @@ where
   /// #         match self { Self::A => write!(f, "A"), Self::B => write!(f, "B") }
   /// #     }
   /// # }
+  /// # struct MyLang;
   /// # struct MySyntax;
   /// # impl Syntax for MySyntax {
   /// #     type Component = Component;
   /// #     type COMPONENTS = U2;
+  /// #     type REQUIRED = U2;
+  /// #     type Lang = MyLang;
   /// #     fn possible_components() -> generic_array::GenericArray<Component, U2> {
+  /// #         [Component::A, Component::B].into_iter().collect()
+  /// #     }
+  /// #     fn required_components() -> generic_array::GenericArray<Component, U2> {
   /// #         [Component::A, Component::B].into_iter().collect()
   /// #     }
   /// # }
@@ -663,11 +755,17 @@ where
   /// # impl fmt::Display for Component {
   /// #     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "A") }
   /// # }
+  /// # struct MyLang;
   /// # struct MySyntax;
   /// # impl Syntax for MySyntax {
   /// #     type Component = Component;
   /// #     type COMPONENTS = U1;
+  /// #     type REQUIRED = U1;
+  /// #     type Lang = MyLang;
   /// #     fn possible_components() -> generic_array::GenericArray<Component, U1> {
+  /// #         [Component::A].into_iter().collect()
+  /// #     }
+  /// #     fn required_components() -> generic_array::GenericArray<Component, U1> {
   /// #         [Component::A].into_iter().collect()
   /// #     }
   /// # }
@@ -709,11 +807,17 @@ where
   /// # impl fmt::Display for Component {
   /// #     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "A") }
   /// # }
+  /// # struct MyLang;
   /// # struct MySyntax;
   /// # impl Syntax for MySyntax {
   /// #     type Component = Component;
   /// #     type COMPONENTS = U1;
+  /// #     type REQUIRED = U1;
+  /// #     type Lang = MyLang;
   /// #     fn possible_components() -> generic_array::GenericArray<Component, U1> {
+  /// #         [Component::A].into_iter().collect()
+  /// #     }
+  /// #     fn required_components() -> generic_array::GenericArray<Component, U1> {
   /// #         [Component::A].into_iter().collect()
   /// #     }
   /// # }

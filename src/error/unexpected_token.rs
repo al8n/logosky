@@ -37,10 +37,10 @@
 //! ```
 //! use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
 //!
-//! let error = UnexpectedToken::with_found(
+//! let error = UnexpectedToken::expected_one_with_found(
 //!     Span::new(10, 15),
 //!     "else",
-//!     Expected::one("if")
+//!     "if"
 //! );
 //! assert_eq!(format!("{}", error), "unexpected token 'else', expected 'if'");
 //! ```
@@ -64,19 +64,19 @@ use crate::utils::{Expected, Span};
 /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
 ///
 /// // Error when expecting a specific token but got something else
-/// let error = UnexpectedToken::with_found(
+/// let error = UnexpectedToken::expected_one_with_found(
 ///     Span::new(10, 15),
 ///     "}",
-///     Expected::one("{")
+///     "{"
 /// );
 /// assert_eq!(error.span(), Span::new(10, 15));
 /// assert_eq!(format!("{}", error), "unexpected token '}', expected '{'");
 ///
 /// // Error when expecting one of multiple tokens
-/// let error = UnexpectedToken::with_found(
+/// let error = UnexpectedToken::expected_one_of_with_found(
 ///     Span::new(0, 10),
 ///     "identifier",
-///     Expected::one_of(&["if", "while", "for"])
+///     &["if", "while", "for"]
 /// );
 /// assert_eq!(
 ///     format!("{}", error),
@@ -98,6 +98,14 @@ pub struct UnexpectedToken<'a, T, TK> {
 }
 
 impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
+  const fn new_in(span: Span, found: Option<T>, expected: Expected<'a, TK>) -> Self {
+    Self {
+      span,
+      found,
+      expected,
+    }
+  }
+
   /// Creates an unexpected token error without a found token.
   ///
   /// This is useful when the parser reaches the end of input unexpectedly.
@@ -109,16 +117,16 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
   /// let error: UnexpectedToken<&str, &str> = UnexpectedToken::new(
-  ///     Span::new(100, 100),
+  ///     Span::new(100, 101),
   ///     Expected::one("}")
   /// );
   /// assert!(error.found().is_none());
-  /// assert_eq!(error.span(), Span::new(100, 100));
+  /// assert_eq!(error.span(), Span::new(100, 101));
   /// assert_eq!(format!("{}", error), "unexpected end of input, expected '}'");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new(span: Span, expected: Expected<'a, TK>) -> Self {
-    Self::maybe_found(span, None, expected)
+    Self::new_in(span, None, expected)
   }
 
   /// Creates a new unexpected token error with a single expected token.
@@ -132,7 +140,7 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// use logosky::{utils::Span, error::UnexpectedToken};
   ///
   /// let error: UnexpectedToken<&str, &str> = UnexpectedToken::expected_one(
-  ///     Span::new(50, 50),
+  ///     Span::new(50, 51),
   ///     ";"
   /// );
   /// assert!(error.found().is_none());
@@ -141,6 +149,29 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn expected_one(span: Span, expected: TK) -> Self {
     Self::new(span, Expected::one(expected))
+  }
+
+  /// Creates a new unexpected token error with a single expected token.
+  ///
+  /// This is a convenience method that combines `new` with `Expected::one`.
+  /// The error has no found token, indicating the end of input was reached.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use logosky::{utils::Span, error::UnexpectedToken};
+  ///
+  /// let error: UnexpectedToken<&str, &str> = UnexpectedToken::expected_one_with_found(
+  ///     Span::new(50, 51),
+  ///     ":",
+  ///     ";"
+  /// );
+  /// assert!(error.found().is_some());
+  /// assert_eq!(format!("{}", error), "unexpected token ':', expected ';'");
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn expected_one_with_found(span: Span, found: T, expected: TK) -> Self {
+    Self::new_in(span, Some(found), Expected::one(expected))
   }
 
   /// Creates a new unexpected token error with multiple expected tokens.
@@ -154,7 +185,7 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// use logosky::{utils::Span, error::UnexpectedToken};
   ///
   /// let error: UnexpectedToken<&str, &str> = UnexpectedToken::expected_one_of(
-  ///     Span::new(25, 25),
+  ///     Span::new(25, 26),
   ///     &["+", "-", "*", "/"]
   /// );
   /// assert!(error.found().is_none());
@@ -166,6 +197,32 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn expected_one_of(span: Span, expected: &'static [TK]) -> Self {
     Self::new(span, Expected::one_of(expected))
+  }
+
+  /// Creates a new unexpected token error with multiple expected tokens.
+  ///
+  /// This is a convenience method that combines `new` with `Expected::one_of`.
+  /// The error has no found token, indicating the end of input was reached.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use logosky::{utils::Span, error::UnexpectedToken};
+  ///
+  /// let error: UnexpectedToken<&str, &str> = UnexpectedToken::expected_one_of_with_found(
+  ///     Span::new(25, 26),
+  ///     ":",
+  ///     &["+", "-", "*", "/"]
+  /// );
+  /// assert!(!error.found().is_none());
+  /// assert_eq!(
+  ///     format!("{}", error),
+  ///     "unexpected token ':', expected one of: '+', '-', '*', '/'"
+  /// );
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn expected_one_of_with_found(span: Span, found: T, expected: &'static [TK]) -> Self {
+    Self::new_in(span, Some(found), Expected::one_of(expected))
   }
 
   /// Creates a new unexpected token error with an optional found token.
@@ -180,30 +237,61 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
   /// // With a found token
-  /// let error = UnexpectedToken::maybe_found(
+  /// let error = UnexpectedToken::expected_one(
   ///     Span::new(10, 14),
-  ///     Some("else"),
-  ///     Expected::one("if")
-  /// );
+  ///     "if"
+  /// ).maybe_found(Some("else"));
   /// assert_eq!(error.found(), Some(&"else"));
   /// assert_eq!(format!("{}", error), "unexpected token 'else', expected 'if'");
   ///
   /// // Without a found token (end of input)
-  /// let error: UnexpectedToken<&str, &str> = UnexpectedToken::maybe_found(
+  /// let error: UnexpectedToken<&str, &str> = UnexpectedToken::expected_one(
   ///     Span::new(50, 50),
-  ///     None,
-  ///     Expected::one("if")
-  /// );
+  ///     "if"
+  /// ).maybe_found(None);
   /// assert_eq!(error.found(), None);
   /// assert_eq!(format!("{}", error), "unexpected end of input, expected 'if'");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn maybe_found(span: Span, found: Option<T>, expected: Expected<'a, TK>) -> Self {
-    Self {
-      span,
-      found,
-      expected,
-    }
+  pub fn maybe_found(mut self, found: Option<T>) -> Self {
+    self.found = found;
+    self
+  }
+
+  /// Creates a new unexpected token error with an optional found token.
+  ///
+  /// This is the most general constructor. When `found` is `None`, the error
+  /// indicates the end of input was reached. When `found` is `Some`, it indicates
+  /// an unexpected token was encountered.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
+  ///
+  /// // With a found token
+  /// let error = UnexpectedToken::expected_one(
+  ///     Span::new(10, 14),
+  ///     "if"
+  /// ).maybe_found_const(Some("else"));
+  /// assert_eq!(error.found(), Some(&"else"));
+  /// assert_eq!(format!("{}", error), "unexpected token 'else', expected 'if'");
+  ///
+  /// // Without a found token (end of input)
+  /// let error: UnexpectedToken<&str, &str> = UnexpectedToken::expected_one(
+  ///     Span::new(50, 50),
+  ///     "if"
+  /// ).maybe_found_const(None);
+  /// assert_eq!(error.found(), None);
+  /// assert_eq!(format!("{}", error), "unexpected end of input, expected 'if'");
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn maybe_found_const(mut self, found: Option<T>) -> Self
+  where
+    T: Copy,
+  {
+    self.found = found;
+    self
   }
 
   /// Creates a new unexpected token error with a found token.
@@ -216,17 +304,43 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// ```
   /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
-  /// let error = UnexpectedToken::with_found(
+  /// let error = UnexpectedToken::expected_one(
   ///     Span::new(5, 10),
-  ///     "class",
-  ///     Expected::one("fn")
-  /// );
+  ///     "fn"
+  /// ).with_found("class");
   /// assert_eq!(error.found(), Some(&"class"));
   /// assert_eq!(format!("{}", error), "unexpected token 'class', expected 'fn'");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_found(span: Span, found: T, expected: Expected<'a, TK>) -> Self {
-    Self::maybe_found(span, Some(found), expected)
+  pub fn with_found(mut self, found: T) -> Self {
+    self.found = Some(found);
+    self
+  }
+
+  /// Creates a new unexpected token error with a found token.
+  ///
+  /// This indicates that a specific token was encountered when a different
+  /// token (or one of several alternative tokens) was expected.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
+  ///
+  /// let error = UnexpectedToken::expected_one(
+  ///     Span::new(5, 10),
+  ///     "fn"
+  /// ).with_found_const("class");
+  /// assert_eq!(error.found(), Some(&"class"));
+  /// assert_eq!(format!("{}", error), "unexpected token 'class', expected 'fn'");
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn with_found_const(mut self, found: T) -> Self
+  where
+    T: Copy,
+  {
+    self.found = Some(found);
+    self
   }
 
   /// Returns the span of the unexpected token.
@@ -236,10 +350,10 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// ```
   /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
-  /// let error = UnexpectedToken::with_found(
+  /// let error = UnexpectedToken::expected_one_with_found(
   ///     Span::new(10, 15),
   ///     "identifier",
-  ///     Expected::one("number")
+  ///     "number"
   /// );
   /// assert_eq!(error.span(), Span::new(10, 15));
   /// ```
@@ -257,10 +371,10 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// ```
   /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
-  /// let error = UnexpectedToken::with_found(
+  /// let error = UnexpectedToken::expected_one_with_found(
   ///     Span::new(0, 10),
   ///     "identifier",
-  ///     Expected::one("number")
+  ///     "number"
   /// );
   /// assert_eq!(error.found(), Some(&"identifier"));
   ///
@@ -282,10 +396,10 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// ```
   /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
-  /// let error = UnexpectedToken::with_found(
+  /// let error = UnexpectedToken::expected_one_with_found(
   ///     Span::new(5, 6),
   ///     "}",
-  ///     Expected::one("{")
+  ///     "{"
   /// );
   /// assert_eq!(*error.expected(), Expected::one("{"));
   /// if let Expected::One(value) = error.expected() {
@@ -307,10 +421,10 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// ```
   /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
-  /// let mut error = UnexpectedToken::with_found(
+  /// let mut error = UnexpectedToken::expected_one_with_found(
   ///     Span::new(10, 15),
   ///     "}",
-  ///     Expected::one("{")
+  ///     "{"
   /// );
   /// error.bump(5);
   /// assert_eq!(error.span(), Span::new(15, 20));
@@ -330,10 +444,10 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// ```
   /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
   ///
-  /// let error = UnexpectedToken::with_found(
+  /// let error = UnexpectedToken::expected_one_with_found(
   ///     Span::new(5, 6),
   ///     "}",
-  ///     Expected::one("{")
+  ///     "{"
   /// );
   /// let (span, found, expected) = error.into_components();
   /// assert_eq!(span, Span::new(5, 6));
