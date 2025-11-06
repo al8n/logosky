@@ -1,5 +1,6 @@
 pub use errors::{DefaultContainer, Errors};
 
+use generic_array::ArrayLength;
 pub use hex_escape::*;
 pub use incomplete_syntax::*;
 pub use incomplete_token::*;
@@ -15,6 +16,8 @@ pub use unexpected_token::*;
 pub use unicode_escape::*;
 pub use unknown_lexeme::*;
 pub use unterminated::*;
+
+use crate::utils::{ConstGenericVec, ConstGenericVecIter, GenericVec, GenericVecIter};
 
 mod errors;
 
@@ -114,6 +117,86 @@ impl<E> ErrorContainer<E> for Option<E> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn into_iter(self) -> Self::IntoIter {
     <Self as IntoIterator>::into_iter(self)
+  }
+}
+
+impl<E, N: ArrayLength> ErrorContainer<E> for GenericVec<E, N> {
+  type IntoIter = GenericVecIter<E, N>;
+
+  type Iter<'a>
+    = core::slice::Iter<'a, E>
+  where
+    Self: 'a,
+    E: 'a;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn new() -> Self {
+    GenericVec::new()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn push(&mut self, error: E) {
+    self.push(error);
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn pop(&mut self) -> Option<E> {
+    self.pop_front()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn len(&self) -> usize {
+    self.len()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn iter(&self) -> Self::Iter<'_> {
+    self.as_slice().iter()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn into_iter(self) -> Self::IntoIter {
+    IntoIterator::into_iter(self)
+  }
+}
+
+impl<E, const N: usize> ErrorContainer<E> for ConstGenericVec<E, N> {
+  type IntoIter = ConstGenericVecIter<E, N>;
+
+  type Iter<'a>
+    = core::slice::Iter<'a, E>
+  where
+    Self: 'a,
+    E: 'a;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn new() -> Self {
+    ConstGenericVec::new()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn push(&mut self, error: E) {
+    self.push(error);
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn pop(&mut self) -> Option<E> {
+    self.pop_front()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn len(&self) -> usize {
+    self.len()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn iter(&self) -> Self::Iter<'_> {
+    self.as_slice().iter()
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn into_iter(self) -> Self::IntoIter {
+    IntoIterator::into_iter(self)
   }
 }
 

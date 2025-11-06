@@ -378,6 +378,46 @@ impl<T, const N: usize> ConstGenericVec<T, N> {
     }
   }
 
+  /// Removes and returns the first element, or `None` if empty.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// # {
+  /// use logosky::utils::ConstGenericVec;
+  ///
+  /// let mut vec: ConstGenericVec<i32, 4> = ConstGenericVec::new();
+  /// vec.push(1);
+  /// vec.push(2);
+  /// assert_eq!(vec.pop_front(), Some(1));
+  /// assert_eq!(vec.pop_front(), Some(2));
+  /// assert_eq!(vec.pop_front(), None);
+  /// # }
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn pop_front(&mut self) -> Option<T> {
+    if self.len == 0 {
+      return None;
+    }
+
+    // Read (move out) the first element.
+    let first = unsafe { self.values[0].assume_init_read() };
+
+    if self.len > 1 {
+      // Shift [1..len) -> [0..len-1) with overlapping copy.
+      unsafe {
+        let base = self.values.as_mut_ptr();
+        // copy count = self.len - 1
+        core::ptr::copy(base.add(1), base, self.len - 1);
+        // The last slot still contains a (now-duplicated) element; drop it once.
+        self.values[self.len - 1].assume_init_drop();
+      }
+    }
+
+    self.len -= 1;
+    Some(first)
+  }
+
   /// Clears the vector, dropping all elements.
   ///
   /// # Examples
@@ -662,5 +702,44 @@ impl<T: core::hash::Hash, const N: usize> core::hash::Hash for ConstGenericVec<T
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
     self.as_slice().hash(state);
+  }
+}
+
+impl<T, const N: usize> IntoIterator for ConstGenericVec<T, N> {
+  type Item = T;
+  type IntoIter = ConstGenericVecIter<T, N>;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn into_iter(self) -> Self::IntoIter {
+    let len = self.len();
+    ConstGenericVecIter {
+      this: self,
+      len,
+      yielded: 0,
+    }
+  }
+}
+
+/// An iterator that moves out elements from a `ConstGenericVec`.
+#[derive(Debug, Clone)]
+pub struct ConstGenericVecIter<T, const N: usize> {
+  this: ConstGenericVec<T, N>,
+  len: usize,
+  yielded: usize,
+}
+
+impl<T, const N: usize> Iterator for ConstGenericVecIter<T, N> {
+  type Item = T;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.yielded < self.len {
+      let cur = self.yielded;
+      self.yielded += 1;
+      // SAFETY: len was > 0, so there's a valid element at len - 1
+      Some(unsafe { self.this.values[cur].assume_init_read() })
+    } else {
+      None
+    }
   }
 }

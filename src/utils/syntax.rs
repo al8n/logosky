@@ -58,8 +58,6 @@
 //! ```
 use generic_array::{ArrayLength, GenericArray};
 
-pub use generic_array::{GenericArrayIter, typenum};
-
 use core::{
   fmt::{Debug, Display},
   hash::Hash,
