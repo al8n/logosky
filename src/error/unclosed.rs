@@ -101,7 +101,19 @@
 //! assert_eq!(error.span(), Span::new(105, 106));
 //! ```
 
-use crate::utils::Span;
+use crate::utils::{
+  Span,
+  delimiter::{Angle, Brace, Bracket, Paren},
+};
+
+/// A unclosed bracket error
+pub type UnclosedBracket = Unclosed<Bracket>;
+/// A unclosed parenthesis error
+pub type UnclosedParen = Unclosed<Paren>;
+/// A unclosed brace error
+pub type UnclosedBrace = Unclosed<Brace>;
+/// A unclosed angle bracket error
+pub type UnclosedAngle = Unclosed<Angle>;
 
 /// A zero-copy error type representing an unclosed delimiter.
 ///
@@ -176,6 +188,102 @@ where
 impl<Delimiter> core::error::Error for Unclosed<Delimiter> where
   Delimiter: core::fmt::Display + core::fmt::Debug
 {
+}
+
+impl Unclosed<Paren> {
+  /// Creates a new unclosed parenthesis error.
+  ///
+  /// The span should point to the position of the opening parenthesis.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// use logosky::{error::Unclosed, utils::{Span, delimiter::Paren}};
+  ///
+  /// // Opening parenthesis at position 3
+  /// let error = Unclosed::paren(Span::new(3, 4));
+  /// assert_eq!(error.span(), Span::new(3, 4));
+  /// assert_eq!(error.delimiter(), Paren);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn paren(span: Span) -> Self {
+    Self {
+      span,
+      delimiter: Paren,
+    }
+  }
+}
+
+impl Unclosed<Bracket> {
+  /// Creates a new unclosed bracket error.
+  ///
+  /// The span should point to the position of the opening bracket.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// use logosky::{error::Unclosed, utils::{Span, delimiter::Bracket}};
+  ///
+  /// // Opening bracket at position 8
+  /// let error = Unclosed::bracket(Span::new(8, 9));
+  /// assert_eq!(error.span(), Span::new(8, 9));
+  /// assert_eq!(error.delimiter(), Bracket);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn bracket(span: Span) -> Self {
+    Self {
+      span,
+      delimiter: Bracket,
+    }
+  }
+}
+
+impl Unclosed<Brace> {
+  /// Creates a new unclosed brace error.
+  ///
+  /// The span should point to the position of the opening brace.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// use logosky::{error::Unclosed, utils::{Span, delimiter::Brace}};
+  ///
+  /// // Opening brace at position 12
+  /// let error = Unclosed::brace(Span::new(12, 13));
+  /// assert_eq!(error.span(), Span::new(12, 13));
+  /// assert_eq!(error.delimiter(), Brace);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn brace(span: Span) -> Self {
+    Self {
+      span,
+      delimiter: Brace,
+    }
+  }
+}
+
+impl Unclosed<Angle> {
+  /// Creates a new unclosed angle bracket error.
+  ///
+  /// The span should point to the position of the opening angle bracket.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// use logosky::{error::Unclosed, utils::{Span, delimiter::Angle}};
+  ///
+  /// // Opening angle bracket at position 20
+  /// let error = Unclosed::angle(Span::new(20, 21));
+  /// assert_eq!(error.span(), Span::new(20, 21));
+  /// assert_eq!(error.delimiter(), Angle);
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn angle(span: Span) -> Self {
+    Self {
+      span,
+      delimiter: Angle,
+    }
+  }
 }
 
 impl<Delimiter> Unclosed<Delimiter> {
