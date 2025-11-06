@@ -1067,6 +1067,31 @@ impl<Char> VariableUnicodeEscapeError<Char> {
     }
     self
   }
+
+  /// Returns the span of the error.
+  ///
+  /// ## Examples
+  ///
+  /// ```
+  /// use logosky::error::VariableUnicodeEscapeError;
+  /// use logosky::utils::Span;
+  ///
+  /// let error: VariableUnicodeEscapeError<char> =
+  ///    VariableUnicodeEscapeError::empty(Span::new(10, 14));
+  /// assert_eq!(error.span(), Span::new(10, 14));
+  /// ```
+  pub fn span(&self) -> Span
+  where
+    Char: CharLen,
+  {
+    match self {
+      Self::Unclosed(err) => err.span(),
+      Self::Empty(err) => err.span(),
+      Self::TooManyDigits(err) => err.span(),
+      Self::Malformed(err) => err.span(),
+      Self::InvalidScalar(err) => err.span(),
+    }
+  }
 }
 
 /// A hint describing why a surrogate is unpaired.
@@ -1226,6 +1251,31 @@ impl<Char> FixedUnicodeEscapeError<Char> {
       }
     }
     self
+  }
+
+  /// Returns the span of the error.
+  ///
+  /// ## Examples
+  ///
+  /// ```
+  /// use logosky::error::FixedUnicodeEscapeError;
+  /// use logosky::utils::{Lexeme, Span};
+  ///
+  /// let error: FixedUnicodeEscapeError =
+  ///    FixedUnicodeEscapeError::Incomplete(Lexeme::Range(Span::new(
+  ///       10, 14)));
+  /// assert_eq!(error.span(), Span::new(10, 14));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn span(&self) -> Span
+  where
+    Char: CharLen,
+  {
+    match self {
+      Self::Incomplete(lexeme) => lexeme.span(),
+      Self::Malformed(seq) => seq.span(),
+      Self::UnpairedSurrogate(lexeme) => lexeme.span(),
+    }
   }
 }
 
@@ -1537,5 +1587,31 @@ impl<Char> UnicodeEscapeError<Char> {
       }
     }
     self
+  }
+
+  /// Returns the span of the error.
+  ///
+  /// ## Examples
+  ///
+  /// ```
+  ///
+  /// use logosky::error::UnicodeEscapeError;
+  ///
+  /// use logosky::utils::Span;
+  ///
+  /// let error = UnicodeEscapeError::<char>::empty_variable_unicode_escape(
+  ///    Span::new(10, 14)
+  /// );
+  /// assert_eq!(error.span(), Span::new(10, 14));
+  /// ```
+  #[inline]
+  pub fn span(&self) -> Span
+  where
+    Char: CharLen,
+  {
+    match self {
+      Self::Fixed(err) => err.span(),
+      Self::Variable(err) => err.span(),
+    }
   }
 }

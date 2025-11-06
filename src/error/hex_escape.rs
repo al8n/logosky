@@ -410,6 +410,28 @@ impl<Char> HexEscapeError<Char> {
     Self::Malformed(MalformedHexEscape::new(digits, span))
   }
 
+  /// Returns the span of the hex escape error.
+  ///
+  /// This returns the span where the error occurred, which could be either
+  /// the incomplete sequence or the malformed escape sequence.
+  ///
+  /// ## Examples
+  ///
+  /// ```
+  /// use logosky::error::HexEscapeError;
+  /// use logosky::utils::Span;
+  ///
+  /// let error = HexEscapeError::<char>::incomplete(Span::new(10, 12));
+  /// assert_eq!(error.span(), Span::new(10, 12));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn span(&self) -> Span {
+    match self {
+      Self::Incomplete(incomplete) => incomplete.span(),
+      Self::Malformed(malformed) => malformed.span(),
+    }
+  }
+
   /// Bumps the span or position of the error by `n`.
   ///
   /// This is useful when adjusting error positions after processing or

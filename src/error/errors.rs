@@ -309,10 +309,36 @@ where
 {
   #[inline]
   fn from_iter<I: IntoIterator<Item = E>>(iter: I) -> Self {
-    Self {
-      container: Container::from_iter(iter),
-      _phantom: core::marker::PhantomData,
-    }
+    Self::from_container(Container::from_iter(iter))
+  }
+}
+
+impl<E, C> From<E> for Errors<E, C>
+where
+  C: FromIterator<E>,
+{
+  #[inline]
+  fn from(error: E) -> Self {
+    Self::from_iter(core::iter::once(error))
+  }
+}
+
+impl<E, C> Errors<E, C> {
+  /// Creates an `Errors` instance from an existing container.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// # #[cfg(any(feature = "alloc", feature = "std"))] {
+  /// use logosky::error::{Errors, DefaultContainer};
+  ///
+  /// let errors = Errors::<&str, DefaultContainer<_>>::from_container(["Error 1", "Error 2"].into_iter().collect());
+  /// assert_eq!(errors.len(), 2);
+  /// # }
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn from_container(container: C) -> Self {
+    Self::new_in(container)
   }
 }
 
