@@ -27,7 +27,7 @@
 //! # }
 //! ```
 
-use crate::utils::{ConstGenericVec as GenericVec, PositionedChar};
+use crate::utils::{ConstGenericVec as GenericVec, PositionedChar, human_display::DisplayHuman};
 
 /// A zero-copy container for storing invalid hex digit characters.
 ///
@@ -71,6 +71,28 @@ use crate::utils::{ConstGenericVec as GenericVec, PositionedChar};
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct InvalidHexDigits<Char, const N: usize>(GenericVec<PositionedChar<Char>, N>);
+
+impl<Char, const N: usize> core::fmt::Display for InvalidHexDigits<Char, N>
+where
+  Char: DisplayHuman,
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut first = true;
+    for ch in self.iter() {
+      if !first {
+        write!(f, ", ")?;
+      }
+      write!(
+        f,
+        "'{}' at position {}",
+        ch.char_ref().display(),
+        ch.position()
+      )?;
+      first = false;
+    }
+    Ok(())
+  }
+}
 
 impl<Char, const N: usize> From<PositionedChar<Char>> for InvalidHexDigits<Char, N> {
   #[cfg_attr(not(tarpaulin), inline(always))]

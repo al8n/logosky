@@ -68,7 +68,7 @@
 //! assert_eq!(escape.span(), Span::new(5, 9));
 //! ```
 
-use crate::utils::Lexeme;
+use crate::utils::{Lexeme, human_display::DisplayHuman};
 
 use super::{PositionedChar, Span};
 
@@ -118,6 +118,15 @@ use super::{PositionedChar, Span};
 pub struct SingleCharEscape<Char = char> {
   character: PositionedChar<Char>,
   span: Span,
+}
+
+impl<Char> core::fmt::Display for SingleCharEscape<Char>
+where
+  Char: DisplayHuman,
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "\\{} at {}", self.char_ref().display(), self.span)
+  }
 }
 
 impl<Char> SingleCharEscape<Char> {
@@ -327,6 +336,12 @@ pub struct MultiCharEscape {
   span: Span,
 }
 
+impl core::fmt::Display for MultiCharEscape {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "escape sequence at {}", self.span)
+  }
+}
+
 impl MultiCharEscape {
   /// Creates a new multi-character escape sequence.
   ///
@@ -495,6 +510,18 @@ impl MultiCharEscape {
 pub struct EscapedLexeme<Char = char> {
   span: Span,
   lexeme: Lexeme<Char>,
+}
+
+impl<Char> core::fmt::Display for EscapedLexeme<Char>
+where
+  Char: DisplayHuman,
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self.lexeme {
+      Lexeme::Char(ref ch) => write!(f, "\\{} at {}", ch.char_ref().display(), ch.position()),
+      Lexeme::Range(ref range) => write!(f, "escape sequence at {}", range),
+    }
+  }
 }
 
 impl<Char> EscapedLexeme<Char> {

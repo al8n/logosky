@@ -82,6 +82,7 @@ use super::{
 )]
 #[unwrap(ref)]
 #[try_unwrap(ref)]
+#[non_exhaustive]
 pub enum LimitExceeded {
   /// The token limit has been exceeded.
   #[error(transparent)]

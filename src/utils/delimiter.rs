@@ -1,19 +1,23 @@
 use derive_more::{Display, IsVariant};
 
 /// `{}` delimiters.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display("{{}}")]
 pub struct Brace;
 
 /// `()` delimiters.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display("()")]
 pub struct Paren;
 
 /// `[]` delimiters.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display("[]")]
 pub struct Bracket;
 
 /// `<>` delimiters.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display("<>")]
 pub struct Angle;
 
 /// Common delimiters used in lexing and parsing.

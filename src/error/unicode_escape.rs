@@ -187,6 +187,25 @@ pub struct MalformedFixedUnicodeEscape<Char = char> {
   span: Span,
 }
 
+impl<Char> core::fmt::Display for MalformedFixedUnicodeEscape<Char>
+where
+  Char: DisplayHuman,
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(
+      f,
+      "malformed hexadecimal escape sequence with invalid digits at {}, {}",
+      self.span,
+      self.digits_ref()
+    )
+  }
+}
+
+impl<Char> core::error::Error for MalformedFixedUnicodeEscape<Char> where
+  Char: DisplayHuman + core::fmt::Debug
+{
+}
+
 impl<Char> MalformedFixedUnicodeEscape<Char> {
   /// Creates a new malformed fixed-width unicode escape error.
   ///
@@ -400,6 +419,27 @@ pub struct InvalidUnicodeScalarValue {
   span: Span,
   kind: InvalidUnicodeScalarKind,
 }
+
+impl core::fmt::Display for InvalidUnicodeScalarValue {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let cp = self.value;
+
+    match self.kind {
+      InvalidUnicodeScalarKind::Surrogate => write!(
+        f,
+        "invalid Unicode scalar value: surrogate code point U+{cp:04X} at {}",
+        self.span
+      ),
+      InvalidUnicodeScalarKind::Overflow => write!(
+        f,
+        "invalid Unicode scalar value: code point U+{cp:04X} is out of range at {}",
+        self.span
+      ),
+    }
+  }
+}
+
+impl core::error::Error for InvalidUnicodeScalarValue {}
 
 impl InvalidUnicodeScalarValue {
   /// Creates a new invalid unicode scalar value error.
@@ -628,6 +668,33 @@ impl core::error::Error for EmptyVariableUnicodeEscape {}
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct MalformedVariableUnicodeSequence<Char = char>(Lexeme<Char>);
 
+impl<Char> core::fmt::Display for MalformedVariableUnicodeSequence<Char>
+where
+  Char: DisplayHuman,
+{
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self.lexeme_ref() {
+      Lexeme::Char(positioned_char) => write!(
+        f,
+        "invalid variable-length unicode escape character '{}' at position {}",
+        positioned_char.char_ref().display(),
+        positioned_char.position()
+      ),
+      Lexeme::Range(span) => write!(
+        f,
+        "malformed variable-length unicode escape sequence at {}",
+        span
+      ),
+    }
+  }
+}
+
+impl<Char> core::error::Error for MalformedVariableUnicodeSequence<Char> where
+  Char: DisplayHuman + core::fmt::Debug
+{
+}
+
 impl<Char> MalformedVariableUnicodeSequence<Char> {
   /// Creates a new malformed variable-length unicode escape error from a lexeme.
   ///
@@ -763,29 +830,6 @@ impl<Char> MalformedVariableUnicodeSequence<Char> {
   }
 }
 
-impl<Char> core::fmt::Display for MalformedVariableUnicodeSequence<Char>
-where
-  Char: DisplayHuman,
-{
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    match self.lexeme_ref() {
-      Lexeme::Char(positioned_char) => write!(
-        f,
-        "invalid variable-length unicode escape character '{}' at position {}",
-        positioned_char.char_ref().display(),
-        positioned_char.position()
-      ),
-      Lexeme::Range(span) => write!(f, "invalid variable-length unicode escape at {}", span),
-    }
-  }
-}
-
-impl<Char> core::error::Error for MalformedVariableUnicodeSequence<Char> where
-  Char: DisplayHuman + core::fmt::Debug
-{
-}
-
 /// Too many digits in variable-length unicode escape error.
 ///
 /// A valid variable-length unicode escape can have between 1 and 6 hex digits.
@@ -919,6 +963,7 @@ impl core::error::Error for TooManyDigitsInVariableUnicodeEscape {}
 #[derive(Debug, Clone, PartialEq, Eq, Hash, From, IsVariant, TryUnwrap, Unwrap)]
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
+#[non_exhaustive]
 pub enum VariableUnicodeEscapeError<Char = char> {
   /// The opening brace was not closed: `\u{1234`.
   Unclosed(Unclosed<Brace>),
@@ -934,6 +979,42 @@ pub enum VariableUnicodeEscapeError<Char = char> {
 
   /// Parsed number is not a Unicode scalar value (surrogate or > 0x10_FFFF).
   InvalidScalar(InvalidUnicodeScalarValue),
+}
+
+impl<Char> core::fmt::Display for VariableUnicodeEscapeError<Char>
+where
+  Char: DisplayHuman,
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self {
+      Self::Unclosed(err) => {
+        write!(
+          f,
+          "unclosed variable-length unicode escape at {}",
+          err.span()
+        )
+      }
+      Self::Empty(err) => err.fmt(f),
+      Self::TooManyDigits(err) => err.fmt(f),
+      Self::Malformed(err) => err.fmt(f),
+      Self::InvalidScalar(err) => err.fmt(f),
+    }
+  }
+}
+
+impl<Char> core::error::Error for VariableUnicodeEscapeError<Char>
+where
+  Char: DisplayHuman + core::fmt::Debug + 'static,
+{
+  fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+    match self {
+      Self::Unclosed(err) => Some(err),
+      Self::Empty(err) => Some(err),
+      Self::TooManyDigits(err) => Some(err),
+      Self::Malformed(err) => Some(err),
+      Self::InvalidScalar(err) => Some(err),
+    }
+  }
 }
 
 impl<Char> VariableUnicodeEscapeError<Char> {
@@ -1111,7 +1192,6 @@ impl<Char> VariableUnicodeEscapeError<Char> {
 /// assert_eq!(format!("{}", hint), "low surrogate");
 /// ```
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Display, IsVariant)]
-#[non_exhaustive]
 pub enum UnpairedSurrogateHint {
   /// An unpaired high surrogate (U+D800..U+DBFF).
   ///
@@ -1126,6 +1206,92 @@ pub enum UnpairedSurrogateHint {
   /// a valid UTF-16 surrogate pair.
   #[display("low surrogate")]
   Low,
+}
+
+/// An incomplete fixed-width unicode escape sequence error.
+///
+/// This error occurs when a fixed-width unicode escape (`\uXXXX`) has fewer than 4 hex digits,
+/// typically due to unexpected end-of-input or a non-hex character.
+///
+/// # Examples
+///
+/// ```
+/// use logosky::error::IncompleteFixedUnicodeEscape;
+/// use logosky::utils::Span;
+///
+/// // Incomplete: \u00A (only 3 hex digits)
+/// let error = IncompleteFixedUnicodeEscape::new(
+///     Span::new(10, 13)
+/// );
+/// assert_eq!(error.span(), Span::new(10, 13));
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct IncompleteFixedUnicodeEscape(Span);
+
+impl core::fmt::Display for IncompleteFixedUnicodeEscape {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(
+      f,
+      "incomplete fixed-width unicode escape sequence at {}, fixed-width unicode escape must contains exactly four hexadecimal digits",
+      self.0
+    )
+  }
+}
+
+impl core::error::Error for IncompleteFixedUnicodeEscape {}
+
+impl IncompleteFixedUnicodeEscape {
+  /// Creates a new incomplete hex escape error.
+  ///
+  /// ## Examples
+  ///
+  /// ```
+  /// use logosky::error::IncompleteFixedUnicodeEscape;
+  /// use logosky::utils::Span;
+  ///
+  /// let error = IncompleteFixedUnicodeEscape::new(Span::new(10, 12));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(span: Span) -> Self {
+    Self(span)
+  }
+
+  /// Returns the span of the incomplete hex escape.
+  ///
+  /// ## Examples
+  ///
+  /// ```
+  /// use logosky::error::IncompleteFixedUnicodeEscape;
+  /// use logosky::utils::Span;
+  ///
+  /// let error = IncompleteFixedUnicodeEscape::new(Span::new(10, 13));
+  /// assert_eq!(error.span(), Span::new(10, 13));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn span(&self) -> Span {
+    self.0
+  }
+
+  /// Bumps the span or position by `n`.
+  ///
+  /// This is useful when adjusting error positions after processing or
+  /// when combining spans from different contexts.
+  ///
+  /// ## Examples
+  ///
+  /// ```
+  /// use logosky::error::IncompleteFixedUnicodeEscape;
+  /// use logosky::utils::Span;
+  ///
+  /// let mut error = IncompleteFixedUnicodeEscape::new(Span::new(10, 12));
+  /// error.bump(5);
+  /// assert_eq!(error.span(), Span::new(15, 17));
+  /// ```
+  #[inline]
+  pub const fn bump(&mut self, n: usize) -> &mut Self {
+    self.0.bump(n);
+    self
+  }
 }
 
 /// An error encountered during lexing for `\uXXXX` (fixed-width) unicode escape sequences.
@@ -1146,12 +1312,12 @@ pub enum UnpairedSurrogateHint {
 /// # Examples
 ///
 /// ```
-/// use logosky::error::FixedUnicodeEscapeError;
+/// use logosky::error::{FixedUnicodeEscapeError, IncompleteFixedUnicodeEscape};
 /// use logosky::utils::{Lexeme, Span};
 ///
 /// // Incomplete escape: \uAB (only 2 hex digits)
 /// let error: FixedUnicodeEscapeError =
-///     FixedUnicodeEscapeError::Incomplete(Lexeme::Range(Span::new(10, 14)));
+///     FixedUnicodeEscapeError::Incomplete(IncompleteFixedUnicodeEscape::new(Span::new(10, 14)));
 /// assert!(error.is_incomplete());
 ///
 /// // Unpaired high surrogate: \uD800
@@ -1163,13 +1329,13 @@ pub enum UnpairedSurrogateHint {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, From, IsVariant, TryUnwrap, Unwrap)]
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
+#[non_exhaustive]
 pub enum FixedUnicodeEscapeError<Char = char> {
   /// An incomplete fixed-width unicode escape sequence.
   ///
   /// This occurs when the escape has fewer than 4 hex digits, typically
   /// due to unexpected end-of-input or a non-hex character.
-  #[from(skip)]
-  Incomplete(Lexeme<Char>),
+  Incomplete(IncompleteFixedUnicodeEscape),
 
   /// A malformed fixed-width unicode escape sequence.
   ///
@@ -1182,6 +1348,43 @@ pub enum FixedUnicodeEscapeError<Char = char> {
   /// This occurs when a surrogate value (U+D800..U+DFFF) appears without
   /// its required pair.
   UnpairedSurrogate(UnexpectedLexeme<Char, UnpairedSurrogateHint>),
+}
+
+impl<Char> core::fmt::Display for FixedUnicodeEscapeError<Char>
+where
+  Char: DisplayHuman + CharLen,
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self {
+      Self::Incomplete(err) => err.fmt(f),
+      Self::Malformed(err) => err.fmt(f),
+      Self::UnpairedSurrogate(err) => match err.hint() {
+        UnpairedSurrogateHint::High => write!(
+          f,
+          "unpaired high surrogate in fixed-width unicode escape at {}",
+          err.span(),
+        ),
+        UnpairedSurrogateHint::Low => write!(
+          f,
+          "unpaired low surrogate in fixed-width unicode escape at {}",
+          err.span()
+        ),
+      },
+    }
+  }
+}
+
+impl<Char> core::error::Error for FixedUnicodeEscapeError<Char>
+where
+  Char: DisplayHuman + CharLen + core::fmt::Debug + 'static,
+{
+  fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+    match self {
+      Self::Incomplete(_) => None,
+      Self::Malformed(err) => Some(err),
+      Self::UnpairedSurrogate(err) => Some(err),
+    }
+  }
 }
 
 impl<Char> FixedUnicodeEscapeError<Char> {
@@ -1229,11 +1432,11 @@ impl<Char> FixedUnicodeEscapeError<Char> {
   /// ## Examples
   ///
   /// ```
-  /// use logosky::error::FixedUnicodeEscapeError;
+  /// use logosky::error::{FixedUnicodeEscapeError, IncompleteFixedUnicodeEscape};
   /// use logosky::utils::{Lexeme, Span};
   ///
   /// let mut error: FixedUnicodeEscapeError =
-  ///     FixedUnicodeEscapeError::Incomplete(Lexeme::Range(Span::new(10, 14)));
+  ///     FixedUnicodeEscapeError::Incomplete(IncompleteFixedUnicodeEscape::new(Span::new(10, 14)));
   /// error.bump(5);
   /// // The span is now adjusted
   /// ```
@@ -1258,11 +1461,11 @@ impl<Char> FixedUnicodeEscapeError<Char> {
   /// ## Examples
   ///
   /// ```
-  /// use logosky::error::FixedUnicodeEscapeError;
+  /// use logosky::error::{FixedUnicodeEscapeError, IncompleteFixedUnicodeEscape};
   /// use logosky::utils::{Lexeme, Span};
   ///
   /// let error: FixedUnicodeEscapeError =
-  ///    FixedUnicodeEscapeError::Incomplete(Lexeme::Range(Span::new(
+  ///    FixedUnicodeEscapeError::Incomplete(IncompleteFixedUnicodeEscape::new(Span::new(
   ///       10, 14)));
   /// assert_eq!(error.span(), Span::new(10, 14));
   /// ```
@@ -1299,7 +1502,7 @@ impl<Char> FixedUnicodeEscapeError<Char> {
 ///
 /// // Incomplete fixed-width escape: \uAB
 /// let error = UnicodeEscapeError::<char>::incomplete_fixed_unicode_escape(
-///     Lexeme::Range(Span::new(10, 14))
+///     Span::new(10, 14)
 /// );
 /// assert!(error.is_fixed());
 ///
@@ -1339,11 +1542,36 @@ impl<Char> FixedUnicodeEscapeError<Char> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, From, IsVariant, TryUnwrap, Unwrap)]
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
+#[non_exhaustive]
 pub enum UnicodeEscapeError<Char = char> {
   /// An error in a fixed-width unicode escape sequence (`\uXXXX`).
   Fixed(FixedUnicodeEscapeError<Char>),
   /// An error in a variable-length unicode escape sequence (`\u{...}`).
   Variable(VariableUnicodeEscapeError<Char>),
+}
+
+impl<Char> core::fmt::Display for UnicodeEscapeError<Char>
+where
+  Char: DisplayHuman + CharLen,
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self {
+      Self::Fixed(err) => err.fmt(f),
+      Self::Variable(err) => err.fmt(f),
+    }
+  }
+}
+
+impl<Char> core::error::Error for UnicodeEscapeError<Char>
+where
+  Char: DisplayHuman + CharLen + core::fmt::Debug + 'static,
+{
+  fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+    match self {
+      Self::Fixed(err) => Some(err),
+      Self::Variable(err) => Some(err),
+    }
+  }
 }
 
 impl<Char> UnicodeEscapeError<Char> {
@@ -1389,16 +1617,18 @@ impl<Char> UnicodeEscapeError<Char> {
   ///
   /// ```
   /// use logosky::error::UnicodeEscapeError;
-  /// use logosky::utils::{Lexeme, Span};
+  /// use logosky::utils::Span;
   ///
   /// let error = UnicodeEscapeError::<char>::incomplete_fixed_unicode_escape(
-  ///     Lexeme::Range(Span::new(10, 14))
+  ///     Span::new(10, 14)
   /// );
   /// assert!(error.is_fixed());
   /// ```
   #[inline]
-  pub const fn incomplete_fixed_unicode_escape(lexeme: Lexeme<Char>) -> Self {
-    Self::Fixed(FixedUnicodeEscapeError::Incomplete(lexeme))
+  pub const fn incomplete_fixed_unicode_escape(span: Span) -> Self {
+    Self::Fixed(FixedUnicodeEscapeError::Incomplete(
+      IncompleteFixedUnicodeEscape::new(span),
+    ))
   }
 
   /// Creates a malformed fixed-width unicode escape sequence error.

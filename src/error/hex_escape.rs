@@ -66,7 +66,10 @@
 //! assert!(error.is_malformed());
 //! ```
 
-use crate::{error::InvalidHexDigits, utils::Span};
+use crate::{
+  error::InvalidHexDigits,
+  utils::{Span, human_display::DisplayHuman},
+};
 use derive_more::{From, IsVariant, TryUnwrap, Unwrap};
 
 /// A type alias for invalid hex digits in hex escape sequences.
@@ -91,6 +94,18 @@ pub type InvalidHexEscapeDigits<Char> = InvalidHexDigits<Char, 2>;
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct IncompleteHexEscape(Span);
+
+impl core::fmt::Display for IncompleteHexEscape {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(
+      f,
+      "incomplete hexadecimal escape sequence at {}, hexadecimal escape must contains exactly two hexadecimal digits",
+      self.0
+    )
+  }
+}
+
+impl core::error::Error for IncompleteHexEscape {}
 
 impl IncompleteHexEscape {
   /// Creates a new incomplete hex escape error.
@@ -178,6 +193,25 @@ impl IncompleteHexEscape {
 pub struct MalformedHexEscape<Char = char> {
   digits: InvalidHexEscapeDigits<Char>,
   span: Span,
+}
+
+impl<Char> core::fmt::Display for MalformedHexEscape<Char>
+where
+  Char: DisplayHuman,
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(
+      f,
+      "malformed hexadecimal escape sequence with invalid digits at {}, {}",
+      self.span,
+      self.digits_ref()
+    )
+  }
+}
+
+impl<Char> core::error::Error for MalformedHexEscape<Char> where
+  Char: DisplayHuman + core::fmt::Debug
+{
 }
 
 impl<Char> MalformedHexEscape<Char> {
@@ -356,6 +390,7 @@ impl<Char> MalformedHexEscape<Char> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, From, IsVariant, TryUnwrap, Unwrap)]
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
+#[non_exhaustive]
 pub enum HexEscapeError<Char = char> {
   /// An incomplete hex escape sequence.
   ///
@@ -372,6 +407,30 @@ pub enum HexEscapeError<Char = char> {
   ///
   /// Examples: `\xGG`, `\xZ9`, `\xAZ`
   Malformed(MalformedHexEscape<Char>),
+}
+
+impl<Char> core::fmt::Display for HexEscapeError<Char>
+where
+  Char: DisplayHuman,
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self {
+      Self::Incomplete(err) => err.fmt(f),
+      Self::Malformed(malformed) => malformed.fmt(f),
+    }
+  }
+}
+
+impl<Char> core::error::Error for HexEscapeError<Char>
+where
+  Char: DisplayHuman + core::fmt::Debug + 'static,
+{
+  fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+    match self {
+      Self::Incomplete(err) => Some(err),
+      Self::Malformed(err) => Some(err),
+    }
+  }
 }
 
 impl<Char> HexEscapeError<Char> {

@@ -1,4 +1,6 @@
-use crate::utils::{CharLen, Lexeme, PositionedChar, Span, knowledge::LineTerminator};
+use crate::utils::{
+  CharLen, Lexeme, PositionedChar, Span, human_display::DisplayHuman, knowledge::LineTerminator,
+};
 
 /// A specialized `UnexpectedLexeme` for line terminators.
 ///
@@ -116,6 +118,30 @@ pub type UnexpectedLineTerminator<Char> = UnexpectedLexeme<Char, LineTerminator>
 pub struct UnexpectedLexeme<Char, Hint> {
   lexeme: Lexeme<Char>,
   hint: Hint,
+}
+
+impl<Char, Hint> core::fmt::Display for UnexpectedLexeme<Char, Hint>
+where
+  Char: DisplayHuman,
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match &self.lexeme {
+      Lexeme::Char(pc) => write!(
+        f,
+        "unexpected character '{}' at position {}",
+        pc.char_ref().display(),
+        pc.position(),
+      ),
+      Lexeme::Range(span) => write!(f, "unexpected characters at {}", span,),
+    }
+  }
+}
+
+impl<Char, Hint> core::error::Error for UnexpectedLexeme<Char, Hint>
+where
+  Char: DisplayHuman + core::fmt::Debug,
+  Hint: core::fmt::Debug,
+{
 }
 
 impl<Char, Hint> core::ops::Deref for UnexpectedLexeme<Char, Hint> {
