@@ -41,11 +41,15 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 logosky = "0.3"
+
+# Lexing-only, no_std, no_alloc builds:
+# logosky = { version = "0.3", default-features = false }
 ```
 
 ### Feature Flags
 
 - `std` (default) - Enable standard library support
+- `chumsky` (default) - Enable parser combinator integration (disable for lexer-only builds)
 - `alloc` - Enable allocator support for no-std environments
 - `rowan` - Enable CST (Concrete Syntax Tree) support with rowan integration
 - `bytes` - Support for `bytes::Bytes` as token source

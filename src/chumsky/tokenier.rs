@@ -7,14 +7,14 @@ use ::chumsky::{
 
 use core::ops::Range;
 
-use crate::{Lexed, LosslessToken, State, Tokenizer, utils};
+use crate::{Lexed, LosslessToken, Tokenizer, utils};
 
 use super::*;
 
 impl<'a, T> Input<'a> for Tokenizer<'a, T>
 where
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Clone,
 {
   type Span = utils::Span;
 
@@ -53,7 +53,7 @@ where
 impl<'a, T> ValueInput<'a> for Tokenizer<'a, T>
 where
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Clone,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   unsafe fn next(cache: &mut Self::Cache, cursor: &mut Self::Cursor) -> Option<Self::Token> {
@@ -64,7 +64,7 @@ where
 impl<'a, T> ExactSizeInput<'a> for Tokenizer<'a, T>
 where
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Clone,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   unsafe fn span_from(
@@ -78,7 +78,7 @@ where
 impl<'a, T> SliceInput<'a> for Tokenizer<'a, T>
 where
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Clone,
   <<T::Logos as Logos<'a>>::Source as logos::Source>::Slice<'a>: Clone,
 {
   type Slice = <<T::Logos as Logos<'a>>::Source as logos::Source>::Slice<'a>;
@@ -301,6 +301,5 @@ impl<'a, T, I> LogoStream<'a, T> for I
 where
   I: SliceInput<'a> + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>,
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Extras: State,
 {
 }

@@ -12,7 +12,7 @@ categories = ["parsing", "text-processing", "no-std"]
 keywords = ["lexer", "parser", "logos", "chumsky", "combinator"]
 
 [features]
-default = ["std"]
+default = ["std", "chumsky"]
 alloc = []
 std = [
   "thiserror/default",

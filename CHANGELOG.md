@@ -319,6 +319,12 @@
 - Improved error message clarity in various utility types
 - Better handling of edge cases in lexer position tracking
 
+## Improvements
+
+- Enabled the `chumsky` feature by default so parser integration and its tests run on a plain `cargo test`. Consumers who only need lexing can still opt out with `default-features = false`.
+- Relaxed tokenizer internals to require only `Clone` for Logos `Extras`, allowing rich/non-`Copy` lexer states without extra wrappers.
+- Dropped the `State` trait requirement from `LogoStream`, so custom lexer extras no longer need to implement a LogoSky-specific trait to use Chumsky inputs.
+
 # 0.2.0 (Oct 20th, 2025)
 
 ## New Features

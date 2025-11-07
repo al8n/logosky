@@ -191,13 +191,13 @@ impl<'a, T: Token<'a>> Tokenizer<'a, T> {
 
   pub(crate) fn next_maybe(this: &mut Self, cursor: &mut usize) -> Option<Lexed<'a, T>>
   where
-    <T::Logos as Logos<'a>>::Extras: Copy,
+    <T::Logos as Logos<'a>>::Extras: Clone,
   {
-    let mut lexer = logos::Lexer::<T::Logos>::with_extras(this.input, this.state);
+    let mut lexer = logos::Lexer::<T::Logos>::with_extras(this.input, this.state.clone());
     lexer.bump(*cursor);
     Lexed::lex(&mut lexer).inspect(|_| {
       *cursor = lexer.span().end;
-      this.state = lexer.extras;
+      this.state = lexer.extras.clone();
       this.cursor = *cursor;
     })
   }

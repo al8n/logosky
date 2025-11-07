@@ -42,7 +42,7 @@ where
 impl<'a, T> IntoIterator for Tokenizer<'a, T>
 where
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Clone,
 {
   type Item = Lexed<'a, T>;
   type IntoIter = IntoIter<'a, T>;
@@ -56,7 +56,7 @@ where
 impl<'a, T> Iterator for IntoIter<'a, T>
 where
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Clone,
 {
   type Item = Lexed<'a, T>;
 
@@ -86,7 +86,7 @@ where
 impl<'a, 'b, T> IntoIterator for &'b mut Tokenizer<'a, T>
 where
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Clone,
 {
   type Item = Lexed<'a, T>;
   type IntoIter = Iter<'a, 'b, T>;
@@ -100,7 +100,7 @@ where
 impl<'a, T> Iterator for Iter<'a, '_, T>
 where
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Extras: Copy,
+  <T::Logos as Logos<'a>>::Extras: Clone,
 {
   type Item = Lexed<'a, T>;
 
