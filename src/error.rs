@@ -65,6 +65,16 @@ pub trait ErrorContainer<E> {
   /// Push an error into the collection.
   fn push(&mut self, error: E);
 
+  /// Attempts to push an error, returning it back if the container is full.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn try_push(&mut self, error: E) -> Result<(), E>
+  where
+    Self: Sized,
+  {
+    self.push(error);
+    Ok(())
+  }
+
   /// Pop an error from the first of the collection.
   fn pop(&mut self) -> Option<E>;
 
@@ -82,6 +92,12 @@ pub trait ErrorContainer<E> {
 
   /// Consumes the container and returns an iterator over the errors.
   fn into_iter(self) -> Self::IntoIter;
+
+  /// Returns the remaining capacity if the container has a fixed upper bound.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn remaining_capacity(&self) -> Option<usize> {
+    None
+  }
 }
 
 impl<E> ErrorContainer<E> for Option<E> {
@@ -102,6 +118,16 @@ impl<E> ErrorContainer<E> for Option<E> {
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
+  fn try_push(&mut self, error: E) -> Result<(), E> {
+    if self.is_some() {
+      Err(error)
+    } else {
+      self.push(error);
+      Ok(())
+    }
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn pop(&mut self) -> Option<E> {
     self.take()
   }
@@ -119,6 +145,11 @@ impl<E> ErrorContainer<E> for Option<E> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn into_iter(self) -> Self::IntoIter {
     <Self as IntoIterator>::into_iter(self)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn remaining_capacity(&self) -> Option<usize> {
+    Some(if self.is_some() { 0 } else { 1 })
   }
 }
 
@@ -142,6 +173,11 @@ impl<E, N: ArrayLength> ErrorContainer<E> for GenericVec<E, N> {
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
+  fn try_push(&mut self, error: E) -> Result<(), E> {
+    GenericVec::try_push(self, error)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn pop(&mut self) -> Option<E> {
     self.pop_front()
   }
@@ -159,6 +195,11 @@ impl<E, N: ArrayLength> ErrorContainer<E> for GenericVec<E, N> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn into_iter(self) -> Self::IntoIter {
     IntoIterator::into_iter(self)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn remaining_capacity(&self) -> Option<usize> {
+    Some(self.remaining_capacity())
   }
 }
 
@@ -182,6 +223,11 @@ impl<E, const N: usize> ErrorContainer<E> for ConstGenericVec<E, N> {
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
+  fn try_push(&mut self, error: E) -> Result<(), E> {
+    ConstGenericVec::try_push(self, error)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
   fn pop(&mut self) -> Option<E> {
     self.pop_front()
   }
@@ -199,6 +245,11 @@ impl<E, const N: usize> ErrorContainer<E> for ConstGenericVec<E, N> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn into_iter(self) -> Self::IntoIter {
     IntoIterator::into_iter(self)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn remaining_capacity(&self) -> Option<usize> {
+    Some(self.remaining_capacity())
   }
 }
 

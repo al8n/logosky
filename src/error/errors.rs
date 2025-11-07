@@ -45,7 +45,8 @@ use crate::utils::ConstGenericVec as GenericVec;
 /// Default error container for no-alloc environments.
 ///
 /// Uses a stack-allocated `GenericVec` with capacity for 2 errors.
-/// When the capacity is exceeded, additional errors are silently dropped.
+/// When the capacity is exceeded, additional errors are dropped and
+/// [`Errors::overflowed`](Errors::overflowed) becomes `true`.
 #[cfg(not(any(feature = "alloc", feature = "std")))]
 pub type DefaultContainer<E> = GenericVec<E, 2>;
 
@@ -111,6 +112,7 @@ pub struct Errors<E, C = DefaultContainer<E>> {
   #[as_ref]
   #[as_mut]
   container: C,
+  overflowed_flag: bool,
   _phantom: core::marker::PhantomData<E>,
 }
 
@@ -191,6 +193,42 @@ impl<E, Container> Errors<E, Container>
 where
   Container: super::ErrorContainer<E>,
 {
+  /// Pushes an error into the collection, marking `overflowed` if it doesn't fit.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn push(&mut self, error: E) {
+    let _ = self.try_push(error);
+  }
+
+  /// Attempts to push an error, returning it back if capacity is exhausted.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn try_push(&mut self, error: E) -> Result<(), E> {
+    match super::ErrorContainer::try_push(&mut self.container, error) {
+      Ok(()) => Ok(()),
+      Err(err) => {
+        self.overflowed_flag = true;
+        Err(err)
+      }
+    }
+  }
+
+  /// Returns `true` if any error has been dropped because of limited capacity.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn overflowed(&self) -> bool {
+    self.overflowed_flag
+  }
+
+  /// Reports the remaining capacity when the backing container is bounded.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn remaining_capacity(&self) -> Option<usize> {
+    super::ErrorContainer::remaining_capacity(&self.container)
+  }
+
+  /// Returns `true` when a bounded container cannot accept more errors.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn is_full(&self) -> bool {
+    matches!(self.remaining_capacity(), Some(0))
+  }
+
   /// Creates a new empty error collection with the specified capacity.
   ///
   /// # Examples
@@ -212,6 +250,7 @@ impl<E, Container> Errors<E, Container> {
   const fn new_in(container: Container) -> Self {
     Self {
       container,
+      overflowed_flag: false,
       _phantom: core::marker::PhantomData,
     }
   }
@@ -279,14 +318,14 @@ where
 
 impl<'a, E, Container> IntoIterator for &'a Errors<E, Container>
 where
-  &'a Container: IntoIterator<Item = E>,
+  &'a Container: IntoIterator<Item = &'a E>,
 {
-  type Item = E;
+  type Item = &'a E;
   type IntoIter = <&'a Container as IntoIterator>::IntoIter;
 
   #[inline]
   fn into_iter(self) -> Self::IntoIter {
-    self.container.into_iter()
+    (&self.container).into_iter()
   }
 }
 
@@ -345,6 +384,7 @@ impl<E, C> Errors<E, C> {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::utils::ConstGenericVec;
 
   #[test]
   fn test_new() {
@@ -376,6 +416,32 @@ mod tests {
 
     let sum: i32 = errors.iter().sum();
     assert_eq!(sum, 3);
+  }
+
+  #[test]
+  fn test_overflow_tracking() {
+    type SmallErrors<'a> = Errors<&'a str, ConstGenericVec<&'a str, 1>>;
+    let mut errors: SmallErrors<'_> = Errors::from_container(ConstGenericVec::new());
+
+    assert!(!errors.overflowed());
+    errors.push("first");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors.remaining_capacity(), Some(0));
+    assert!(errors.is_full());
+
+    errors.push("second");
+    assert!(errors.overflowed());
+    assert_eq!(errors.len(), 1);
+  }
+
+  #[test]
+  fn test_try_push_reports_error() {
+    type SmallErrors<'a> = Errors<&'a str, ConstGenericVec<&'a str, 1>>;
+    let mut errors: SmallErrors<'_> = Errors::from_container(ConstGenericVec::new());
+
+    assert!(errors.try_push("first").is_ok());
+    assert!(errors.try_push("second").is_err());
+    assert!(errors.overflowed());
   }
 
   #[cfg(any(feature = "alloc", feature = "std"))]

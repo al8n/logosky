@@ -181,10 +181,17 @@ impl TokenLimitExceeded {
 ///     Ok(ast)
 /// }
 /// ```
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TokenLimiter {
   max: usize,
   current: usize,
+}
+
+impl Default for TokenLimiter {
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl TokenLimiter {
