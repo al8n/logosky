@@ -20,7 +20,9 @@ pub mod iter;
 ///
 /// For stateful lexers (those with non-`()` `Extras`), `Tokenizer` maintains the lexer
 /// state and passes it through token-by-token. This allows for context-sensitive lexing
-/// patterns.
+/// patterns. Because the adapter clones `Extras` each time it polls Logos, it is best to
+/// keep your state `Copy` or otherwise cheap to clone. If you need heavy state, consider
+/// storing handles (e.g. `Arc`) inside `Extras` so clones stay inexpensive.
 ///
 /// # Type Parameters
 ///
