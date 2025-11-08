@@ -3,11 +3,20 @@
 //! This implementation uses `generic_array` and `typenum` to specify capacity
 //! at the type level. This is useful for:
 //! - Type-level capacity computation
-//! - Integration with other generic-array-based code
+//! - Integration with generic-array-based code
 //! - Situations where capacity needs to be part of the type system
+//!
+//! # Key Characteristics
+//!
+//! - **Type-level capacity**: Capacity specified via `ArrayLength` (e.g., `U8`, `U16`)
+//! - **Zero allocation**: All storage is on the stack
+//! - **Overflow-aware**: `push`/`try_push` never panic; they return the unused value
+//!   on overflow. If you ignore the return, extra elements are effectively dropped,
+//!   which is useful for bounded error collection.
+//! - **Proper drop semantics**: Elements in `[0..len)` are dropped exactly once.
 
 use core::{
-  mem::MaybeUninit,
+  mem::{ManuallyDrop, MaybeUninit},
   slice::{from_raw_parts, from_raw_parts_mut},
 };
 
@@ -19,27 +28,13 @@ use generic_array::{ArrayLength, GenericArray};
 /// number (via `typenum`). This enables compile-time capacity computation and better
 /// integration with type-level programming patterns.
 ///
-/// # Key Characteristics
-///
-/// - **Type-level capacity**: Capacity specified via `ArrayLength` trait (e.g., `U8`, `U16`)
-/// - **Zero allocation**: All storage is on the stack
-/// - **Silent overflow**: When full, `push()` silently drops new elements (by design)
-/// - **Proper drop semantics**: Elements are properly dropped when the vector is dropped
-///
-/// # Design Rationale
-///
-/// While const generics are convenient, type-level numbers provide additional capabilities:
-/// - Arithmetic on capacities at the type level
-/// - Compatibility with existing generic-array-based APIs
-/// - Can express complex capacity relationships (e.g., "twice the size of another type")
-///
 /// # Type-Level Numbers
 ///
 /// Use `typenum` constants for capacity:
 /// - `U1` through `U1024` for small sizes
 /// - Arithmetic types like `Sum<U8, U4>` for computed sizes
 ///
-/// # Examples
+/// ## Examples
 ///
 /// ## Basic Usage
 ///
@@ -89,8 +84,7 @@ use generic_array::{ArrayLength, GenericArray};
 /// use logosky::utils::{GenericVec, typenum};
 /// use typenum::{U4, U8, Sum};
 ///
-/// // Capacity is U4 + U8 = U12
-/// type MyCapacity = Sum<U4, U8>;
+/// type MyCapacity = Sum<U4, U8>; // U4 + U8 = U12
 /// let vec: GenericVec<i32, MyCapacity> = GenericVec::new();
 /// assert_eq!(vec.capacity(), 12);
 /// # }
@@ -104,13 +98,12 @@ use generic_array::{ArrayLength, GenericArray};
 /// use typenum::U2;
 ///
 /// let mut vec: GenericVec<i32, U2> = GenericVec::new();
-/// vec.push(1);
-/// vec.push(2);
-/// vec.push(3); // Silently dropped
-/// vec.push(4); // Silently dropped
-///
+/// assert!(vec.push(1).is_none());
+/// assert!(vec.push(2).is_none());
+/// let overflow = vec.push(3);
 /// assert_eq!(vec.len(), 2);
 /// assert_eq!(vec.as_slice(), &[1, 2]);
+/// assert_eq!(overflow, Some(3)); // caller can observe overflow
 /// # }
 /// ```
 #[derive(Debug)]
@@ -128,7 +121,7 @@ where
   fn clone(&self) -> Self {
     let mut new = Self::new();
     for value in self.iter() {
-      // SAFETY: We're cloning from a vec with len <= capacity, so new vec won't exceed capacity.
+      // SAFETY: we never exceed capacity because self.len <= capacity.
       unsafe {
         new.push_unchecked(value.clone());
       }
@@ -143,9 +136,8 @@ where
 {
   /// Creates a `GenericVec` from an iterator, collecting at most N elements.
   ///
-  /// Elements beyond the capacity are silently dropped.
-  ///
-  /// # Examples
+  /// Elements beyond the capacity are left in the iterator (if observed via `push`
+  /// return values) or effectively dropped if ignored.
   ///
   /// ```rust
   /// # {
@@ -161,7 +153,7 @@ where
   fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
     let mut vec = Self::new();
     for item in iter {
-      vec.push(item);
+      let _ = vec.push(item);
     }
     vec
   }
@@ -225,7 +217,7 @@ where
 {
   /// Create a new empty `GenericVec`.
   ///
-  /// # Examples
+  /// ## Examples
   ///
   /// ```rust
   /// # {
@@ -247,7 +239,7 @@ where
 
   /// Returns the maximum number of elements this vector can hold.
   ///
-  /// # Examples
+  /// ## Examples
   ///
   /// ```rust
   /// # {
@@ -265,7 +257,7 @@ where
 
   /// Returns the number of elements currently in the vector.
   ///
-  /// # Examples
+  /// ## Examples
   ///
   /// ```rust
   /// # {
@@ -285,7 +277,7 @@ where
 
   /// Returns `true` if the vector contains no elements.
   ///
-  /// # Examples
+  /// ## Examples
   ///
   /// ```rust
   /// # {
@@ -305,9 +297,9 @@ where
 
   /// Returns `true` if the vector is at full capacity.
   ///
-  /// When the vector is full, subsequent `push()` operations will silently drop elements.
+  /// When full, `push`/`try_push` will report overflow.
   ///
-  /// # Examples
+  /// ## Examples
   ///
   /// ```rust
   /// # {
@@ -328,7 +320,7 @@ where
 
   /// Returns the number of additional elements the vector can hold.
   ///
-  /// # Examples
+  /// ## Examples
   ///
   /// ```rust
   /// # {
@@ -348,10 +340,10 @@ where
 
   /// Push a value to the end of the vector.
   ///
-  /// If the vector is at capacity, the value is **returned back**.
-  /// This is intentional behavior for error collection in no-alloc parsers.
+  /// If the vector is at capacity, returns `Some(value)` and does not modify `self`.
+  /// If you ignore the return value, overflow behaves like "silent drop".
   ///
-  /// # Examples
+  /// ## Examples
   ///
   /// ```rust
   /// # {
@@ -382,7 +374,7 @@ where
   ///
   /// Unlike `push()`, this method allows you to detect and handle overflow.
   ///
-  /// # Examples
+  /// ## Examples
   ///
   /// ```rust
   /// # {
@@ -406,14 +398,14 @@ where
     }
   }
 
-  /// Push a value to the end of the vector without checking capacity.
+  /// Push a value without checking capacity.
   ///
-  /// # Safety
+  /// ## Safety
   ///
   /// The caller must ensure that `self.len() < self.capacity()`.
   /// Violating this results in undefined behavior.
   ///
-  /// # Examples
+  /// ## Examples
   ///
   /// ```rust
   /// # {
@@ -436,7 +428,7 @@ where
 
   /// Removes and returns the last element, or `None` if empty.
   ///
-  /// # Examples
+  /// ## Examples
   ///
   /// ```rust
   /// # {
@@ -455,7 +447,7 @@ where
   pub fn pop(&mut self) -> Option<T> {
     if self.len > 0 {
       self.len -= 1;
-      // SAFETY: len was > 0, so there's a valid element at len - 1
+      // SAFETY: element at `self.len` was initialized and is now removed.
       Some(unsafe { self.values[self.len].assume_init_read() })
     } else {
       None
@@ -485,16 +477,15 @@ where
       return None;
     }
 
-    // Read (move out) the first element.
+    // Take the first element.
     let first = unsafe { self.values[0].assume_init_read() };
 
     if self.len > 1 {
-      // Shift [1..len) -> [0..len-1) with overlapping copy.
       unsafe {
         let base = self.values.as_mut_ptr();
-        // copy count = self.len - 1
+        // Shift initialized range [1..len) down to [0..len-1).
         core::ptr::copy(base.add(1), base, self.len - 1);
-        // The last slot still contains a (now-duplicated) element; drop it once.
+        // The last slot now holds a duplicate; drop that extra copy.
         self.values[self.len - 1].assume_init_drop();
       }
     }
@@ -505,7 +496,7 @@ where
 
   /// Clears the vector, dropping all elements.
   ///
-  /// # Examples
+  /// ## Examples
   ///
   /// ```rust
   /// # {
@@ -534,10 +525,9 @@ where
 
   /// Retains only elements that satisfy the predicate.
   ///
-  /// Elements are visited in order, and those for which the predicate returns
-  /// `false` are removed.
+  /// Elements are visited in order; those for which `f(&element)` returns `false` are removed.
   ///
-  /// # Examples
+  /// ## Examples
   ///
   /// ```rust
   /// # {
@@ -560,15 +550,14 @@ where
   {
     let mut write_idx = 0;
     for read_idx in 0..self.len {
-      // SAFETY: read_idx < self.len, so element is initialized
-      let should_keep = unsafe {
+      let keep = unsafe {
+        // read_idx < self.len: element is initialized
         let elem_ref = &*self.values[read_idx].as_ptr();
         f(elem_ref)
       };
 
-      if should_keep {
+      if keep {
         if write_idx != read_idx {
-          // SAFETY: Both indices are < len and point to initialized elements
           unsafe {
             let value = self.values[read_idx].assume_init_read();
             self.values[write_idx].write(value);
@@ -576,7 +565,6 @@ where
         }
         write_idx += 1;
       } else {
-        // SAFETY: read_idx < self.len, so element is initialized
         unsafe {
           self.values[read_idx].assume_init_drop();
         }
@@ -587,7 +575,7 @@ where
 
   /// Truncates the vector to `len` elements.
   ///
-  /// If `len` is greater than the current length, this has no effect.
+  /// If `len` is greater than current length, no-op.
   ///
   /// # Examples
   ///
@@ -607,7 +595,6 @@ where
   /// ```
   pub fn truncate(&mut self, len: usize) {
     if len < self.len {
-      // Drop elements from len..self.len
       for i in len..self.len {
         unsafe {
           self.values[i].assume_init_drop();
@@ -617,7 +604,7 @@ where
     }
   }
 
-  /// Returns an iterator over the values.
+  /// Returns an iterator over `&T`.
   ///
   /// # Examples
   ///
@@ -640,7 +627,7 @@ where
     self.as_slice().iter()
   }
 
-  /// Returns a mutable iterator over the values.
+  /// Returns an iterator over `&mut T`.
   ///
   /// # Examples
   ///
@@ -664,7 +651,7 @@ where
     self.as_mut_slice().iter_mut()
   }
 
-  /// Returns a slice of the values.
+  /// Returns a slice of initialized values.
   ///
   /// # Examples
   ///
@@ -682,12 +669,10 @@ where
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn as_slice(&self) -> &[T] {
-    // SAFETY: We ensure that `self.len` is always <= capacity, and that all
-    // elements in the range [0..len) are properly initialized.
     unsafe { from_raw_parts(self.values.as_ptr() as *const T, self.len) }
   }
 
-  /// Returns a mutable slice of the values.
+  /// Returns a mutable slice of initialized values.
   ///
   /// # Examples
   ///
@@ -706,8 +691,6 @@ where
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn as_mut_slice(&mut self) -> &mut [T] {
-    // SAFETY: We ensure that `self.len` is always <= capacity, and that all
-    // elements in the range [0..len) are properly initialized.
     unsafe { from_raw_parts_mut(self.values.as_mut_ptr() as *mut T, self.len) }
   }
 
@@ -847,6 +830,18 @@ where
   }
 }
 
+/// An iterator that moves out elements from a `GenericVec`.
+///
+/// Owns the underlying storage via `ManuallyDrop<GenericVec<..>>` to avoid
+/// running `GenericVec::drop` on moved-out elements. Any unyielded elements
+/// are dropped when the iterator is dropped.
+#[derive(Debug)]
+pub struct GenericVecIter<T, N: ArrayLength> {
+  this: ManuallyDrop<GenericVec<T, N>>,
+  next: usize,
+  end: usize,
+}
+
 impl<T, N> IntoIterator for GenericVec<T, N>
 where
   N: ArrayLength,
@@ -858,19 +853,11 @@ where
   fn into_iter(self) -> Self::IntoIter {
     let len = self.len();
     GenericVecIter {
-      this: self,
-      len,
-      yielded: 0,
+      this: ManuallyDrop::new(self),
+      next: 0,
+      end: len,
     }
   }
-}
-
-/// An iterator that moves out elements from a `GenericVec`.
-#[derive(Debug, Clone)]
-pub struct GenericVecIter<T, N: ArrayLength> {
-  this: GenericVec<T, N>,
-  len: usize,
-  yielded: usize,
 }
 
 impl<T, N: ArrayLength> Iterator for GenericVecIter<T, N> {
@@ -878,13 +865,326 @@ impl<T, N: ArrayLength> Iterator for GenericVecIter<T, N> {
 
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn next(&mut self) -> Option<Self::Item> {
-    if self.yielded < self.len {
-      let cur = self.yielded;
-      self.yielded += 1;
-      // SAFETY: len was > 0, so there's a valid element at len - 1
-      Some(unsafe { self.this.values[cur].assume_init_read() })
+    if self.next < self.end {
+      let i = self.next;
+      self.next += 1;
+      // SAFETY:
+      // - `[0..end)` was initialized in the original `GenericVec`.
+      // - Each index in `[0..next)` is yielded at most once.
+      Some(unsafe { self.this.values[i].assume_init_read() })
     } else {
       None
     }
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn size_hint(&self) -> (usize, Option<usize>) {
+    let remaining = self.end - self.next;
+    (remaining, Some(remaining))
+  }
+}
+
+impl<T, N: ArrayLength> core::iter::ExactSizeIterator for GenericVecIter<T, N> {}
+
+impl<T, N: ArrayLength> core::iter::FusedIterator for GenericVecIter<T, N> {}
+
+impl<T, N: ArrayLength> Drop for GenericVecIter<T, N> {
+  fn drop(&mut self) {
+    // Drop only elements that have not yet been yielded.
+    for i in self.next..self.end {
+      unsafe {
+        self.this.values[i].assume_init_drop();
+      }
+    }
+    // `self.this` is `ManuallyDrop`, so `GenericVec::drop` is not called.
+  }
+}
+
+/// A frozen (read-only) version of `GenericVec`.
+///
+/// Created via [`GenericVec::freeze`]. Exposes only read access and `IntoIterator` by value.
+#[derive(Debug)]
+pub struct FrozenGenericVec<T, N: ArrayLength> {
+  inner: GenericVec<T, N>,
+}
+
+impl<T, N> Clone for FrozenGenericVec<T, N>
+where
+  T: Clone,
+  N: ArrayLength,
+{
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
+}
+
+impl<T, N> AsRef<[T]> for FrozenGenericVec<T, N>
+where
+  N: ArrayLength,
+{
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn as_ref(&self) -> &[T] {
+    self.as_slice()
+  }
+}
+
+impl<T, N> core::ops::Deref for FrozenGenericVec<T, N>
+where
+  N: ArrayLength,
+{
+  type Target = [T];
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn deref(&self) -> &Self::Target {
+    self.as_slice()
+  }
+}
+
+impl<T, N> FrozenGenericVec<T, N>
+where
+  N: ArrayLength,
+{
+  /// Returns the maximum number of elements this vector can hold.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// # {
+  /// use logosky::utils::{GenericVec, typenum};
+  /// use typenum::U16;
+  ///
+  /// let mut vec: GenericVec<i32, U16> = GenericVec::new();
+  /// let frozen = vec.freeze();
+  /// assert_eq!(frozen.capacity(), 16);
+  /// # }
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn capacity(&self) -> usize {
+    self.inner.capacity()
+  }
+
+  /// Returns the number of elements currently in the vector.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// # {
+  /// use logosky::utils::{GenericVec, typenum};
+  /// use typenum::U4;
+  ///
+  /// let mut vec: GenericVec<i32, U4> = GenericVec::new();
+  /// vec.push(1);
+  /// let frozen = vec.freeze();
+  /// assert_eq!(frozen.len(), 1);
+  /// # }
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn len(&self) -> usize {
+    self.inner.len()
+  }
+
+  /// Returns `true` if the vector contains no elements.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// # {
+  /// use logosky::utils::{GenericVec, typenum};
+  /// use typenum::U4;
+  ///
+  /// let mut vec: GenericVec<i32, U4> = GenericVec::new();
+  /// let frozen = vec.freeze();
+  /// assert!(frozen.is_empty());
+  /// # }
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn is_empty(&self) -> bool {
+    self.inner.is_empty()
+  }
+
+  /// Returns `true` if the vector is at full capacity.
+  ///
+  /// ## Examples
+  ///
+  /// ```rust
+  /// # {
+  /// use logosky::utils::{GenericVec, typenum};
+  /// use typenum::U2;
+  ///
+  /// let mut vec: GenericVec<i32, U2> = GenericVec::new();
+  /// vec.push(1);
+  /// vec.push(2);
+  /// let frozen = vec.freeze();
+  /// assert!(frozen.is_full());
+  /// # }
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn is_full(&self) -> bool {
+    self.inner.is_full()
+  }
+
+  /// Returns an iterator over `&T`.
+  ///
+  /// # Examples
+  ///
+  /// ```rust
+  /// # {
+  /// use logosky::utils::{GenericVec, typenum};
+  /// use typenum::U4;
+  ///
+  /// let mut vec: GenericVec<i32, U4> = GenericVec::new();
+  /// vec.push(1);
+  /// vec.push(2);
+  /// vec.push(3);
+  /// let frozen = vec.freeze();
+  ///
+  /// let sum: i32 = frozen.iter().sum();
+  /// assert_eq!(sum, 6);
+  /// # }
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn iter(&self) -> core::slice::Iter<'_, T> {
+    self.inner.iter()
+  }
+
+  /// Returns a slice of initialized values.
+  ///
+  /// # Examples
+  ///
+  /// ```rust
+  /// # {
+  /// use logosky::utils::{GenericVec, typenum};
+  /// use typenum::U4;
+  ///
+  /// let mut vec: GenericVec<i32, U4> = GenericVec::new();
+  /// vec.push(1);
+  /// vec.push(2);
+  /// let frozen = vec.freeze();
+  ///
+  /// assert_eq!(frozen.as_slice(), &[1, 2]);
+  /// # }
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn as_slice(&self) -> &[T] {
+    self.inner.as_slice()
+  }
+
+  /// Returns a pointer to the first element.
+  ///
+  /// # Examples
+  ///
+  /// ```rust
+  /// # {
+  /// use logosky::utils::{GenericVec, typenum};
+  /// use typenum::U4;
+  ///
+  /// let mut vec: GenericVec<i32, U4> = GenericVec::new();
+  /// vec.push(1);
+  /// let frozen = vec.freeze();
+  ///
+  /// let ptr = frozen.as_ptr();
+  /// unsafe {
+  ///     assert_eq!(*ptr, 1);
+  /// }
+  /// # }
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn as_ptr(&self) -> *const T {
+    self.inner.as_ptr()
+  }
+}
+
+impl<T, I, N> core::ops::Index<I> for FrozenGenericVec<T, N>
+where
+  I: core::slice::SliceIndex<[T]>,
+  N: ArrayLength,
+{
+  type Output = I::Output;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn index(&self, index: I) -> &Self::Output {
+    &self.inner[index]
+  }
+}
+
+impl<T: PartialEq, N> PartialEq for FrozenGenericVec<T, N>
+where
+  N: ArrayLength,
+{
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn eq(&self, other: &Self) -> bool {
+    self.inner == other.inner
+  }
+}
+
+impl<T: Eq, N> Eq for FrozenGenericVec<T, N> where N: ArrayLength {}
+
+impl<T: PartialOrd, N> PartialOrd for FrozenGenericVec<T, N>
+where
+  N: ArrayLength,
+{
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+    self.inner.partial_cmp(&other.inner)
+  }
+}
+
+impl<T: Ord, N> Ord for FrozenGenericVec<T, N>
+where
+  N: ArrayLength,
+{
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+    self.inner.cmp(&other.inner)
+  }
+}
+
+impl<T: core::hash::Hash, N> core::hash::Hash for FrozenGenericVec<T, N>
+where
+  N: ArrayLength,
+{
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+    self.inner.hash(state);
+  }
+}
+
+impl<'a, T, N> IntoIterator for &'a FrozenGenericVec<T, N>
+where
+  N: ArrayLength,
+{
+  type Item = &'a T;
+  type IntoIter = core::slice::Iter<'a, T>;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn into_iter(self) -> Self::IntoIter {
+    self.iter()
+  }
+}
+
+impl<T, N> IntoIterator for FrozenGenericVec<T, N>
+where
+  N: ArrayLength,
+{
+  type Item = T;
+  type IntoIter = GenericVecIter<T, N>;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn into_iter(self) -> Self::IntoIter {
+    self.inner.into_iter()
+  }
+}
+
+impl<T, N> GenericVec<T, N>
+where
+  N: ArrayLength,
+{
+  /// Freeze this `GenericVec` into an immutable `FrozenGenericVec`.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn freeze(self) -> FrozenGenericVec<T, N> {
+    FrozenGenericVec { inner: self }
   }
 }

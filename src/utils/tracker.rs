@@ -46,6 +46,7 @@ use super::{
 ///     Err(LimitExceeded::Recursion(e)) => {
 ///         eprintln!("Recursion limit exceeded: {}", e);
 ///     }
+///     Err(_) => { eprintln!("Unknown limit exceeded"); }
 /// }
 /// ```
 ///
