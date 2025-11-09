@@ -17,7 +17,7 @@
 //!
 //! ```rust
 //! # {
-//! use logosky::{utils::{syntax::Syntax, typenum::U3, Span}, error::IncompleteSyntax};
+//! use logosky::{utils::{syntax::Syntax, typenum::U3, Span, GenericArrayDeque}, error::IncompleteSyntax};
 //! use core::fmt;
 //!
 //! #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -48,20 +48,26 @@
 //!     type COMPONENTS = U3;
 //!     type REQUIRED = U3;
 //!
-//!     fn possible_components() -> logosky::utils::GenericArrayDeque<Self::Component, U3> {
-//!         let mut vec = logosky::utils::GenericArrayDeque::new();
-//!         vec.push(WhileComponent::WhileKeyword);
-//!         vec.push(WhileComponent::Condition);
-//!         vec.push(WhileComponent::Body);
-//!         vec.freeze()
+//!     fn possible_components() -> &'static GenericArrayDeque<Self::Component, U3> {
+//!         static COMPONENTS: GenericArrayDeque<WhileComponent, logosky::utils::typenum::U3> = {
+//!             let mut deque = GenericArrayDeque::new();
+//!             deque.push_back(WhileComponent::WhileKeyword);
+//!             deque.push_back(WhileComponent::Condition);
+//!             deque.push_back(WhileComponent::Body);
+//!             deque
+//!         };
+//!         &COMPONENTS
 //!     }
 //!
-//!     fn required_components() -> logosky::utils::GenericArrayDeque<Self::Component, Self::REQUIRED> {
-//!         let mut vec = logosky::utils::GenericArrayDeque::new();
-//!         vec.push(WhileComponent::WhileKeyword);
-//!         vec.push(WhileComponent::Condition);
-//!         vec.push(WhileComponent::Body);
-//!         vec.freeze()
+//!     fn required_components() -> &'static GenericArrayDeque<Self::Component, Self::REQUIRED> {
+//!         static REQUIRED: GenericArrayDeque<WhileComponent, logosky::utils::typenum::U3> = {
+//!             let mut deque = GenericArrayDeque::new();
+//!             deque.push_back(WhileComponent::WhileKeyword);
+//!             deque.push_back(WhileComponent::Condition);
+//!             deque.push_back(WhileComponent::Body);
+//!             deque
+//!         };
+//!         &REQUIRED
 //!     }
 //! }
 //!
@@ -126,24 +132,30 @@ use core::{
 ///     type COMPONENTS = U5;
 ///     type REQUIRED = U5;
 ///
-///     fn possible_components() -> GenericArrayDeque<Self::Component, Self::COMPONENTS> {
-///         GenericArrayDeque::from_array([
-///             LetStatementComponent::LetKeyword,
-///             LetStatementComponent::Identifier,
-///             LetStatementComponent::Equals,
-///             LetStatementComponent::Expression,
-///             LetStatementComponent::Semicolon,
-///         ])
+///     fn possible_components() -> &'static GenericArrayDeque<Self::Component, Self::COMPONENTS> {
+///         static COMPONENTS: GenericArrayDeque<LetStatementComponent, typenum::U5> = {
+///             let mut deque = GenericArrayDeque::new();
+///             deque.push_back(LetStatementComponent::LetKeyword);
+///             deque.push_back(LetStatementComponent::Identifier);
+///             deque.push_back(LetStatementComponent::Equals);
+///             deque.push_back(LetStatementComponent::Expression);
+///             deque.push_back(LetStatementComponent::Semicolon);
+///             deque
+///         };
+///         &COMPONENTS
 ///     }
 ///
-///     fn required_components() -> GenericArrayDeque<Self::Component, Self::REQUIRED> {
-///         GenericArrayDeque::from_array([
-///             LetStatementComponent::LetKeyword,
-///             LetStatementComponent::Identifier,
-///             LetStatementComponent::Equals,
-///             LetStatementComponent::Expression,
-///             LetStatementComponent::Semicolon,
-///         ])
+///     fn required_components() -> &'static GenericArrayDeque<Self::Component, Self::REQUIRED> {
+///         static REQUIRED: GenericArrayDeque<LetStatementComponent, typenum::U5> = {
+///             let mut deque = GenericArrayDeque::new();
+///             deque.push_back(LetStatementComponent::LetKeyword);
+///             deque.push_back(LetStatementComponent::Identifier);
+///             deque.push_back(LetStatementComponent::Equals);
+///             deque.push_back(LetStatementComponent::Expression);
+///             deque.push_back(LetStatementComponent::Semicolon);
+///             deque
+///         };
+///         &REQUIRED
 ///     }
 /// }
 /// # }
@@ -192,11 +204,29 @@ pub trait Syntax {
   /// ```
   type REQUIRED: ArrayLength + Debug + Eq + Hash;
 
-  /// Returns a frozen vector containing all possible components for this syntax.
+  /// Returns a static reference to all possible components for this syntax.
   ///
-  /// The vector contains all components that can be part of this syntax element,
-  /// in a canonical order. The returned vector is immutable but can be consumed
-  /// via `IntoIterator`.
+  /// The deque contains all components that can be part of this syntax element,
+  /// in a canonical order. The returned reference points to a static, never-changing
+  /// collection that is initialized once at program startup.
+  ///
+  /// # Implementation Pattern
+  ///
+  /// Implementations should use a `static` item initialized in a const context:
+  ///
+  /// ```rust,ignore
+  /// fn possible_components() -> &'static GenericArrayDeque<Self::Component, Self::COMPONENTS> {
+  ///     static COMPONENTS: GenericArrayDeque<MyComponent, U3> = {
+  ///         let mut deque = GenericArrayDeque::new();
+  ///         // Push components in const context
+  ///         deque.push_back(MyComponent::Foo);
+  ///         deque.push_back(MyComponent::Bar);
+  ///         deque.push_back(MyComponent::Baz);
+  ///         deque
+  ///     };
+  ///     &COMPONENTS
+  /// }
+  /// ```
   ///
   /// # Examples
   ///
@@ -207,13 +237,29 @@ pub trait Syntax {
   /// }
   /// ```
   fn possible_components()
-  -> generic_arraydeque::GenericArrayDeque<Self::Component, Self::COMPONENTS>;
+  -> &'static generic_arraydeque::GenericArrayDeque<Self::Component, Self::COMPONENTS>;
 
-  /// Returns a frozen vector containing all required components for this syntax.
+  /// Returns a static reference to all required components for this syntax.
   ///
-  /// The vector contains all components that are required for this syntax element,
-  /// in a canonical order. The returned vector is immutable but can be consumed
-  /// via `IntoIterator`.
+  /// The deque contains all components that are required for this syntax element,
+  /// in a canonical order. The returned reference points to a static, never-changing
+  /// collection that is initialized once at program startup.
+  ///
+  /// # Implementation Pattern
+  ///
+  /// Implementations should use a `static` item initialized in a const context:
+  ///
+  /// ```rust,ignore
+  /// fn required_components() -> &'static GenericArrayDeque<Self::Component, Self::REQUIRED> {
+  ///     static REQUIRED: GenericArrayDeque<MyComponent, U2> = {
+  ///         let mut deque = GenericArrayDeque::new();
+  ///         deque.push_back(MyComponent::Foo);
+  ///         deque.push_back(MyComponent::Bar);
+  ///         deque
+  ///     };
+  ///     &REQUIRED
+  /// }
+  /// ```
   ///
   /// # Examples
   ///
@@ -221,7 +267,8 @@ pub trait Syntax {
   /// let required = MySyntax::required_components();
   /// assert_eq!(required.len(), 2);
   /// ```
-  fn required_components() -> generic_arraydeque::GenericArrayDeque<Self::Component, Self::REQUIRED>;
+  fn required_components()
+  -> &'static generic_arraydeque::GenericArrayDeque<Self::Component, Self::REQUIRED>;
 }
 
 /// A trait representing an AST node associated with a syntax definition.
@@ -262,7 +309,7 @@ pub trait Syntax {
 ///
 /// ```rust
 /// # {
-/// use logosky::{utils::{syntax::{Syntax, AstNode}, typenum::U2, Span}, error::IncompleteSyntax};
+/// use logosky::{utils::{syntax::{Syntax, AstNode}, GenericArrayDeque, typenum::U2, Span}, error::IncompleteSyntax};
 /// use generic_array::GenericArray;
 /// use core::fmt;
 ///
@@ -295,18 +342,14 @@ pub trait Syntax {
 ///     type COMPONENTS = U2;
 ///     type REQUIRED = U2;
 ///
-///     fn possible_components() -> logosky::utils::GenericArrayDeque<Self::Component, Self::COMPONENTS> {
-///         let mut vec = logosky::utils::GenericArrayDeque::new();
-///         vec.push(VariableComponent::Dollar);
-///         vec.push(VariableComponent::Name);
-///         vec.freeze()
+///     fn possible_components() -> &'static GenericArrayDeque<Self::Component, Self::COMPONENTS> {
+///         const COMPONENTS: &GenericArrayDeque<VariableComponent, U2> = &GenericArrayDeque::from_array([VariableComponent::Dollar, VariableComponent::Name]);
+///         COMPONENTS
 ///     }
 ///
-///     fn required_components() -> logosky::utils::GenericArrayDeque<Self::Component, Self::REQUIRED> {
-///         let mut vec = logosky::utils::GenericArrayDeque::new();
-///         vec.push(VariableComponent::Dollar);
-///         vec.push(VariableComponent::Name);
-///         vec.freeze()
+///     fn required_components() -> &'static GenericArrayDeque<Self::Component, Self::REQUIRED> {
+///         const REQUIRED: &GenericArrayDeque<VariableComponent, U2> = &GenericArrayDeque::from_array([VariableComponent::Dollar, VariableComponent::Name]);
+///         REQUIRED
 ///     }
 /// }
 ///
