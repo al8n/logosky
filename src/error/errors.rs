@@ -133,7 +133,7 @@ impl<E> Errors<E> {
   /// ```
   #[inline]
   pub const fn new() -> Self {
-    Self::new_in(ConstGenericArrayDeque::new())
+    Self::new_in(DefaultContainer::new())
   }
 }
 
