@@ -75,7 +75,7 @@
 //! assert_eq!(error.len(), 1);
 //! # }
 //! ```
-use generic_array::ArrayLength;
+use generic_arraydeque::ArrayLength;
 
 use core::{
   fmt::{Debug, Display},

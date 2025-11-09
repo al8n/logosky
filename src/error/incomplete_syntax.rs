@@ -90,14 +90,12 @@
 //! ```
 
 use crate::utils::{Span, syntax::Syntax};
-use generic_arraydeque::GenericArrayDeque;
+use generic_arraydeque::{GenericArrayDeque, typenum::Unsigned};
 
 use core::{
   fmt::{Debug, Display},
   hash::Hash,
 };
-
-use generic_array::typenum::Unsigned;
 
 /// Represents an incomplete syntax with missing components.
 ///
