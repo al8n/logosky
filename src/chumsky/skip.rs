@@ -130,7 +130,7 @@
 //! ```
 
 use crate::{Lexed, Token};
-use chumsky::{prelude::*, Parser};
+use chumsky::{Parser, prelude::*};
 use logos::{Logos, Source};
 
 use super::LogoStream;

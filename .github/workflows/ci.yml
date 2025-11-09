@@ -110,12 +110,13 @@ jobs:
         with:
           tool: cross
       - name: cross build --target ${{ matrix.target }}
+        if: matrix.target != 'wasm32-unknown-unknown' && matrix.target != 'wasm32-unknown-emscripten' && matrix.target != 'wasm32-wasip1' && matrix.target != 'wasm32-wasip1-threads' && matrix.target != 'wasm32-wasip2'
         run: cross build --target ${{ matrix.target }}
-
-      # - name: cargo build --target ${{ matrix.target }}
-      #   run: |
-      #     rustup target add ${{ matrix.target }}
-      #     cargo build --target ${{ matrix.target }}
+      - name: cross test --target ${{ matrix.target }}
+        if: matrix.target != 'wasm32-unknown-unknown' && matrix.target != 'wasm32-unknown-emscripten' && matrix.target != 'wasm32-wasip1' && matrix.target != 'wasm32-wasip1-threads' && matrix.target != 'wasm32-wasip2'
+        run: |
+          rustup target add ${{ matrix.target }}
+          cargo build --target ${{ matrix.target }}
 
   build:
     name: build
