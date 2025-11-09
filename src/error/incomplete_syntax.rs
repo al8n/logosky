@@ -12,7 +12,7 @@
 //! # Feature Flags
 //!
 //! - Without `generic-array`: Uses const-generic implementation
-//! - With `generic-array`: Uses type-level implementation with `generic_array::ArrayLength`
+//! - With `generic-array`: Uses type-level implementation with `generic_arraydeque::ArrayLength`
 //!
 //! # Design Philosophy
 //!

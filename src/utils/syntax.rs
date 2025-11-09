@@ -310,7 +310,6 @@ pub trait Syntax {
 /// ```rust
 /// # {
 /// use logosky::{utils::{syntax::{Syntax, AstNode}, GenericArrayDeque, typenum::U2, Span}, error::IncompleteSyntax};
-/// use generic_array::GenericArray;
 /// use core::fmt;
 ///
 /// // Define a language

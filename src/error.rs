@@ -16,7 +16,6 @@ pub use unicode_escape::*;
 pub use unknown_lexeme::*;
 pub use unterminated::*;
 
-// use generic_array::ArrayLength;
 use generic_arraydeque::{ArrayLength, GenericArrayDeque};
 
 mod errors;
