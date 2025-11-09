@@ -23,4 +23,5 @@ export MIRIFLAGS="-Zmiri-strict-provenance -Zmiri-disable-isolation -Zmiri-symbo
 export RUSTFLAGS="--cfg test_$CONFIG_FLAGS"
 
 cargo miri test --tests --target $TARGET --lib --features chumsky
+cargo miri test --target $TARGET --doc --features chumsky
 

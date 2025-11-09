@@ -36,6 +36,9 @@
 
 use core::fmt::{Debug, Display};
 
+#[cfg(not(any(feature = "alloc", feature = "std")))]
+use generic_arraydeque::ConstGenericArrayDeque;
+
 #[cfg(any(feature = "alloc", feature = "std"))]
 use std::collections::VecDeque;
 
@@ -45,7 +48,7 @@ use std::collections::VecDeque;
 /// When the capacity is exceeded, additional errors are dropped and
 /// [`Errors::overflowed`](Errors::overflowed) becomes `true`.
 #[cfg(not(any(feature = "alloc", feature = "std")))]
-pub type DefaultContainer<E> = generic_arraydeque::ConstGenericArrayDeque<E, 2>;
+pub type DefaultContainer<E> = ConstGenericArrayDeque<E, 2>;
 
 /// Default error container for alloc/std environments.
 ///
