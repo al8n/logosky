@@ -29,7 +29,7 @@
 //! ```rust
 //! # {
 //! use logosky::{
-//!     utils::{syntax::Syntax, typenum::U3, FrozenGenericVec, GenericVec},
+//!     utils::{syntax::Syntax, typenum::U3, FrozenGenericArrayDeque, GenericArrayDeque},
 //!     error::IncompleteSyntax
 //! };
 //! use core::fmt;
@@ -62,16 +62,16 @@
 //!     type REQUIRED = U3;
 //!     type Lang = MyLanguage;
 //!
-//!     fn possible_components() -> FrozenGenericVec<Self::Component, U3> {
-//!         let mut vec = GenericVec::new();
+//!     fn possible_components() -> FrozenGenericArrayDeque<Self::Component, U3> {
+//!         let mut vec = GenericArrayDeque::new();
 //!         vec.push(WhileComponent::WhileKeyword);
 //!         vec.push(WhileComponent::Condition);
 //!         vec.push(WhileComponent::Body);
 //!         vec.freeze()
 //!     }
 //!
-//!     fn required_components() -> FrozenGenericVec<Self::Component, U3> {
-//!         let mut vec = GenericVec::new();
+//!     fn required_components() -> FrozenGenericArrayDeque<Self::Component, U3> {
+//!         let mut vec = GenericArrayDeque::new();
 //!         vec.push(WhileComponent::WhileKeyword);
 //!         vec.push(WhileComponent::Condition);
 //!         vec.push(WhileComponent::Body);
@@ -87,7 +87,8 @@
 //! # }
 //! ```
 
-use crate::utils::{GenericVec, Span, syntax::Syntax};
+use crate::utils::{Span, syntax::Syntax};
+use generic_arraydeque::GenericArrayDeque;
 
 use core::{
   fmt::{Debug, Display},
@@ -146,16 +147,16 @@ use generic_array::typenum::Unsigned;
 ///     type COMPONENTS = U3;
 ///     type REQUIRED = U3;
 ///
-///     fn possible_components() -> logosky::utils::FrozenGenericVec<Self::Component, U3> {
-///         let mut vec = logosky::utils::GenericVec::new();
+///     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Self::Component, U3> {
+///         let mut vec = logosky::utils::GenericArrayDeque::new();
 ///         vec.push(IfStatementComponent::IfKeyword);
 ///         vec.push(IfStatementComponent::Condition);
 ///         vec.push(IfStatementComponent::ThenBlock);
 ///         vec.freeze()
 ///     }
 ///
-///     fn required_components() -> logosky::utils::FrozenGenericVec<Self::Component, U3> {
-///         let mut vec = logosky::utils::GenericVec::new();
+///     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Self::Component, U3> {
+///         let mut vec = logosky::utils::GenericArrayDeque::new();
 ///         vec.push(IfStatementComponent::IfKeyword);
 ///         vec.push(IfStatementComponent::Condition);
 ///         vec.push(IfStatementComponent::ThenBlock);
@@ -198,14 +199,14 @@ use generic_array::typenum::Unsigned;
 /// #     type COMPONENTS = U2;
 /// #     type REQUIRED = U2;
 /// #     type Lang = MyLang;
-/// #     fn possible_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-/// #         let mut vec = logosky::utils::GenericVec::new();
+/// #     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+/// #         let mut vec = logosky::utils::GenericArrayDeque::new();
 /// #         vec.push(Component::A);
 /// #         vec.push(Component::B);
 /// #         vec.freeze()
 /// #     }
-/// #     fn required_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-/// #         let mut vec = logosky::utils::GenericVec::new();
+/// #     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+/// #         let mut vec = logosky::utils::GenericArrayDeque::new();
 /// #         vec.push(Component::A);
 /// #         vec.push(Component::B);
 /// #         vec.freeze()
@@ -224,7 +225,7 @@ use generic_array::typenum::Unsigned;
 #[derive(Debug, Clone)]
 pub struct IncompleteSyntax<S: Syntax> {
   span: Span,
-  components: GenericVec<S::Component, S::COMPONENTS>,
+  components: GenericArrayDeque<S::Component, S::COMPONENTS>,
 }
 
 impl<S> PartialEq for IncompleteSyntax<S>
@@ -256,7 +257,7 @@ where
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_ref(&self) -> &[S::Component] {
-    self.components.as_ref()
+    self.as_slice()
   }
 }
 
@@ -266,7 +267,7 @@ where
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_mut(&mut self) -> &mut [S::Component] {
-    self.components.as_mut()
+    self.as_mut_slice()
   }
 }
 
@@ -301,13 +302,13 @@ where
   /// #     type COMPONENTS = U1;
   /// #     type REQUIRED = U1;
   /// #     type Lang = MyLang;
-  /// #     fn possible_components() -> logosky::utils::FrozenGenericVec<Component, U1> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U1> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.freeze()
   /// #     }
-  /// #     fn required_components() -> logosky::utils::FrozenGenericVec<Component, U1> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U1> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.freeze()
   /// #     }
@@ -322,8 +323,8 @@ where
     if S::COMPONENTS::USIZE == 0 {
       panic!("IncompleteSyntax requires S::COMPONENTS to be non-zero");
     }
-    let mut components = GenericVec::new();
-    components.push(component);
+    let mut components = GenericArrayDeque::new();
+    components.push_back(component);
     Self { span, components }
   }
 
@@ -354,14 +355,14 @@ where
   /// #     type COMPONENTS = U2;
   /// #     type REQUIRED = U2;
   /// #     type Lang = MyLang;
-  /// #     fn possible_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
   /// #     }
-  /// #     fn required_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
@@ -380,7 +381,7 @@ where
   #[cfg_attr(not(tarpaulin), inline(always))]
   #[allow(clippy::should_implement_trait)]
   pub fn from_iter(span: Span, iter: impl IntoIterator<Item = S::Component>) -> Option<Self> {
-    let mut components = GenericVec::new();
+    let mut components = GenericArrayDeque::new();
     for component in iter {
       Self::try_push_impl(&mut components, component);
     }
@@ -393,14 +394,10 @@ where
   /// `Some(component)` if the buffer is full (failure).
   #[inline(always)]
   fn try_push_impl(
-    components: &mut GenericVec<S::Component, S::COMPONENTS>,
+    components: &mut GenericArrayDeque<S::Component, S::COMPONENTS>,
     component: S::Component,
   ) -> Option<S::Component> {
-    // Check for duplicates - if already present, treat as success
-    if components.as_slice().contains(&component) {
-      return None;
-    }
-    components.try_push(component).err()
+    components.push_back(component)
   }
 
   /// Returns the number of missing components.
@@ -428,14 +425,14 @@ where
   /// #     type COMPONENTS = U2;
   /// #     type REQUIRED = U2;
   /// #     type Lang = MyLang;
-  /// #     fn possible_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
   /// #     }
-  /// #     fn required_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
@@ -477,15 +474,15 @@ where
   /// #     type COMPONENTS = U3;
   /// #     type REQUIRED = U3;
   /// #     type Lang = MyLang;
-  /// #     fn possible_components() -> logosky::utils::FrozenGenericVec<Component, U3> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U3> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.push(Component::C);
   /// #         vec.freeze()
   /// #     }
-  /// #     fn required_components() -> logosky::utils::FrozenGenericVec<Component, U3> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U3> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.push(Component::C);
@@ -527,14 +524,14 @@ where
   /// #     type COMPONENTS = U2;
   /// #     type REQUIRED = U2;
   /// #     type Lang = MyLang;
-  /// #     fn possible_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
   /// #     }
-  /// #     fn required_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
@@ -584,14 +581,14 @@ where
   /// #     type COMPONENTS = U2;
   /// #     type REQUIRED = U2;
   /// #     type Lang = MyLang;
-  /// #     fn possible_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
   /// #     }
-  /// #     fn required_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
@@ -639,14 +636,14 @@ where
   /// #     type COMPONENTS = U2;
   /// #     type REQUIRED = U2;
   /// #     type Lang = MyLang;
-  /// #     fn possible_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
   /// #     }
-  /// #     fn required_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
@@ -688,14 +685,14 @@ where
   /// #     type COMPONENTS = U2;
   /// #     type REQUIRED = U2;
   /// #     type Lang = MyLang;
-  /// #     fn possible_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
   /// #     }
-  /// #     fn required_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
@@ -711,7 +708,7 @@ where
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn as_slice(&self) -> &[S::Component] {
-    self.components.as_slice()
+    self.components.as_slices().0
   }
 
   /// Returns a mutable slice of the missing components.
@@ -737,14 +734,14 @@ where
   /// #     type Component = Component;
   /// #     type COMPONENTS = U2;
   /// #     type REQUIRED = U2;
-  /// #     fn possible_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
   /// #     }
-  /// #     fn required_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
@@ -760,7 +757,7 @@ where
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn as_mut_slice(&mut self) -> &mut [S::Component] {
-    self.components.as_mut_slice()
+    self.components.as_mut_slices().0
   }
 
   /// Returns an iterator over the missing components.
@@ -786,14 +783,14 @@ where
   /// #     type COMPONENTS = U2;
   /// #     type REQUIRED = U2;
   /// #     type Lang = MyLang;
-  /// #     fn possible_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
   /// #     }
-  /// #     fn required_components() -> logosky::utils::FrozenGenericVec<Component, U2> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U2> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.push(Component::B);
   /// #         vec.freeze()
@@ -806,7 +803,7 @@ where
   /// # }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn iter(&self) -> core::slice::Iter<'_, S::Component> {
+  pub fn iter(&self) -> generic_arraydeque::Iter<'_, S::Component> {
     self.components.iter()
   }
 
@@ -831,13 +828,13 @@ where
   /// #     type COMPONENTS = U1;
   /// #     type REQUIRED = U1;
   /// #     type Lang = MyLang;
-  /// #     fn possible_components() -> logosky::utils::FrozenGenericVec<Component, U1> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U1> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.freeze()
   /// #     }
-  /// #     fn required_components() -> logosky::utils::FrozenGenericVec<Component, U1> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U1> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.freeze()
   /// #     }
@@ -887,13 +884,13 @@ where
   /// #     type COMPONENTS = U1;
   /// #     type REQUIRED = U1;
   /// #     type Lang = MyLang;
-  /// #     fn possible_components() -> logosky::utils::FrozenGenericVec<Component, U1> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn possible_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U1> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.freeze()
   /// #     }
-  /// #     fn required_components() -> logosky::utils::FrozenGenericVec<Component, U1> {
-  /// #         let mut vec = logosky::utils::GenericVec::new();
+  /// #     fn required_components() -> logosky::utils::FrozenGenericArrayDeque<Component, U1> {
+  /// #         let mut vec = logosky::utils::GenericArrayDeque::new();
   /// #         vec.push(Component::A);
   /// #         vec.freeze()
   /// #     }

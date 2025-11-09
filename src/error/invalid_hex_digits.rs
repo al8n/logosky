@@ -10,7 +10,7 @@
 //! - Fixed unicode escapes (`\uXXXX`): 4 digits
 //!
 //! This generic container can be specialized for each format while sharing
-//! the same implementation. Internally, it uses [`GenericVec`] for efficient
+//! the same implementation. Internally, it uses [`GenericArrayDeque`] for efficient
 //! stack-based storage.
 //!
 //! # Examples
@@ -27,7 +27,9 @@
 //! # }
 //! ```
 
-use crate::utils::{ConstGenericVec as GenericVec, PositionedChar, human_display::DisplayHuman};
+use generic_arraydeque::{ConstArrayLength, GenericArrayDeque, IntoArrayLength, typenum::Const};
+
+use crate::utils::{PositionedChar, human_display::DisplayHuman};
 
 /// A zero-copy container for storing invalid hex digit characters.
 ///
@@ -38,7 +40,7 @@ use crate::utils::{ConstGenericVec as GenericVec, PositionedChar, human_display:
 ///
 /// # Design
 ///
-/// The container wraps [`GenericVec`] which provides stack-based storage optimized
+/// The container wraps [`GenericArrayDeque`] which provides stack-based storage optimized
 /// for small sizes. It implements `Deref<Target = [PositionedChar<Char>]>` for
 /// convenient access to the stored characters.
 ///
@@ -70,11 +72,16 @@ use crate::utils::{ConstGenericVec as GenericVec, PositionedChar, human_display:
 /// assert_eq!(digits.len(), 4);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct InvalidHexDigits<Char, const N: usize>(GenericVec<PositionedChar<Char>, N>);
+pub struct InvalidHexDigits<Char, const N: usize>(
+  GenericArrayDeque<PositionedChar<Char>, ConstArrayLength<N>>,
+)
+where
+  Const<N>: IntoArrayLength;
 
 impl<Char, const N: usize> core::fmt::Display for InvalidHexDigits<Char, N>
 where
   Char: DisplayHuman,
+  Const<N>: IntoArrayLength,
 {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     let mut first = true;
@@ -94,14 +101,20 @@ where
   }
 }
 
-impl<Char, const N: usize> From<PositionedChar<Char>> for InvalidHexDigits<Char, N> {
+impl<Char, const N: usize> From<PositionedChar<Char>> for InvalidHexDigits<Char, N>
+where
+  Const<N>: IntoArrayLength,
+{
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn from(c: PositionedChar<Char>) -> Self {
     Self::from_positioned_char(c)
   }
 }
 
-impl<Char, const N: usize> From<[PositionedChar<Char>; 1]> for InvalidHexDigits<Char, N> {
+impl<Char, const N: usize> From<[PositionedChar<Char>; 1]> for InvalidHexDigits<Char, N>
+where
+  Const<N>: IntoArrayLength,
+{
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn from(c: [PositionedChar<Char>; 1]) -> Self {
     let [c] = c;
@@ -109,7 +122,10 @@ impl<Char, const N: usize> From<[PositionedChar<Char>; 1]> for InvalidHexDigits<
   }
 }
 
-impl<Char, const N: usize> InvalidHexDigits<Char, N> {
+impl<Char, const N: usize> InvalidHexDigits<Char, N>
+where
+  Const<N>: IntoArrayLength,
+{
   /// Creates a new empty `InvalidHexDigits`.
   ///
   /// ## Panics
@@ -127,8 +143,8 @@ impl<Char, const N: usize> InvalidHexDigits<Char, N> {
   pub fn from_positioned_char(ch: PositionedChar<Char>) -> Self {
     assert!(N > 0, "InvalidHexDigits capacity must be > 0");
 
-    let mut vec = GenericVec::new();
-    vec.push(ch);
+    let mut vec = GenericArrayDeque::new();
+    vec.push_back(ch);
     Self(vec)
   }
 
@@ -164,11 +180,7 @@ impl<Char, const N: usize> InvalidHexDigits<Char, N> {
   /// assert_eq!(digits.len(), 2);
   /// ```
   pub fn from_array(chars: [PositionedChar<Char>; N]) -> Self {
-    let mut vec = GenericVec::new();
-    for ch in chars {
-      vec.push(ch);
-    }
-    Self(vec)
+    Self(GenericArrayDeque::from_array(chars))
   }
 
   /// Creates a new `InvalidHexDigits` from an iterator.
@@ -195,14 +207,7 @@ impl<Char, const N: usize> InvalidHexDigits<Char, N> {
   where
     I: IntoIterator<Item = PositionedChar<Char>>,
   {
-    let mut vec = GenericVec::new();
-    for ch in iter {
-      if vec.is_full() {
-        return None;
-      }
-      vec.push(ch);
-    }
-    Some(Self(vec))
+    GenericArrayDeque::try_from_iter(iter).map(Self).ok()
   }
 
   /// Pushes an invalid hex digit to the container.
@@ -221,7 +226,7 @@ impl<Char, const N: usize> InvalidHexDigits<Char, N> {
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn push(&mut self, ch: PositionedChar<Char>) -> bool {
-    self.0.push(ch).is_none()
+    self.0.push_back(ch).is_none()
   }
 
   /// Pushes an invalid hex digit to the container.
@@ -302,7 +307,7 @@ impl<Char, const N: usize> InvalidHexDigits<Char, N> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn bump(&mut self, n: usize) -> &mut Self {
     let mut idx = 0;
-    let slice = self.0.as_mut_slice();
+    let slice = self.0.as_mut_slices().0;
     while idx < slice.len() {
       slice[idx].bump_position(n);
       idx += 1;
@@ -311,32 +316,44 @@ impl<Char, const N: usize> InvalidHexDigits<Char, N> {
   }
 }
 
-impl<Char, const N: usize> AsRef<[PositionedChar<Char>]> for InvalidHexDigits<Char, N> {
+impl<Char, const N: usize> AsRef<[PositionedChar<Char>]> for InvalidHexDigits<Char, N>
+where
+  Const<N>: IntoArrayLength,
+{
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_ref(&self) -> &[PositionedChar<Char>] {
-    self.0.as_slice()
+    self
   }
 }
 
-impl<Char, const N: usize> AsMut<[PositionedChar<Char>]> for InvalidHexDigits<Char, N> {
+impl<Char, const N: usize> AsMut<[PositionedChar<Char>]> for InvalidHexDigits<Char, N>
+where
+  Const<N>: IntoArrayLength,
+{
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_mut(&mut self) -> &mut [PositionedChar<Char>] {
-    self.0.as_mut_slice()
+    self
   }
 }
 
-impl<Char, const N: usize> core::ops::Deref for InvalidHexDigits<Char, N> {
+impl<Char, const N: usize> core::ops::Deref for InvalidHexDigits<Char, N>
+where
+  Const<N>: IntoArrayLength,
+{
   type Target = [PositionedChar<Char>];
 
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn deref(&self) -> &Self::Target {
-    self.0.as_slice()
+    self.0.as_slices().0
   }
 }
 
-impl<Char, const N: usize> core::ops::DerefMut for InvalidHexDigits<Char, N> {
+impl<Char, const N: usize> core::ops::DerefMut for InvalidHexDigits<Char, N>
+where
+  Const<N>: IntoArrayLength,
+{
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn deref_mut(&mut self) -> &mut Self::Target {
-    self.0.as_mut_slice()
+    self.0.as_mut_slices().0
   }
 }

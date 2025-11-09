@@ -13,8 +13,9 @@ keywords = ["lexer", "parser", "logos", "chumsky", "combinator"]
 
 [features]
 default = ["std", "chumsky"]
-alloc = []
+alloc = ["generic-arraydeque/alloc"]
 std = [
+  "generic-arraydeque/default",
   "thiserror/default",
   "bytes?/default",
   "hipstr?/default",
@@ -46,6 +47,7 @@ derive_more = { version = "2", default-features = false, features = [
   "is_variant",
 ] }
 generic-array = { version = "1", default-features = false }
+generic-arraydeque = { version = "0.1", default-features = false }
 logos = { version = "0.15", default-features = false, features = [
   "export_derive",
 ] }

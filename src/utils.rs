@@ -1,13 +1,15 @@
 use core::ops::Range;
 
-pub use const_generic_vec::*;
 pub use escaped::*;
 pub use expected::*;
-pub use generic_vec::*;
+pub use generic_arraydeque::GenericArrayDeque;
 pub use lexeme::*;
 pub use message::Message;
 pub use positioned_char::*;
 pub use to_equivalent::*;
+
+/// Re-export of generic-arraydeque for direct access.
+pub use generic_arraydeque;
 
 /// Trackers for preventing infinite recursion in parsers.
 pub mod recursion_tracker;
@@ -25,12 +27,6 @@ pub mod sdl_display;
 /// A module for displaying in syntax trees.
 pub mod syntax_tree_display;
 
-/// Bounded, stack-allocated vectors for no-alloc environments.
-pub mod generic_vec;
-
-/// Bounded, stack-allocated vectors for no-alloc environments based on const generic arrays.
-pub mod const_generic_vec;
-
 /// Syntax definitions and traits.
 pub mod syntax;
 
@@ -40,7 +36,8 @@ pub mod delimiter;
 /// Common knowledge types for lexing and parsing.
 pub mod knowledge;
 
-pub use generic_array::typenum;
+/// Re-export typenum for type-level numbers.
+pub use generic_arraydeque::typenum;
 
 /// A module for container types with small size optimizations.
 #[cfg(feature = "smallvec")]

@@ -3,7 +3,7 @@
 //! This module provides the `Errors` type for collecting multiple errors during parsing
 //! or validation. The container automatically adapts based on available features:
 //!
-//! - **no_std (no alloc)**: Uses `GenericVec<E, 2>` with fixed capacity of 2 errors
+//! - **no_std (no alloc)**: Uses `ConstGenericArrayDeque<E, 2>` with fixed capacity of 2 errors
 //! - **alloc/std**: Uses `Vec<E>` for unlimited error collection
 //!
 //! # Examples
@@ -37,31 +37,28 @@
 use core::fmt::{Debug, Display};
 
 #[cfg(any(feature = "alloc", feature = "std"))]
-use std::vec::Vec;
-
-#[cfg(not(any(feature = "alloc", feature = "std")))]
-use crate::utils::ConstGenericVec as GenericVec;
+use std::collections::VecDeque;
 
 /// Default error container for no-alloc environments.
 ///
-/// Uses a stack-allocated `GenericVec` with capacity for 2 errors.
+/// Uses a stack-allocated `ConstGenericArrayDeque` with capacity for 2 errors.
 /// When the capacity is exceeded, additional errors are dropped and
 /// [`Errors::overflowed`](Errors::overflowed) becomes `true`.
 #[cfg(not(any(feature = "alloc", feature = "std")))]
-pub type DefaultContainer<E> = GenericVec<E, 2>;
+pub type DefaultContainer<E> = generic_arraydeque::ConstGenericArrayDeque<E, 2>;
 
 /// Default error container for alloc/std environments.
 ///
 /// Uses a heap-allocated `Vec` for unlimited error collection.
 #[cfg(any(feature = "alloc", feature = "std"))]
-pub type DefaultContainer<E> = Vec<E>;
+pub type DefaultContainer<E> = VecDeque<E>;
 
 /// A collection of errors that adapts to the allocation environment.
 ///
 /// This type is generic over both the error type `E` and the container `C`.
 /// By default:
-/// - In no-alloc environments: Uses `GenericVec<E, 2>` (capacity of 2)
-/// - In alloc/std environments: Uses `Vec<E>` (unlimited capacity)
+/// - In no-alloc environments: Uses `ConstGenericArrayDeque<E, 2>` (capacity of 2)
+/// - In alloc/std environments: Uses `VecDeque<E>` (unlimited capacity)
 ///
 /// # Type Parameters
 ///
@@ -92,7 +89,7 @@ pub type DefaultContainer<E> = Vec<E>;
 /// errors.push("Error 1");
 /// errors.push("Error 2");
 ///
-/// let first: Option<&&str> = errors.first();
+/// let first: Option<&&str> = errors.front();
 /// assert_eq!(first, Some(&"Error 1"));
 /// ```
 #[derive(
@@ -116,12 +113,12 @@ pub struct Errors<E, C = DefaultContainer<E>> {
   _phantom: core::marker::PhantomData<E>,
 }
 
-// Implementation for no-alloc environments (GenericVec)
+// Implementation for no-alloc environments (ConstGenericArrayDeque)
 #[cfg(not(any(feature = "alloc", feature = "std")))]
 impl<E> Errors<E> {
   /// Creates a new empty error collection.
   ///
-  /// In no-alloc environments, this creates a `GenericVec` with capacity 2.
+  /// In no-alloc environments, this creates a `ConstGenericArrayDeque` with capacity 2.
   ///
   /// # Examples
   ///
@@ -133,7 +130,7 @@ impl<E> Errors<E> {
   /// ```
   #[inline]
   pub const fn new() -> Self {
-    Self::new_in(GenericVec::new())
+    Self::new_in(ConstGenericArrayDeque::new())
   }
 }
 
@@ -154,7 +151,7 @@ impl<E> Errors<E> {
   /// ```
   #[inline]
   pub const fn new() -> Self {
-    Self::new_in(Vec::new())
+    Self::new_in(VecDeque::new())
   }
 
   /// Returns the number of errors the collection can hold without reallocating.
@@ -384,7 +381,7 @@ impl<E, C> Errors<E, C> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::utils::ConstGenericVec;
+  use generic_arraydeque::ConstGenericArrayDeque;
 
   #[test]
   fn test_new() {
@@ -420,8 +417,8 @@ mod tests {
 
   #[test]
   fn test_overflow_tracking() {
-    type SmallErrors<'a> = Errors<&'a str, ConstGenericVec<&'a str, 1>>;
-    let mut errors: SmallErrors<'_> = Errors::from_container(ConstGenericVec::new());
+    type SmallErrors<'a> = Errors<&'a str, ConstGenericArrayDeque<&'a str, 1>>;
+    let mut errors: SmallErrors<'_> = Errors::from_container(ConstGenericArrayDeque::<_, 1>::new());
 
     assert!(!errors.overflowed());
     errors.push("first");
@@ -436,8 +433,8 @@ mod tests {
 
   #[test]
   fn test_try_push_reports_error() {
-    type SmallErrors<'a> = Errors<&'a str, ConstGenericVec<&'a str, 1>>;
-    let mut errors: SmallErrors<'_> = Errors::from_container(ConstGenericVec::new());
+    type SmallErrors<'a> = Errors<&'a str, ConstGenericArrayDeque<&'a str, 1>>;
+    let mut errors: SmallErrors<'_> = Errors::from_container(ConstGenericArrayDeque::<_, 1>::new());
 
     assert!(errors.try_push("first").is_ok());
     assert!(errors.try_push("second").is_err());
@@ -455,12 +452,14 @@ mod tests {
   #[cfg(any(feature = "alloc", feature = "std"))]
   #[test]
   fn test_pop() {
+    use crate::error::ErrorContainer;
+
     let mut errors = Errors::new();
     errors.push(1);
     errors.push(2);
 
-    assert_eq!(errors.pop(), Some(2));
     assert_eq!(errors.pop(), Some(1));
+    assert_eq!(errors.pop(), Some(2));
     assert_eq!(errors.pop(), None);
   }
 }

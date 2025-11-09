@@ -48,16 +48,16 @@
 //!     type COMPONENTS = U3;
 //!     type REQUIRED = U3;
 //!
-//!     fn possible_components() -> logosky::utils::FrozenGenericVec<Self::Component, U3> {
-//!         let mut vec = logosky::utils::GenericVec::new();
+//!     fn possible_components() -> logosky::utils::GenericArrayDeque<Self::Component, U3> {
+//!         let mut vec = logosky::utils::GenericArrayDeque::new();
 //!         vec.push(WhileComponent::WhileKeyword);
 //!         vec.push(WhileComponent::Condition);
 //!         vec.push(WhileComponent::Body);
 //!         vec.freeze()
 //!     }
 //!
-//!     fn required_components() -> logosky::utils::FrozenGenericVec<Self::Component, Self::REQUIRED> {
-//!         let mut vec = logosky::utils::GenericVec::new();
+//!     fn required_components() -> logosky::utils::GenericArrayDeque<Self::Component, Self::REQUIRED> {
+//!         let mut vec = logosky::utils::GenericArrayDeque::new();
 //!         vec.push(WhileComponent::WhileKeyword);
 //!         vec.push(WhileComponent::Condition);
 //!         vec.push(WhileComponent::Body);
@@ -91,7 +91,7 @@ use core::{
 ///
 /// ```rust
 /// # {
-/// use logosky::utils::{syntax::Syntax, typenum};
+/// use logosky::utils::{syntax::Syntax, typenum, GenericArrayDeque};
 /// use typenum::U5;
 /// use core::fmt;
 ///
@@ -126,24 +126,24 @@ use core::{
 ///     type COMPONENTS = U5;
 ///     type REQUIRED = U5;
 ///
-///     fn possible_components() -> logosky::utils::FrozenGenericVec<Self::Component, Self::COMPONENTS> {
-///         let mut vec = logosky::utils::GenericVec::new();
-///         vec.push(LetStatementComponent::LetKeyword);
-///         vec.push(LetStatementComponent::Identifier);
-///         vec.push(LetStatementComponent::Equals);
-///         vec.push(LetStatementComponent::Expression);
-///         vec.push(LetStatementComponent::Semicolon);
-///         vec.freeze()
+///     fn possible_components() -> GenericArrayDeque<Self::Component, Self::COMPONENTS> {
+///         GenericArrayDeque::from_array([
+///             LetStatementComponent::LetKeyword,
+///             LetStatementComponent::Identifier,
+///             LetStatementComponent::Equals,
+///             LetStatementComponent::Expression,
+///             LetStatementComponent::Semicolon,
+///         ])
 ///     }
 ///
-///     fn required_components() -> logosky::utils::FrozenGenericVec<Self::Component, Self::REQUIRED> {
-///         let mut vec = logosky::utils::GenericVec::new();
-///         vec.push(LetStatementComponent::LetKeyword);
-///         vec.push(LetStatementComponent::Identifier);
-///         vec.push(LetStatementComponent::Equals);
-///         vec.push(LetStatementComponent::Expression);
-///         vec.push(LetStatementComponent::Semicolon);
-///         vec.freeze()
+///     fn required_components() -> GenericArrayDeque<Self::Component, Self::REQUIRED> {
+///         GenericArrayDeque::from_array([
+///             LetStatementComponent::LetKeyword,
+///             LetStatementComponent::Identifier,
+///             LetStatementComponent::Equals,
+///             LetStatementComponent::Expression,
+///             LetStatementComponent::Semicolon,
+///         ])
 ///     }
 /// }
 /// # }
@@ -206,7 +206,8 @@ pub trait Syntax {
   ///     println!("{}", component);
   /// }
   /// ```
-  fn possible_components() -> crate::utils::FrozenGenericVec<Self::Component, Self::COMPONENTS>;
+  fn possible_components()
+  -> generic_arraydeque::GenericArrayDeque<Self::Component, Self::COMPONENTS>;
 
   /// Returns a frozen vector containing all required components for this syntax.
   ///
@@ -220,7 +221,7 @@ pub trait Syntax {
   /// let required = MySyntax::required_components();
   /// assert_eq!(required.len(), 2);
   /// ```
-  fn required_components() -> crate::utils::FrozenGenericVec<Self::Component, Self::REQUIRED>;
+  fn required_components() -> generic_arraydeque::GenericArrayDeque<Self::Component, Self::REQUIRED>;
 }
 
 /// A trait representing an AST node associated with a syntax definition.
@@ -294,15 +295,15 @@ pub trait Syntax {
 ///     type COMPONENTS = U2;
 ///     type REQUIRED = U2;
 ///
-///     fn possible_components() -> logosky::utils::FrozenGenericVec<Self::Component, Self::COMPONENTS> {
-///         let mut vec = logosky::utils::GenericVec::new();
+///     fn possible_components() -> logosky::utils::GenericArrayDeque<Self::Component, Self::COMPONENTS> {
+///         let mut vec = logosky::utils::GenericArrayDeque::new();
 ///         vec.push(VariableComponent::Dollar);
 ///         vec.push(VariableComponent::Name);
 ///         vec.freeze()
 ///     }
 ///
-///     fn required_components() -> logosky::utils::FrozenGenericVec<Self::Component, Self::REQUIRED> {
-///         let mut vec = logosky::utils::GenericVec::new();
+///     fn required_components() -> logosky::utils::GenericArrayDeque<Self::Component, Self::REQUIRED> {
+///         let mut vec = logosky::utils::GenericArrayDeque::new();
 ///         vec.push(VariableComponent::Dollar);
 ///         vec.push(VariableComponent::Name);
 ///         vec.freeze()

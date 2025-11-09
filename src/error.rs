@@ -1,6 +1,4 @@
 pub use errors::{DefaultContainer, Errors};
-
-use generic_array::ArrayLength;
 pub use hex_escape::*;
 pub use incomplete_syntax::*;
 pub use incomplete_token::*;
@@ -18,7 +16,8 @@ pub use unicode_escape::*;
 pub use unknown_lexeme::*;
 pub use unterminated::*;
 
-use crate::utils::{ConstGenericVec, ConstGenericVecIter, GenericVec, GenericVecIter};
+// use generic_array::ArrayLength;
+use generic_arraydeque::{ArrayLength, GenericArrayDeque};
 
 mod errors;
 
@@ -153,28 +152,31 @@ impl<E> ErrorContainer<E> for Option<E> {
   }
 }
 
-impl<E, N: ArrayLength> ErrorContainer<E> for GenericVec<E, N> {
-  type IntoIter = GenericVecIter<E, N>;
+impl<E, N: ArrayLength> ErrorContainer<E> for GenericArrayDeque<E, N> {
+  type IntoIter = generic_arraydeque::IntoIter<E, N>;
 
   type Iter<'a>
-    = core::slice::Iter<'a, E>
+    = generic_arraydeque::Iter<'a, E>
   where
     Self: 'a,
     E: 'a;
 
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn new() -> Self {
-    GenericVec::new()
+    Self::new()
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn push(&mut self, error: E) {
-    self.push(error);
+    self.push_back(error);
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn try_push(&mut self, error: E) -> Result<(), E> {
-    GenericVec::try_push(self, error)
+    match self.push_back(error) {
+      None => Ok(()),
+      Some(e) => Err(e),
+    }
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -189,57 +191,7 @@ impl<E, N: ArrayLength> ErrorContainer<E> for GenericVec<E, N> {
 
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn iter(&self) -> Self::Iter<'_> {
-    self.as_slice().iter()
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn into_iter(self) -> Self::IntoIter {
-    IntoIterator::into_iter(self)
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn remaining_capacity(&self) -> Option<usize> {
-    Some(self.remaining_capacity())
-  }
-}
-
-impl<E, const N: usize> ErrorContainer<E> for ConstGenericVec<E, N> {
-  type IntoIter = ConstGenericVecIter<E, N>;
-
-  type Iter<'a>
-    = core::slice::Iter<'a, E>
-  where
-    Self: 'a,
-    E: 'a;
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn new() -> Self {
-    ConstGenericVec::new()
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn push(&mut self, error: E) {
-    self.push(error);
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn try_push(&mut self, error: E) -> Result<(), E> {
-    ConstGenericVec::try_push(self, error)
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn pop(&mut self) -> Option<E> {
-    self.pop_front()
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn len(&self) -> usize {
-    self.len()
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn iter(&self) -> Self::Iter<'_> {
-    self.as_slice().iter()
+    Self::iter(self)
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
