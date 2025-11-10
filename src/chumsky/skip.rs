@@ -119,14 +119,14 @@
 //! ## Multiple Recovery Points
 //!
 //! ```rust,ignore
-//! use logosky::chumsky::skip_until_any;
+//! use logosky::chumsky::skip_until_token;
 //!
 //! // Skip until any of: separator, block end, or definition start
-//! skip_until_any([
-//!     |tok| matches!(tok, Token::Comma | Token::Newline),
-//!     |tok| matches!(tok, Token::RBrace | Token::RBracket),
-//!     |tok| matches!(tok, Token::Type | Token::Interface),
-//! ])
+//! skip_until_token(|tok| {
+//!     matches!(tok, Token::Comma | Token::Newline) ||
+//!     matches!(tok, Token::RBrace | Token::RBracket) ||
+//!     matches!(tok, Token::Type | Token::Interface)
+//! })
 //! ```
 
 use crate::{Lexed, Token};
@@ -155,10 +155,17 @@ use super::LogoStream;
 ///
 /// - `F`: Predicate function `Fn(&T) -> bool` that identifies recovery points
 ///
+/// # Constraints
+///
+/// The error type `E::Error` must implement `From<LexerError>` where `LexerError`
+/// is the error type produced by the lexer. This allows lexer errors encountered
+/// during recovery to be automatically converted and emitted as parser errors.
+///
 /// # Returns
 ///
 /// A parser that consumes tokens until the predicate matches, producing `()`.
-/// The matched token is also consumed.
+/// The matched token is also consumed. Any lexer errors encountered during skipping
+/// are emitted to the error accumulator.
 ///
 /// # Examples
 ///
@@ -200,103 +207,60 @@ use super::LogoStream;
 ///
 /// # Behavior with Lexer Errors
 ///
-/// Lexer errors encountered during recovery are silently skipped. This allows
-/// recovery to continue even when the input contains both syntax errors (parser level)
-/// and lexical errors (lexer level).
+/// Lexer errors encountered during recovery are reported and collected. This ensures
+/// comprehensive error collection - both parser-level syntax errors and lexer-level
+/// lexical errors are accumulated during recovery, giving users complete diagnostics.
 #[inline]
 pub fn skip_until_token<'a, I, T, E, F>(predicate: F) -> impl Parser<'a, I, (), E> + Clone
 where
   I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
   T: Token<'a>,
   E: chumsky::extra::ParserExtra<'a, I> + 'a,
+  E::Error: From<<T::Logos as Logos<'a>>::Error>,
   F: Fn(&T) -> bool + Clone + 'a,
 {
   let pred_clone = predicate.clone();
 
   // Skip tokens until we find one that matches the predicate
   any()
-    .filter(move |lexed: &Lexed<'a, T>| match lexed {
-      Lexed::Token(spanned_tok) => !predicate(&**spanned_tok),
-      Lexed::Error(_) => true, // Skip lexer errors too
+    .validate(move |lexed: Lexed<'a, T>, _span, emitter| {
+      match lexed {
+        Lexed::Token(spanned_tok) => {
+          let matches = predicate(&*spanned_tok);
+          (Some(spanned_tok), matches)
+        }
+        Lexed::Error(err) => {
+          // Emit lexer error during recovery
+          emitter.emit(E::Error::from(err));
+          (None, false) // Continue skipping after emitting error
+        }
+      }
     })
+    .filter(|(_, matches)| !matches) // Keep skipping non-matches
     .repeated()
     // Then consume the matching token
     .then(
-      any().filter(move |lexed: &Lexed<'a, T>| match lexed {
-        Lexed::Token(spanned_tok) => pred_clone(&**spanned_tok),
-        Lexed::Error(_) => false,
-      })
+      any()
+        .validate(move |lexed: Lexed<'a, T>, _span, emitter| {
+          match lexed {
+            Lexed::Token(spanned_tok) => {
+              let matches = pred_clone(&*spanned_tok);
+              if matches {
+                Some(())
+              } else {
+                None
+              }
+            }
+            Lexed::Error(err) => {
+              // Emit lexer error here too
+              emitter.emit(E::Error::from(err));
+              None
+            }
+          }
+        })
+        .filter(|opt| opt.is_some())
     )
     .ignored()
-}
-
-/// Creates a parser that skips tokens until any of multiple predicates match.
-///
-/// This is a convenience wrapper around [`skip_until_token`] that accepts multiple
-/// predicates and stops when any of them matches. Useful when recovery points fall
-/// into multiple categories or when you want to compose recovery strategies.
-///
-/// # Type Parameters
-///
-/// - `F`: Predicate function type `Fn(&T) -> bool`
-/// - `N`: Number of predicates (inferred from array size)
-///
-/// # Returns
-///
-/// A parser that consumes tokens until any predicate matches, producing `()`.
-///
-/// # Examples
-///
-/// ## Multiple Recovery Categories
-///
-/// ```rust,ignore
-/// use logosky::chumsky::skip_until_any;
-///
-/// // Skip until separator OR block end OR definition start
-/// skip_until_any([
-///     |tok| matches!(tok, Token::Comma | Token::Newline),
-///     |tok| matches!(tok, Token::RBrace | Token::RBracket),
-///     |tok| matches!(tok, Token::Type | Token::Interface),
-/// ])
-/// ```
-///
-/// ## Context-Dependent Recovery
-///
-/// ```rust,ignore
-/// // Different recovery points for different contexts
-/// let field_recovery = |tok| matches!(tok, Token::Comma | Token::RBrace);
-/// let stmt_recovery = |tok| matches!(tok, Token::Semicolon);
-/// let eof_recovery = |tok| matches!(tok, Token::Eof);
-///
-/// skip_until_any([field_recovery, stmt_recovery, eof_recovery])
-/// ```
-///
-/// ## Layered Recovery Strategy
-///
-/// ```rust,ignore
-/// // Try local recovery first, then broader recovery
-/// skip_until_any([
-///     // Local: next sibling element
-///     |tok| tok.is_separator(),
-///     // Medium: end of current block
-///     |tok| tok.is_block_terminator(),
-///     // Broad: next top-level definition
-///     |tok| tok.is_definition_start(),
-///     // Last resort: EOF
-///     |tok| tok.is_eof(),
-/// ])
-/// ```
-#[inline]
-pub fn skip_until_any<'a, I, T, E, F, const N: usize>(
-  predicates: [F; N],
-) -> impl Parser<'a, I, (), E> + Clone
-where
-  I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
-  T: Token<'a>,
-  E: chumsky::extra::ParserExtra<'a, I> + 'a,
-  F: Fn(&T) -> bool + Clone + 'a,
-{
-  skip_until_token(move |tok| predicates.iter().any(|pred| pred(tok)))
 }
 
 /// Creates a parser that skips tokens while they match a predicate.
@@ -351,24 +315,25 @@ where
   I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
   T: Token<'a>,
   E: chumsky::extra::ParserExtra<'a, I> + 'a,
+  E::Error: From<<T::Logos as Logos<'a>>::Error>,
   F: Fn(&T) -> bool + Clone + 'a,
 {
   skip_until_token(move |tok| !predicate(tok))
 }
 
-/// Creates a parser that skips exactly N tokens.
+/// Creates a parser that skips at most N tokens.
 ///
-/// This is useful for fixed-distance recovery when you know exactly how many
+/// This is useful for fixed-distance recovery when you know at most how many
 /// tokens to skip. Less common than predicate-based recovery but useful in
 /// specific scenarios.
 ///
 /// # Parameters
 ///
-/// - `n`: The exact number of tokens to skip
+/// - `n`: The at most number of tokens to skip
 ///
 /// # Returns
 ///
-/// A parser that consumes exactly `n` tokens, producing `()`.
+/// A parser that consumes at most `n` tokens, producing `()`.
 ///
 /// # Examples
 ///
@@ -403,6 +368,20 @@ where
   I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
   T: Token<'a>,
   E: chumsky::extra::ParserExtra<'a, I> + 'a,
+  E::Error: From<<T::Logos as Logos<'a>>::Error>,
 {
-  any().ignored().repeated().exactly(n).ignored()
+  any()
+    .validate(|lexed: Lexed<'a, T>, _span, emitter| {
+      match lexed {
+        Lexed::Token(_) => Some(()),
+        Lexed::Error(err) => {
+          // Emit lexer error during recovery
+          emitter.emit(E::Error::from(err));
+          Some(()) // Continue skipping after emitting error
+        }
+      }
+    })
+    .repeated()
+    .at_most(n)
+    .ignored()
 }

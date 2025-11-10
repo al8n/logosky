@@ -12,7 +12,7 @@ categories = ["parsing", "text-processing", "no-std"]
 keywords = ["lexer", "parser", "logos", "chumsky", "combinator"]
 
 [features]
-default = ["std", "chumsky"]
+default = ["std", "chumsky", "stacker"]
 alloc = ["generic-arraydeque/alloc"]
 std = [
   "generic-arraydeque/default",
@@ -24,9 +24,17 @@ std = [
 ]
 
 chumsky = ["dep:chumsky"]
+extension = ["chumsky/extension"]
+lexical-numbers = ["chumsky/lexical-numbers"]
+memoization = ["chumsky/memoization"]
+pratt = ["chumsky/pratt"]
+regex = ["chumsky/regex"]
+stacker = ["chumsky/stacker"]
+unstable = ["chumsky/unstable", "generic-arraydeque/unstable"]
+
 rowan = ["dep:rowan", "std"]
 
-either = ["dep:either"]
+either = ["dep:either", "chumsky/either"]
 among = ["dep:among"]
 hipstr = ["dep:hipstr"]
 bytes = ["dep:bytes", "chumsky/bytes"]

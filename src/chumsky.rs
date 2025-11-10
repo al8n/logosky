@@ -8,7 +8,7 @@ pub use tokenier::LogoStream;
 
 mod tokenier;
 
-pub use skip::{skip_n_tokens, skip_until_any, skip_until_token, skip_while_token};
+pub use skip::{skip_n_tokens, skip_until_token, skip_while_token};
 
 mod skip;
 
