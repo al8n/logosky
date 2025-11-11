@@ -430,8 +430,41 @@ impl<'a, T, TK> UnexpectedToken<'a, T, TK> {
   /// assert_eq!(error.span(), Span::new(15, 20));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn bump(&mut self, offset: usize) {
+  pub const fn bump(&mut self, offset: usize) {
     self.span.bump(offset);
+  }
+
+  /// Maps the expected token(s) using the provided function.
+  ///
+  /// This is useful for transforming the expected token type while preserving
+  /// the rest of the error information.
+  ///
+  /// ## Examples
+  ///
+  /// ```
+  /// # #[cfg(feature = "std")] {
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedToken};
+  ///
+  /// let error = UnexpectedToken::expected_one_with_found(
+  ///    Span::new(0, 5),
+  ///   "identifier",
+  ///   "number"
+  /// );
+  /// let mapped_error = error.map_expected(|expected| {
+  ///     // Transform the expected token type here
+  ///     Expected::one(expected.unwrap_one().to_string())
+  /// });
+  /// # }
+  /// ```
+  pub fn map_expected<F, TK2>(self, f: F) -> UnexpectedToken<'a, T, TK2>
+  where
+    F: FnOnce(Expected<'a, TK>) -> Expected<'a, TK2>,
+  {
+    UnexpectedToken {
+      span: self.span,
+      found: self.found,
+      expected: f(self.expected),
+    }
   }
 
   /// Consumes the error and returns its components.

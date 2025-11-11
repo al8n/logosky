@@ -1,16 +1,22 @@
 pub use chumsky::*;
 
-use logos::{Logos, Source};
-
 use super::{Token, utils::Spanned};
 
 pub use tokenier::LogoStream;
 
 mod tokenier;
 
-pub use skip::{skip_n_tokens, skip_until_token, skip_while_token};
+pub use skip::{skip_n_tokens, skip_until_token, skip_until_token_inclusive, skip_while_token};
 
 mod skip;
+
+/// Ret
+use crate::{
+  KeywordToken, Lexed, Logos, OperatorToken, PunctuatorToken, Source,
+  chumsky::{extra::ParserExtra, prelude::*},
+  error::UnexpectedToken,
+  utils::cmp::Equivalent,
+};
 
 /// A trait for types that can be parsed from a token stream using Chumsky parsers.
 ///
@@ -420,7 +426,7 @@ pub trait Recoverable<'a, I, T, Error> {
   ///
   /// ```rust,ignore
   /// // Get a recovering parser for schema validation
-  /// let parser = SchemaDefinition::parser::<extra::Err<SchemaError>>();
+  /// let parser = SchemaDefinition::recoverable_parser::<extra::Err<SchemaError>>();
   ///
   /// // Parse a schema with multiple errors
   /// let result = parser.parse(tokenizer).into_output_errors();
@@ -440,7 +446,7 @@ pub trait Recoverable<'a, I, T, Error> {
   ///     }
   /// }
   /// ```
-  fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
+  fn recoverable_parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
   where
     Self: Sized + 'a,
     I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
@@ -493,7 +499,7 @@ where
   D: Recoverable<'a, I, T, Error> + 'a,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
+  fn recoverable_parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
   where
     Self: Sized + 'a,
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
@@ -503,7 +509,7 @@ where
   {
     use chumsky::Parser;
 
-    <D as Recoverable<'a, I, T, Error>>::parser().or_not()
+    <D as Recoverable<'a, I, T, Error>>::recoverable_parser().or_not()
   }
 }
 
@@ -541,14 +547,14 @@ const _: () = {
           Error: 'a,
         {
           #[cfg_attr(not(tarpaulin), inline(always))]
-          fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
+          fn recoverable_parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
           where
             Self: Sized + 'a,
             E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
           {
             use chumsky::Parser;
 
-            <D as Recoverable<'a, I, T, Error>>::parser().map(<$ty>::from)
+            <D as Recoverable<'a, I, T, Error>>::recoverable_parser().map(<$ty>::from)
           }
         }
 
@@ -610,14 +616,14 @@ const _: () = {
     Error: 'a,
   {
     #[cfg_attr(not(tarpaulin), inline(always))]
-    fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
+    fn recoverable_parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
     where
       Self: Sized + 'a,
       E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
     {
       use chumsky::{IterParser, Parser};
 
-      <D as Recoverable<'a, I, T, Error>>::parser()
+      <D as Recoverable<'a, I, T, Error>>::recoverable_parser()
         .repeated()
         .collect()
     }
@@ -659,7 +665,7 @@ const _: () = {
   {
     #[cfg_attr(test, inline)]
     #[cfg_attr(not(test), inline(always))]
-    fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
+    fn recoverable_parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
     where
       Self: Sized + 'a,
       E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
@@ -669,9 +675,9 @@ const _: () = {
     {
       use chumsky::Parser;
 
-      L::parser()
+      L::recoverable_parser()
         .map(Either::Left)
-        .or(R::parser().map(Either::Right))
+        .or(R::recoverable_parser().map(Either::Right))
     }
   }
 
@@ -746,7 +752,7 @@ const _: () = {
   {
     #[cfg_attr(test, inline)]
     #[cfg_attr(not(test), inline(always))]
-    fn parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
+    fn recoverable_parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
     where
       Self: Sized + 'a,
       E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
@@ -757,9 +763,9 @@ const _: () = {
       use chumsky::prelude::*;
 
       choice((
-        L::parser().map(Self::Left),
-        M::parser().map(Self::Middle),
-        R::parser().map(Self::Right),
+        L::recoverable_parser().map(Self::Left),
+        M::recoverable_parser().map(Self::Middle),
+        R::recoverable_parser().map(Self::Right),
       ))
     }
   }
@@ -798,3 +804,134 @@ const _: () = {
     }
   }
 };
+
+/// Returns a parser that matches a specific keyword token.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use logosky::{chumsky::{keyword, LogoStream, prelude::*}, Tokenizer};
+///
+/// enum SyntaxKind {
+///   if_KW,
+///   // ...
+/// }
+///
+/// let parser = keyword("if", || SyntaxKind::if_KW);
+/// ```
+pub fn keyword<'a, I, T, K, Error, E>(
+  raw: &str,
+  expected: impl Fn() -> K + Clone + 'a,
+) -> impl Parser<'a, I, T, E> + Clone
+where
+  I: LogoStream<'a, T>,
+  T: KeywordToken<'a>,
+  str: Equivalent<T>,
+  K: 'a,
+  Error: From<<T::Logos as Logos<'a>>::Error> + From<UnexpectedToken<'a, T, K>> + 'a,
+  E: ParserExtra<'a, I, Error = Error> + 'a,
+{
+  match_token(raw, expected)
+}
+
+/// Returns a parser that matches a specific keyword token.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use logosky::{chumsky::{punctuator, LogoStream, prelude::*}, Tokenizer};
+///
+/// enum SyntaxKind {
+///   Comma,
+///   // ...
+/// }
+///
+/// let parser = punctuator(",", || SyntaxKind::Comma);
+/// ```
+pub fn punctuator<'a, I, T, K, Error, E>(
+  raw: &str,
+  expected: impl Fn() -> K + Clone + 'a,
+) -> impl Parser<'a, I, T, E> + Clone
+where
+  I: LogoStream<'a, T>,
+  T: PunctuatorToken<'a>,
+  str: Equivalent<T>,
+  K: 'a,
+  Error: From<<T::Logos as Logos<'a>>::Error> + From<UnexpectedToken<'a, T, K>> + 'a,
+  E: ParserExtra<'a, I, Error = Error> + 'a,
+{
+  match_token(raw, expected)
+}
+
+/// Returns a parser that matches a specific keyword token.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use logosky::{chumsky::{operator, LogoStream, prelude::*}, Tokenizer};
+///
+/// enum SyntaxKind {
+///   ColonAssign,
+///   // ...
+/// }
+///
+/// let parser = operator(":=", || SyntaxKind::ColonAssign);
+/// ```
+pub fn operator<'a, I, T, K, Error, E>(
+  raw: &str,
+  expected: impl Fn() -> K + Clone + 'a,
+) -> impl Parser<'a, I, T, E> + Clone
+where
+  I: LogoStream<'a, T>,
+  T: OperatorToken<'a>,
+  str: Equivalent<T>,
+  K: 'a,
+  Error: From<<T::Logos as Logos<'a>>::Error> + From<UnexpectedToken<'a, T, K>> + 'a,
+  E: ParserExtra<'a, I, Error = Error> + 'a,
+{
+  match_token(raw, expected)
+}
+
+/// Matches the next token using an [`Equivalent`] comparison against a reference value.
+///
+/// This helper underpins higher-level utilities like [`keyword`] and [`punctuator`], letting you
+/// validate arbitrary tokens (kinds, strings, etc.) while emitting an [`UnexpectedToken`] error when
+/// the comparison fails.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use logosky::{chumsky::{match_token, LogoStream}, Tokenizer};
+///
+/// enum Kind { Plus, Minus }
+/// struct Tok { kind: Kind }
+/// // Assume Tok implements `Token` and `Equivalent<Kind>`
+///
+/// let parser = match_token(&Kind::Plus, || "a plus sign");
+/// let stream = Tokenizer::new("+");
+/// assert!(parser.parse(stream).into_result().is_ok());
+/// ```
+pub fn match_token<'a, I, T, R, K, Error, E>(
+  raw: &R,
+  expected: impl Fn() -> K + Clone + 'a,
+) -> impl Parser<'a, I, T, E> + Clone
+where
+  I: LogoStream<'a, T>,
+  T: Token<'a>,
+  R: ?Sized + Equivalent<T>,
+  K: 'a,
+  Error: From<<T::Logos as Logos<'a>>::Error> + From<UnexpectedToken<'a, T, K>> + 'a,
+  E: ParserExtra<'a, I, Error = Error> + 'a,
+{
+  any().try_map(move |lexed: Lexed<'_, T>, span| match lexed {
+    Lexed::Token(t) => {
+      if Equivalent::equivalent(raw, &t.data) {
+        Ok(t.data)
+      } else {
+        let e = UnexpectedToken::expected_one_with_found(span, t.data, expected());
+        Err(<Error as core::convert::From<_>>::from(e))
+      }
+    }
+    Lexed::Error(e) => Err(<Error as core::convert::From<_>>::from(e)),
+  })
+}

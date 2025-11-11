@@ -1,7 +1,7 @@
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
-use logos::Lexer;
+use logos::{Lexer, Source};
 
-use crate::utils::{Span, Spanned};
+use crate::utils::{Span, Spanned, cmp::Equivalent};
 
 #[cfg(feature = "chumsky")]
 use crate::Tokenizer;
@@ -33,7 +33,7 @@ pub use logos::Logos;
 /// - `try_unwrap_token()` / `try_unwrap_error()`: Safe unwrapping that returns `Option`
 /// - `unwrap_token_ref()` / `unwrap_error_ref()`: Get a reference to the inner value
 ///
-/// # Examples
+/// ## Examples
 ///
 /// ## Basic Usage
 ///
@@ -199,7 +199,7 @@ impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, <T::Logos as Logos<'a>>:
 /// - `Debug`: For debugging and error messages
 /// - `From<Self::Logos>`: Convert from the raw Logos token to the structured token
 ///
-/// # Examples
+/// ## Examples
 ///
 /// ## Basic Implementation
 ///
@@ -345,7 +345,7 @@ pub trait Token<'a>: Clone + core::fmt::Debug + From<Self::Logos> + 'a {
   /// This method is used extensively by parsers to determine what kind of token
   /// they're looking at without having to inspect the full token structure.
   ///
-  /// # Example
+  /// ## Example
   ///
   /// ```rust,ignore
   /// let token = MyToken::from(logos_token);
@@ -385,10 +385,10 @@ pub trait Token<'a>: Clone + core::fmt::Debug + From<Self::Logos> + 'a {
 /// - [`skip_trivias()`](crate::Tokenizer::skip_trivias) - Skip over trivia tokens during parsing
 /// - [`collect_trivias()`](crate::Tokenizer::collect_trivias) - Collect trivia into a container
 ///
-/// # Example
+/// ## Example
 ///
 /// ```rust
-/// use logosky::{Token, LosslessToken};
+/// use logosky::{Token, TriviaToken};
 /// use logos::Logos;
 ///
 /// #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
@@ -442,7 +442,7 @@ pub trait Token<'a>: Clone + core::fmt::Debug + From<Self::Logos> + 'a {
 ///     }
 /// }
 ///
-/// impl LosslessToken<'_> for MyToken {
+/// impl TriviaToken<'_> for MyToken {
 ///     fn is_trivia(&self) -> bool {
 ///         // Mark whitespace and comments as trivia
 ///         matches!(
@@ -457,12 +457,12 @@ pub trait Token<'a>: Clone + core::fmt::Debug + From<Self::Logos> + 'a {
 ///
 /// # Design Rationale
 ///
-/// Separating [`LosslessToken`] from [`Token`] allows for:
+/// Separating [`TriviaToken`] from [`Token`] allows for:
 ///
 /// - **Flexibility**: Not all parsers need to track trivia; simple parsers can use just [`Token`]
 /// - **Performance**: Parsers that skip trivia can do so efficiently without allocating
 /// - **Type safety**: The type system ensures trivia-handling methods are only available when appropriate
-pub trait LosslessToken<'a>: Token<'a> {
+pub trait TriviaToken<'a>: Token<'a> {
   /// Returns `true` if this token represents trivia (whitespace, comments, etc.).
   ///
   /// Trivia tokens are lexical elements that don't affect the semantic meaning of code
@@ -474,10 +474,10 @@ pub trait LosslessToken<'a>: Token<'a> {
   /// - Comments: line comments, block comments, documentation comments
   /// - Language-specific formatting tokens
   ///
-  /// # Example
+  /// ## Example
   ///
   /// ```rust
-  /// use logosky::{Token, LosslessToken};
+  /// use logosky::{Token, TriviaToken};
   /// use logos::Logos;
   ///
   /// #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
@@ -522,13 +522,1448 @@ pub trait LosslessToken<'a>: Token<'a> {
   ///     }
   /// }
   ///
-  /// impl LosslessToken<'_> for MyToken {
+  /// impl TriviaToken<'_> for MyToken {
   ///     fn is_trivia(&self) -> bool {
   ///         matches!(self.kind, TokenKind::Whitespace | TokenKind::Comment)
   ///     }
   /// }
   /// ```
   fn is_trivia(&self) -> bool;
+}
+
+/// A trait for tokens that can classify punctuation without pattern matching on kinds.
+///
+/// [`PunctuatorToken`] builds on [`Token`] to provide ergonomic helpers for recognizing
+/// common punctuation lexemes. This is useful when:
+///
+/// - Building parsers that frequently branch on punctuation and benefit from readable predicates
+/// - Writing formatter or linter passes that need to treat punctuation uniformly regardless of kind names
+/// - Exposing a stable surface for downstream users so token-kind refactors do not cascade outward
+///
+/// # Relationship to [`Token`]
+///
+/// The base [`Token`] trait exposes [`Token::kind`], leaving higher-level classification to
+/// consumers. [`PunctuatorToken`] moves that logic into the token type itself, so downstream
+/// code can remain agnostic of `Kind` enums or their discriminants.
+///
+/// # Covered ASCII Punctuation
+///
+/// Every method maps to a single ASCII character and **returns `false` by default**—override only
+/// the ones that matter for your language, mapping them to your own token kinds. The provided
+/// predicates are:
+///
+/// - Structural: `is_paren_open` `(`, `is_paren_close` `)`, `is_brace_open` `{`, `is_brace_close` `}`,
+///   `is_bracket_open` `[`, `is_bracket_close` `]`
+/// - Separators: `is_comma` `,`, `is_dot` `.`, `is_colon` `:`, `is_semicolon` `;`
+/// - Quote markers: `is_double_quote` `"`, `is_apostrophe` `'`, `is_backtick` `` ` ``
+/// - Math / operators: `is_plus` `+`, `is_minus` `-`, `is_asterisk` `*`, `is_slash` `/`,
+///   `is_backslash` `\`, `is_percent` `%`, `is_ampersand` `&`, `is_pipe` `|`, `is_caret` `^`,
+///   `is_tilde` `~`, `is_underscore` `_`
+/// - Comparators: `is_lt` `<`, `is_gt` `>`, `is_equal` `=`
+/// - Misc punctuation: `is_exclamation` `!`, `is_question` `?`, `is_hash` `#`, `is_dollar` `$`,
+///   `is_at` `@`
+///
+/// ## Example
+///
+/// ```rust
+/// use logosky::{Token, PunctuatorToken, utils::cmp::Equivalent};
+/// use logos::Logos;
+///
+/// #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
+/// enum MyTokens {
+///     #[token(".")]
+///     Dot,
+///     #[token(",")]
+///     Comma,
+///     #[token(":")]
+///     Colon,
+///     #[token(";")]
+///     SemiColon,
+/// }
+///
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// enum MyTokenKind {
+///     Dot,
+///     Comma,
+///     Colon,
+///     SemiColon,
+/// }
+///
+/// #[derive(Debug, Clone, PartialEq)]
+/// struct MyToken {
+///     kind: MyTokenKind,
+/// }
+///
+/// impl Token<'_> for MyToken {
+///     type Char = char;
+///     type Kind = MyTokenKind;
+///     type Logos = MyTokens;
+///
+///     fn kind(&self) -> Self::Kind {
+///         self.kind
+///     }
+/// }
+///
+/// impl From<MyTokens> for MyToken {
+///     fn from(logos: MyTokens) -> Self {
+///         let kind = match logos {
+///             MyTokens::Dot => MyTokenKind::Dot,
+///             MyTokens::Comma => MyTokenKind::Comma,
+///             MyTokens::Colon => MyTokenKind::Colon,
+///             MyTokens::SemiColon => MyTokenKind::SemiColon,
+///         };
+///         Self { kind }
+///     }
+/// }
+///
+/// impl Equivalent<MyToken> for str {
+///     fn equivalent(&self, other: &MyToken) -> bool {
+///         match other.kind {
+///             MyTokenKind::Dot => self == ".",
+///             MyTokenKind::Comma => self == ",",
+///             MyTokenKind::Colon => self == ":",
+///             MyTokenKind::SemiColon => self == ";",
+///         }
+///     }
+/// }
+///
+/// impl PunctuatorToken<'_> for MyToken {
+///     fn is_dot(&self) -> bool {
+///         matches!(self.kind, MyTokenKind::Dot)
+///     }
+///
+///     fn is_comma(&self) -> bool {
+///         matches!(self.kind, MyTokenKind::Comma)
+///     }
+///
+///     fn is_colon(&self) -> bool {
+///         matches!(self.kind, MyTokenKind::Colon)
+///     }
+///
+///     fn is_semicolon(&self) -> bool {
+///         matches!(self.kind, MyTokenKind::SemiColon)
+///     }
+///
+///     // Unhandled punctuation can keep the default `false`.
+/// }
+/// ```
+pub trait PunctuatorToken<'a>: Token<'a> {
+  /// Returns `true` when the token is a punctuator.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_punctuator(&self) -> bool {
+    self.is_dot()
+      || self.is_comma()
+      || self.is_colon()
+      || self.is_semicolon()
+      || self.is_exclamation()
+      || self.is_double_quote()
+      || self.is_apostrophe()
+      || self.is_hash()
+      || self.is_dollar()
+      || self.is_percent()
+      || self.is_ampersand()
+      || self.is_asterisk()
+      || self.is_plus()
+      || self.is_minus()
+      || self.is_slash()
+      || self.is_backslash()
+      || self.is_angle_open()
+      || self.is_equal()
+      || self.is_angle_close()
+      || self.is_question()
+      || self.is_at()
+      || self.is_bracket_open()
+      || self.is_bracket_close()
+      || self.is_brace_open()
+      || self.is_brace_close()
+      || self.is_paren_open()
+      || self.is_paren_close()
+      || self.is_backtick()
+      || self.is_pipe()
+      || self.is_caret()
+      || self.is_underscore()
+      || self.is_tilde()
+  }
+
+  /// Returns `true` when the token is the dot punctuator (`.`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_dot(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the comma punctuator (`,`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_comma(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the colon punctuator (`:`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_colon(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the semicolon punctuator (`;`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_semicolon(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the exclamation punctuator (`!`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_exclamation(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the double-quote punctuator (`"`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_double_quote(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the apostrophe/single-quote punctuator (`'`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_apostrophe(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the hash punctuator (`#`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_hash(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the dollar punctuator (`$`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_dollar(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the percent punctuator (`%`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_percent(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the ampersand punctuator (`&`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_ampersand(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the asterisk punctuator (`*`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_asterisk(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the plus punctuator (`+`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_plus(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the minus punctuator (`-`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_minus(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the slash punctuator (`/`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_slash(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the backslash punctuator (`\`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_backslash(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the angle open punctuator (`<`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_angle_open(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the equal punctuator (`=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_equal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the angle close punctuator (`>`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_angle_close(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the question punctuator (`?`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_question(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the at-sign punctuator (`@`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_at(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the bracket-open punctuator (`[`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_bracket_open(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the bracket-close punctuator (`]`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_bracket_close(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the brace-open punctuator (`{`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_brace_open(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the brace-close punctuator (`}`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_brace_close(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the paren-open punctuator (`(`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_paren_open(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the paren-close punctuator (`)`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_paren_close(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the backtick punctuator (`` ` ``).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_backtick(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the pipe punctuator (`|`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_pipe(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the caret punctuator (`^`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_caret(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the underscore punctuator (`_`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_underscore(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the tilde punctuator (`~`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_tilde(&self) -> bool {
+    false
+  }
+}
+
+impl<'a, T> DelimiterToken<'a> for T
+where
+  T: PunctuatorToken<'a>,
+{
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_paren_open(&self) -> bool {
+    PunctuatorToken::is_paren_open(self)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_paren_close(&self) -> bool {
+    PunctuatorToken::is_paren_close(self)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_brace_open(&self) -> bool {
+    PunctuatorToken::is_brace_open(self)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_brace_close(&self) -> bool {
+    PunctuatorToken::is_brace_close(self)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_bracket_open(&self) -> bool {
+    PunctuatorToken::is_bracket_open(self)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_bracket_close(&self) -> bool {
+    PunctuatorToken::is_bracket_close(self)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_angle_open(&self) -> bool {
+    PunctuatorToken::is_angle_open(self)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_angle_close(&self) -> bool {
+    PunctuatorToken::is_angle_close(self)
+  }
+}
+
+/// A trait for tokens that can classify literal tokens without exposing internal kinds.
+///
+/// [`LitToken`] augments [`Token`] with convenience predicates for common literal categories
+/// (numbers, strings, booleans, etc.). This lets downstream code work with semantic literals
+/// without matching on the token-kind enum directly.
+///
+/// # Usage
+///
+/// Every method **returns `false` by default**. Implementors override whichever literal kinds
+/// their language supports, forwarding the checks to `self.kind()` or other internal data.
+///
+/// # Covered Literal Categories
+///
+/// - Numbers: `is_integer_literal`, `is_float_literal`, `is_decimal_literal`, `is_hexadecimal_literal`,
+///   `is_octal_literal`, `is_binary_literal`, `is_hex_float_literal`
+/// - Textual: `is_string_literal`, `is_inline_string_literal`, `is_multiline_string_literal`,
+///   `is_raw_string_literal`, `is_char_literal`
+/// - Byte-oriented: `is_byte_literal`, `is_byte_string_literal`
+/// - Semantic markers: `is_boolean_literal`, `is_true_literal`, `is_false_literal`, `is_null_literal`
+///
+/// Override only what you need; everything else can keep the default `false`.
+///
+/// ## Example
+///
+/// ```rust
+/// use logosky::{Token, LitToken};
+/// use logos::Logos;
+///
+/// #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
+/// enum MyTokens {
+///     #[regex(r"[0-9]+")]
+///     Integer,
+///     #[regex(r"[0-9]+\.[0-9]+")]
+///     Float,
+///     #[regex(r#""([^"\\]|\\.)*""#)]
+///     String,
+///     #[regex(r"true|false")]
+///     Boolean,
+/// }
+///
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// enum MyTokenKind {
+///     Integer,
+///     Float,
+///     String,
+///     Boolean,
+/// }
+///
+/// #[derive(Debug, Clone, PartialEq)]
+/// struct MyToken {
+///     kind: MyTokenKind,
+/// }
+///
+/// impl Token<'_> for MyToken {
+///     type Char = char;
+///     type Kind = MyTokenKind;
+///     type Logos = MyTokens;
+///
+///     fn kind(&self) -> Self::Kind {
+///         self.kind
+///     }
+/// }
+///
+/// impl From<MyTokens> for MyToken {
+///     fn from(logos: MyTokens) -> Self {
+///         let kind = match logos {
+///             MyTokens::Integer => MyTokenKind::Integer,
+///             MyTokens::Float => MyTokenKind::Float,
+///             MyTokens::String => MyTokenKind::String,
+///             MyTokens::Boolean => MyTokenKind::Boolean,
+///         };
+///         Self { kind }
+///     }
+/// }
+///
+/// impl LitToken<'_> for MyToken {
+///     fn is_integer_literal(&self) -> bool {
+///         matches!(self.kind, MyTokenKind::Integer)
+///     }
+///
+///     fn is_float_literal(&self) -> bool {
+///         matches!(self.kind, MyTokenKind::Float)
+///     }
+///
+///     fn is_string_literal(&self) -> bool {
+///         matches!(self.kind, MyTokenKind::String)
+///     }
+///
+///     fn is_boolean_literal(&self) -> bool {
+///         matches!(self.kind, MyTokenKind::Boolean)
+///     }
+/// }
+/// ```
+pub trait LitToken<'a>: Token<'a> {
+  /// Returns `true` if the token is any literal (number, string, boolean, etc.).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_literal(&self) -> bool {
+    self.is_numeric_literal()
+      || self.is_string_literal()
+      || self.is_raw_string_literal()
+      || self.is_char_literal()
+      || self.is_byte_literal()
+      || self.is_byte_string_literal()
+      || self.is_boolean_literal()
+      || self.is_null_literal()
+  }
+
+  /// Returns `true` when the token is any numeric literal.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_numeric_literal(&self) -> bool {
+    self.is_integer_literal() || self.is_float_literal() || self.is_hex_float_literal()
+  }
+
+  /// Returns `true` when the token is an integer literal (e.g., binary, decimal, hex, octal).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_integer_literal(&self) -> bool {
+    self.is_binary_literal()
+      || self.is_decimal_literal()
+      || self.is_hexadecimal_literal()
+      || self.is_octal_literal()
+  }
+
+  /// Returns `true` when the token is a floating-point literal.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_float_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a base-10 integer literal.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_decimal_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a hexadecimal integer literal (e.g., `0xFF`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_hexadecimal_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is an octal integer literal (e.g., `0o77`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_octal_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a binary integer literal (e.g., `0b1010`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_binary_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a hexadecimal floating-point literal (e.g., `0x1.fp3`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_hex_float_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is any string literal (quoted text).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_string_literal(&self) -> bool {
+    self.is_inline_string_literal() || self.is_multiline_string_literal()
+  }
+
+  /// Returns `true` when the token is a single-line/inline string literal.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_inline_string_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a multi-line string literal.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_multiline_string_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a raw string literal.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_raw_string_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a character literal (e.g., `'a'`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_char_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a byte literal (e.g., `b'a'`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_byte_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a byte-string literal (e.g., `b"..."`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_byte_string_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a boolean literal (`true`/`false`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_boolean_literal(&self) -> bool {
+    self.is_true_literal() || self.is_false_literal()
+  }
+
+  /// Returns `true` when the token is the `true` literal.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_true_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is the `false` literal.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_false_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a null/nil literal.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_null_literal(&self) -> bool {
+    false
+  }
+}
+
+/// A trait for tokens that carry user-defined identifiers.
+///
+/// [`IdentifierToken`] focuses exclusively on identifier storage/matching. Keyword-related helpers live
+/// in [`KeywordToken`], letting languages opt into only the capabilities they need.
+///
+/// ## Example
+///
+/// ```rust
+/// use logosky::{Token, IdentifierToken};
+/// use logos::Logos;
+///
+/// #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
+/// enum MyTokens<'a> {
+///     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*")]
+///     Identifier(&'a str),
+///     #[token("if")]
+///     If,
+///     #[token("else")]
+///     Else,
+/// }
+///
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// enum MyTokenKind {
+///     Identifier,
+///     KeywordIf,
+///     KeywordElse,
+/// }
+///
+/// #[derive(Debug, Clone, PartialEq)]
+/// enum MyToken<'a> {
+///     Identifier(&'a str),
+///     If,
+///     Else,
+/// }
+///
+/// impl<'a> Token<'a> for MyToken<'a> {
+///     type Char = char;
+///     type Kind = MyTokenKind;
+///     type Logos = MyTokens<'a>;
+///
+///     fn kind(&self) -> Self::Kind {
+///         match self {
+///            MyToken::Identifier(_) => MyTokenKind::Identifier,
+///            MyToken::If => MyTokenKind::KeywordIf,
+///            MyToken::Else => MyTokenKind::KeywordElse,
+///         }
+///     }
+/// }
+///
+/// impl<'a> From<MyTokens<'a>> for MyToken<'a> {
+///     fn from(logos: MyTokens<'a>) -> Self {
+///         match logos {
+///             MyTokens::Identifier(s) => MyToken::Identifier(s),
+///             MyTokens::If => MyToken::If,
+///             MyTokens::Else => MyToken::Else,
+///         }
+///     }
+/// }
+///
+/// impl<'a> IdentifierToken<'a> for MyToken<'a> {
+///     fn identifier(&self) -> Option<&&'a str> {
+///         if let MyToken::Identifier(name) = self {
+///             Some(name)
+///         } else {
+///             None
+///         }
+///     }
+///
+///     fn try_into_identifier(self) -> Result<&'a str, Self> {
+///         match &self {
+///             MyToken::Identifier(name) => Ok(*name),
+///             _ => Err(self),
+///         }
+///     }
+/// }
+/// ```
+pub trait IdentifierToken<'a>: Token<'a> {
+  /// Returns `true` when the token is an identifier (user-defined name).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_identifier(&self) -> bool {
+    self.identifier().is_some()
+  }
+
+  /// Returns `true` when the identifier matches the given name.
+  ///
+  /// The default implementation defers to [`identifier`](IdentifierToken::identifier).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn matches_identifier(&self, name: &str) -> bool
+  where
+    str: Equivalent<<<Self::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+  {
+    self.identifier().is_some_and(|id| name.equivalent(id))
+  }
+
+  /// Returns the identifier source, if this token is an identifier.
+  fn identifier(&self) -> Option<&<<Self::Logos as Logos<'a>>::Source as Source>::Slice<'a>> {
+    None
+  }
+
+  /// Attempts to get the identifier source, returning the `Err(Self)` if this token is not an identifier.
+  fn try_into_identifier(
+    self,
+  ) -> Result<<<Self::Logos as Logos<'a>>::Source as Source>::Slice<'a>, Self>
+  where
+    Self: Sized;
+}
+
+/// A trait for tokens that represent keywords.
+///
+/// ## Example
+///
+/// ```rust
+/// use logosky::{Token, KeywordToken, utils::cmp::Equivalent};
+/// use logos::Logos;
+///
+/// #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
+/// enum MyTokens<'a> {
+///     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*")]
+///     Identifier(&'a str),
+///     #[token("if")]
+///     If,
+///     #[token("else")]
+///     Else,
+/// }
+///
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// enum MyTokenKind {
+///     Identifier,
+///     KeywordIf,
+///     KeywordElse,
+/// }
+///
+/// #[derive(Debug, Clone, PartialEq)]
+/// enum MyToken<'a> {
+///     Identifier(&'a str),
+///     If,
+///     Else,
+/// }
+///
+/// impl<'a> Token<'a> for MyToken<'a> {
+///     type Char = char;
+///     type Kind = MyTokenKind;
+///     type Logos = MyTokens<'a>;
+///
+///     fn kind(&self) -> Self::Kind {
+///         match self {
+///            MyToken::Identifier(_) => MyTokenKind::Identifier,
+///            MyToken::If => MyTokenKind::KeywordIf,
+///            MyToken::Else => MyTokenKind::KeywordElse,
+///         }
+///     }
+/// }
+///
+/// impl<'a> From<MyTokens<'a>> for MyToken<'a> {
+///     fn from(logos: MyTokens<'a>) -> Self {
+///         match logos {
+///             MyTokens::Identifier(s) => MyToken::Identifier(s),
+///             MyTokens::If => MyToken::If,
+///             MyTokens::Else => MyToken::Else,
+///         }
+///     }
+/// }
+///
+/// impl<'a> Equivalent<MyToken<'a>> for str {
+///     fn equivalent(&self, other: &MyToken<'a>) -> bool {
+///         other.keyword().is_some_and(|kw| kw == self)
+///     }
+/// }
+///
+/// impl<'a> KeywordToken<'a> for MyToken<'a> {
+///     fn keyword(&self) -> Option<&'static str> {
+///         match self.kind() {
+///             MyTokenKind::KeywordIf => Some("if"),
+///             MyTokenKind::KeywordElse => Some("else"),
+///             _ => None,
+///         }
+///     }
+/// }
+/// ```
+pub trait KeywordToken<'a>: Token<'a> {
+  /// Returns `true` when the token is any reserved keyword.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_keyword(&self) -> bool {
+    self.keyword().is_some()
+  }
+
+  /// Returns the canonical spelling of the keyword, if this token represents one.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn keyword(&self) -> Option<&'static str> {
+    None
+  }
+}
+
+/// A trait for tokens that classify operators (arithmetic, logical, comparison, assignment, etc.).
+///
+/// [`OperatorToken`] complements [`Token`] by centralizing operator knowledge so parsers and tooling
+/// can branch on semantic operator categories without matching on the underlying token kind. This
+/// covers both single-character and multi-character operators such as `+=`, `>>=`, `&&`, or `=>`.
+///
+/// # Usage
+///
+/// - Aggregation helpers (`is_operator`, `is_math_operator`, `is_assignment_operator`, etc.) combine
+///   the more granular predicates.
+/// - Every predicate **returns `false` by default**; override only what your language emits.
+/// - Consider implementing these methods alongside [`PunctuatorToken`] so punctuation and operator
+///   classification stay in sync.
+///
+/// # Covered Operator Families
+///
+/// - Arithmetic: `is_math_operator`, `is_plus_operator`, `is_minus_operator`, `is_increment`, etc.
+/// - Assignment: `is_assignment_operator`, `is_simple_assignment`, `is_colon_assign`,
+///   `is_add_assign`, `is_shl_assign`, etc.
+/// - Logical: `is_logical_operator`, `is_logical_and`, `is_logical_or`, `is_logical_xor`, `is_logical_not`
+/// - Comparison: `is_comparison_operator`, `is_eq`, `is_strict_eq`, `is_ne`, `is_strict_ne`, `is_le`, etc.
+/// - Shift / bitwise: `is_shift_operator`, `is_shl`, `is_shr`, plus bitwise forms
+/// - Miscellaneous: `is_power_operator`, `is_arrow_operator`, `is_fat_arrow_operator`, `is_pipe_forward_operator`,
+///   `is_backslash_operator`
+///
+/// ## Example
+///
+/// ```rust
+/// use logosky::{Token, OperatorToken, utils::cmp::Equivalent};
+/// use logos::Logos;
+///
+/// #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
+/// enum MyTokens {
+///     #[token("+")]
+///     Plus,
+///     #[token("++")]
+///     Increment,
+///     #[token("+=")]
+///     PlusAssign,
+/// }
+///
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// enum MyTokenKind {
+///     Plus,
+///     Increment,
+///     PlusAssign,
+/// }
+///
+/// #[derive(Debug, Clone, PartialEq)]
+/// struct MyToken {
+///     kind: MyTokenKind,
+/// }
+///
+/// impl Token<'_> for MyToken {
+///     type Char = char;
+///     type Kind = MyTokenKind;
+///     type Logos = MyTokens;
+///
+///     fn kind(&self) -> Self::Kind {
+///         self.kind
+///     }
+/// }
+///
+/// impl From<MyTokens> for MyToken {
+///     fn from(logos: MyTokens) -> Self {
+///         let kind = match logos {
+///             MyTokens::Plus => MyTokenKind::Plus,
+///             MyTokens::Increment => MyTokenKind::Increment,
+///             MyTokens::PlusAssign => MyTokenKind::PlusAssign,
+///         };
+///         Self { kind }
+///     }
+/// }
+///
+/// impl Equivalent<MyToken> for str {
+///     fn equivalent(&self, other: &MyToken) -> bool {
+///         match other.kind {
+///             MyTokenKind::Plus => self == "+",
+///             MyTokenKind::Increment => self == "++",
+///             MyTokenKind::PlusAssign => self == "+=",
+///         }
+///     }
+/// }
+///
+/// impl OperatorToken<'_> for MyToken {
+///     fn is_plus_operator(&self) -> bool {
+///         matches!(self.kind, MyTokenKind::Plus)
+///     }
+///
+///     fn is_increment(&self) -> bool {
+///         matches!(self.kind, MyTokenKind::Increment)
+///     }
+///
+///     fn is_add_assign(&self) -> bool {
+///         matches!(self.kind, MyTokenKind::PlusAssign)
+///     }
+/// }
+/// ```
+pub trait OperatorToken<'a>: Token<'a> {
+  /// Returns `true` when the token is any operator recognized by this trait.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_operator(&self) -> bool {
+    self.is_math_operator()
+      || self.is_assignment_operator()
+      || self.is_shift_operator()
+      || self.is_comparison_operator()
+      || self.is_logical_operator()
+      || self.is_power_operator()
+      || self.is_arrow_operator()
+      || self.is_fat_arrow_operator()
+      || self.is_pipe_forward_operator()
+      || self.is_backslash_operator()
+  }
+
+  /// Returns `true` when the token is any arithmetic operator (`+`, `-`, `*`, `/`, `%`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_math_operator(&self) -> bool {
+    self.is_plus_operator()
+      || self.is_minus_operator()
+      || self.is_mul_operator()
+      || self.is_div_operator()
+      || self.is_mod_operator()
+  }
+
+  /// Returns `true` when the token is any comparison operator.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_comparison_operator(&self) -> bool {
+    self.is_eq()
+      || self.is_strict_eq()
+      || self.is_ne()
+      || self.is_strict_ne()
+      || self.is_lt()
+      || self.is_le()
+      || self.is_gt()
+      || self.is_ge()
+  }
+
+  /// Returns `true` when the token is any logical operator (`&&`, `||`, `!`, `^^`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_logical_operator(&self) -> bool {
+    self.is_logical_and() || self.is_logical_or() || self.is_logical_not() || self.is_logical_xor()
+  }
+
+  /// Returns `true` when the token is any assignment-style operator.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_assignment_operator(&self) -> bool {
+    self.is_simple_assignment()
+      || self.is_colon_assign()
+      || self.is_add_assign()
+      || self.is_sub_assign()
+      || self.is_mul_assign()
+      || self.is_div_assign()
+      || self.is_mod_assign()
+      || self.is_bitand_assign()
+      || self.is_bitor_assign()
+      || self.is_bitxor_assign()
+      || self.is_shl_assign()
+      || self.is_shr_assign()
+      || self.is_power_assign()
+      || self.is_backslash_assign()
+  }
+
+  /// Returns `true` when the token is any shift operator (`<<`, `>>`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_shift_operator(&self) -> bool {
+    self.is_shl() || self.is_shr()
+  }
+
+  /// Returns `true` when the token is the simple assignment operator (`=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_simple_assignment(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the colon-assignment operator (`:=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_colon_assign(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the addition operator (`+`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_plus_operator(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the subtraction operator (`-`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_minus_operator(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the multiplication operator (`*`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_mul_operator(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the division operator (`/`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_div_operator(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the modulo operator (`%`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_mod_operator(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the exponentiation operator (`**`, `^^`, etc.).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_power_operator(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the power-assignment operator (e.g., `**=` or `^^=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_power_assign(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the increment operator (`++`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_increment(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the decrement operator (`--`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_decrement(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the plus-assignment operator (`+=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_add_assign(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the minus-assignment operator (`-=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_sub_assign(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the multiply-assignment operator (`*=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_mul_assign(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the divide-assignment operator (`/=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_div_assign(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the modulo-assignment operator (`%=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_mod_assign(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the bitwise AND operator (`&`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_bitand(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the bitwise OR operator (`|`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_bitor(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the bitwise XOR operator (`^`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_bitxor(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the bitwise AND assignment operator (`&=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_bitand_assign(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the bitwise OR assignment operator (`|=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_bitor_assign(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the bitwise XOR assignment operator (`^=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_bitxor_assign(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the logical XOR operator (`^^`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_logical_xor(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the logical AND operator (`&&`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_logical_and(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the logical OR operator (`||`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_logical_or(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the logical NOT operator (`!`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_logical_not(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the equality comparison operator (`==`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_eq(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for strict equality operators (e.g., `===`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_strict_eq(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for inequality operators such as `!=` or `<>`.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_ne(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for strict inequality operators (e.g., `!==`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_strict_ne(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the less-than operator (`<`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_lt(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the less-than-or-equal operator (`<=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_le(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the greater-than operator (`>`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_gt(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the greater-than-or-equal operator (`>=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_ge(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the left-shift operator (`<<`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_shl(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the right-shift operator (`>>`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_shr(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the left-shift assignment operator (`<<=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_shl_assign(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the right-shift assignment operator (`>>=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_shr_assign(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the arrow operator (`->`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_arrow_operator(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the fat-arrow operator (`=>`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_fat_arrow_operator(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for pipe-forward operators (`|>`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_pipe_forward_operator(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the double-colon operator (`::`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_double_colon(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for operators that include the backslash character (e.g., `\=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_backslash_operator(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for backslash-assignment operators (`\=`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_backslash_assign(&self) -> bool {
+    false
+  }
+}
+
+/// A trait for tokens that represent paired delimiters (parentheses, braces, brackets, quotes).
+///
+/// [`DelimiterToken`] keeps delimiter semantics separate from raw punctuation, allowing parsers,
+/// formatters, or syntax tree builders to reason about nesting and matching without pattern
+/// matching on the token kind.
+///
+/// # Usage
+///
+/// - Implementors override whichever predicates apply to their language (all default to `false`).
+/// - Aggregation helpers (`is_opening_delimiter`, `is_closing_delimiter`) combine the granular checks.
+/// - Consumers can use [`matching_delimiter`](DelimiterToken::matching_delimiter) to infer the
+///   counterpart of a delimiter for validation.
+///
+/// ## Example
+///
+/// ```rust
+/// use logosky::{Token, DelimiterToken, utils::cmp::Equivalent};
+/// use logos::Logos;
+///
+/// #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
+/// enum MyTokens {
+///     #[token("(")]
+///     LParen,
+///     #[token(")")]
+///     RParen,
+/// }
+///
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// enum MyTokenKind {
+///     ParenOpen,
+///     ParenClose,
+/// }
+///
+/// #[derive(Debug, Clone, PartialEq)]
+/// struct MyToken {
+///     kind: MyTokenKind,
+/// }
+///
+/// impl Token<'_> for MyToken {
+///     type Char = char;
+///     type Kind = MyTokenKind;
+///     type Logos = MyTokens;
+///
+///     fn kind(&self) -> Self::Kind {
+///         self.kind
+///     }
+/// }
+///
+/// impl From<MyTokens> for MyToken {
+///     fn from(logos: MyTokens) -> Self {
+///         let kind = match logos {
+///             MyTokens::LParen => MyTokenKind::ParenOpen,
+///             MyTokens::RParen => MyTokenKind::ParenClose,
+///         };
+///         Self { kind }
+///     }
+/// }
+///
+/// impl Equivalent<MyToken> for str {
+///     fn equivalent(&self, other: &MyToken) -> bool {
+///         match other.kind {
+///             MyTokenKind::ParenOpen => self == "(",
+///             MyTokenKind::ParenClose => self == ")",
+///         }
+///     }
+/// }
+///
+/// impl DelimiterToken<'_> for MyToken {
+///     fn is_paren_open(&self) -> bool {
+///         matches!(self.kind, MyTokenKind::ParenOpen)
+///     }
+///
+///     fn is_paren_close(&self) -> bool {
+///         matches!(self.kind, MyTokenKind::ParenClose)
+///     }
+/// }
+/// ```
+pub trait DelimiterToken<'a>: Token<'a> {
+  /// Returns `true` if the token is any delimiter (opening or closing).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_delimiter(&self) -> bool {
+    self.is_opening_delimiter() || self.is_closing_delimiter()
+  }
+
+  /// Returns `true` when the token is any opening delimiter.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_opening_delimiter(&self) -> bool {
+    self.is_paren_open() || self.is_brace_open() || self.is_bracket_open() || self.is_angle_open()
+  }
+
+  /// Returns `true` when the token is any closing delimiter.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_closing_delimiter(&self) -> bool {
+    self.is_paren_close()
+      || self.is_brace_close()
+      || self.is_bracket_close()
+      || self.is_angle_close()
+  }
+
+  /// Returns `true` when the token is a parenthesis opening delimiter (`(`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_paren_open(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a parenthesis closing delimiter (`)`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_paren_close(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a brace opening delimiter (`{`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_brace_open(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a brace closing delimiter (`}`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_brace_close(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a bracket opening delimiter (`[`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_bracket_open(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a bracket closing delimiter (`]`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_bracket_close(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is an angle/chevron opening delimiter (`<`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_angle_open(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is an angle/chevron closing delimiter (`>`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_angle_close(&self) -> bool {
+    false
+  }
+}
+
+/// A trait for tokens that can be compared for equivalence against a reference.
+/// A helper trait for ergonomically requiring specific token shapes.
+///
+/// `Require` is intended for tiny wrappers (e.g., `Dot`, `Comma`, `ParenOpen`) that want a
+/// `try_into`-style API without consuming the token stream. Implementors typically return
+/// `Ok(output)` when the token matches the desired pattern, or `Err(Self::Err)` to hand the
+/// original token (or a custom error type) back to the caller so other logic can handle it.
+///
+/// ## Example
+///
+/// ```rust
+/// use logosky::{Require, IdentifierToken};
+///
+/// #[derive(Debug, Clone)]
+/// pub enum Punct {
+///     Dot,
+///     Comma,
+///     Other(String),
+/// }
+///
+/// #[derive(Debug, Clone)]
+/// pub struct Dot(pub Punct);
+///
+/// impl Require<Dot> for Punct {
+///     type Err = Self;
+///
+///     fn require(self) -> Result<Dot, Self::Err> {
+///         match &self {
+///             Punct::Dot => Ok(Dot(Self::Dot)),
+///             _ => Err(self),
+///         }
+///     }
+/// }
+/// ```
+pub trait Require<O> {
+  /// The error type returned when a requirement is not met.
+  type Err;
+
+  /// Attempts to extract the desired output from the token, returning `Err(Self::Err)` if not possible.
+  fn require(self) -> Result<O, Self::Err>
+  where
+    Self: Sized;
 }
 
 /// The token extension trait.

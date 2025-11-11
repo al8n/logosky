@@ -4,7 +4,7 @@
 use chumsky::prelude::*;
 use logos::Logos;
 use logosky::{
-  LosslessToken, Token, TokenExt,
+  Token, TokenExt, TriviaToken as _,
   chumsky::LogoStream,
   utils::{Span, Spanned},
 };
@@ -622,7 +622,7 @@ impl Token<'_> for TriviaToken {
   }
 }
 
-impl LosslessToken<'_> for TriviaToken {
+impl logosky::TriviaToken<'_> for TriviaToken {
   fn is_trivia(&self) -> bool {
     matches!(
       self.kind,

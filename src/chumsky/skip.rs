@@ -130,7 +130,7 @@
 //! ```
 
 use crate::{Lexed, Token};
-use chumsky::{Parser, prelude::*};
+use chumsky::{Parser, prelude::*, recovery::Strategy};
 use logos::{Logos, Source};
 
 use super::LogoStream;
@@ -211,7 +211,7 @@ use super::LogoStream;
 /// comprehensive error collection - both parser-level syntax errors and lexer-level
 /// lexical errors are accumulated during recovery, giving users complete diagnostics.
 #[inline]
-pub fn skip_until_token<'a, I, T, E, F>(predicate: F) -> impl Parser<'a, I, (), E> + Clone
+pub fn skip_until_token<'a, I, T, E, F>(predicate: F) -> impl Strategy<'a, I, (), E> + Clone
 where
   I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
   T: Token<'a>,
@@ -220,47 +220,74 @@ where
   F: Fn(&T) -> bool + Clone + 'a,
 {
   let pred_clone = predicate.clone();
-
-  // Skip tokens until we find one that matches the predicate
-  any()
-    .validate(move |lexed: Lexed<'a, T>, _span, emitter| {
-      match lexed {
+  chumsky::prelude::skip_until(
+    any()
+      .validate(move |t: Lexed<'_, T>, _span, emitter| match t {
         Lexed::Token(spanned_tok) => {
-          let matches = predicate(&*spanned_tok);
-          (Some(spanned_tok), matches)
-        }
-        Lexed::Error(err) => {
-          // Emit lexer error during recovery
-          emitter.emit(E::Error::from(err));
-          (None, false) // Continue skipping after emitting error
-        }
-      }
-    })
-    .filter(|(_, matches)| !matches) // Keep skipping non-matches
-    .repeated()
-    // Then consume the matching token
-    .then(
-      any()
-        .validate(move |lexed: Lexed<'a, T>, _span, emitter| {
-          match lexed {
-            Lexed::Token(spanned_tok) => {
-              let matches = pred_clone(&*spanned_tok);
-              if matches {
-                Some(())
-              } else {
-                None
-              }
-            }
-            Lexed::Error(err) => {
-              // Emit lexer error here too
-              emitter.emit(E::Error::from(err));
-              None
-            }
+          if !predicate(&*spanned_tok) {
+            Some(())
+          } else {
+            None
           }
-        })
-        .filter(|opt| opt.is_some())
-    )
-    .ignored()
+        }
+        Lexed::Error(e) => {
+          emitter.emit(E::Error::from(e));
+          None
+        }
+      })
+      .ignored(),
+    any()
+      .filter(move |t: &Lexed<'_, T>| match t {
+        Lexed::Token(spanned_tok) => pred_clone(spanned_tok),
+        Lexed::Error(_) => false,
+      })
+      .ignored()
+      .rewind(),
+    || (),
+  )
+}
+
+/// Creates a parser that skips tokens until reaching one that matches the predicate,
+/// **consuming** the matching token as well.
+///
+/// This is useful when you want to fast-forward the token stream past a known delimiter
+/// (e.g., skip until the next `)` and discard it). If you need to keep the matching token
+/// for the next parser, use [`skip_until_token`] instead.
+pub fn skip_until_token_inclusive<'a, I, T, E, F>(
+  predicate: F,
+) -> impl Strategy<'a, I, (), E> + Clone
+where
+  I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+  T: Token<'a>,
+  E: chumsky::extra::ParserExtra<'a, I> + 'a,
+  E::Error: From<<T::Logos as Logos<'a>>::Error>,
+  F: Fn(&T) -> bool + Clone + 'a,
+{
+  let pred_clone = predicate.clone();
+  chumsky::prelude::skip_until(
+    any()
+      .validate(move |t: Lexed<'_, T>, _span, emitter| match t {
+        Lexed::Token(spanned_tok) => {
+          if !predicate(&*spanned_tok) {
+            Some(())
+          } else {
+            None
+          }
+        }
+        Lexed::Error(e) => {
+          emitter.emit(E::Error::from(e));
+          None
+        }
+      })
+      .ignored(),
+    any()
+      .filter(move |t: &Lexed<'_, T>| match t {
+        Lexed::Token(spanned_tok) => pred_clone(spanned_tok),
+        Lexed::Error(_) => false,
+      })
+      .ignored(),
+    || (),
+  )
 }
 
 /// Creates a parser that skips tokens while they match a predicate.
@@ -310,7 +337,7 @@ where
 /// skip_while_token(|tok| !tok.is_valid())
 /// ```
 #[inline]
-pub fn skip_while_token<'a, I, T, E, F>(predicate: F) -> impl Parser<'a, I, (), E> + Clone
+pub fn skip_while_token<'a, I, T, E, F>(predicate: F) -> impl Strategy<'a, I, (), E> + Clone
 where
   I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
   T: Token<'a>,
@@ -384,4 +411,180 @@ where
     .repeated()
     .at_most(n)
     .ignored()
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::{Lexed, Token, Tokenizer};
+  use chumsky::{error::EmptyErr, extra};
+  use logos::Logos;
+
+  #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+  struct Error;
+
+  impl From<Error> for EmptyErr {
+    fn from(_: Error) -> Self {
+      EmptyErr::default()
+    }
+  }
+
+  #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
+  #[logos(
+    skip r"[ \t\r\n]+",
+    error = Error
+  )]
+  enum RawToken {
+    #[regex(r"[a-zA-Z]+")]
+    Ident,
+    #[regex(r"[0-9]+")]
+    Number,
+    #[token("(")]
+    LParen,
+    #[token(")")]
+    RParen,
+  }
+
+  #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+  enum TestKind {
+    Ident,
+    Number,
+    LParen,
+    RParen,
+  }
+
+  #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+  struct TestToken {
+    kind: TestKind,
+  }
+
+  impl From<RawToken> for TestToken {
+    fn from(value: RawToken) -> Self {
+      let kind = match value {
+        RawToken::Ident => TestKind::Ident,
+        RawToken::Number => TestKind::Number,
+        RawToken::LParen => TestKind::LParen,
+        RawToken::RParen => TestKind::RParen,
+      };
+      Self { kind }
+    }
+  }
+
+  impl Token<'_> for TestToken {
+    type Char = char;
+    type Kind = TestKind;
+    type Logos = RawToken;
+
+    fn kind(&self) -> Self::Kind {
+      self.kind
+    }
+  }
+
+  type TestStream<'a> = Tokenizer<'a, TestToken>;
+
+  fn next_kind_parser<'a>()
+  -> impl Parser<'a, TestStream<'a>, TestKind, extra::Err<EmptyErr>> + Clone {
+    any().try_map(|lexed: Lexed<'_, TestToken>, _| match lexed {
+      Lexed::Token(tok) => Ok(tok.kind()),
+      Lexed::Error(e) => Err(e.into()),
+    })
+  }
+
+  #[test]
+  fn skip_until_preserves_match() {
+    let input = "123 123 123 foo (";
+    let stream = TestStream::new(input);
+
+    let parser = any::<_, extra::Err<EmptyErr>>()
+      .try_map(|tok: Lexed<'_, TestToken>, _| match tok {
+        Lexed::Token(t) => {
+          if t.kind() == TestKind::Ident {
+            Ok(t.kind())
+          } else {
+            Err(Error.into())
+          }
+        }
+        Lexed::Error(e) => Err(e.into()),
+      })
+      .ignored()
+      .recover_with(skip_until_token(|tok: &TestToken| {
+        matches!(tok.kind(), TestKind::Ident)
+      }))
+      .ignore_then(next_kind_parser().then(next_kind_parser()));
+
+    let result = parser.parse(stream);
+    let output = result.output();
+    assert_eq!(output, Some(&(TestKind::Ident, TestKind::LParen)));
+    let mut errs = result.errors();
+    assert!(errs.next().is_some());
+    assert!(errs.next().is_none());
+  }
+
+  #[test]
+  fn skip_until_inclusive_consumes_match() {
+    let input = "123 123 123 foo (";
+    let stream = TestStream::new(input);
+
+    let parser = any::<_, extra::Err<EmptyErr>>()
+      .try_map(|tok: Lexed<'_, TestToken>, _| match tok {
+        Lexed::Token(t) => {
+          if t.kind() == TestKind::Ident {
+            Ok(t.kind())
+          } else {
+            Err(Error.into())
+          }
+        }
+        Lexed::Error(e) => Err(e.into()),
+      })
+      .ignored()
+      .recover_with(skip_until_token_inclusive(|tok: &TestToken| {
+        matches!(tok.kind(), TestKind::Ident)
+      }))
+      .ignore_then(next_kind_parser());
+
+    let result = parser.parse(stream);
+    let output = result.output();
+    assert_eq!(output, Some(&TestKind::LParen));
+    let mut errs = result.errors();
+    assert!(errs.next().is_some());
+    assert!(errs.next().is_none());
+  }
+
+  #[test]
+  fn skip_n_tokens_limits_advance() {
+    let input = "foo 123 (";
+    let stream = TestStream::new(input);
+
+    let parser = skip_n_tokens(2).ignore_then(next_kind_parser());
+
+    let result = parser.parse(stream).into_result().expect("parse ok");
+    assert_eq!(result, TestKind::LParen); // should land on the third token
+  }
+
+  #[test]
+  fn skip_while_tokens_stops_on_nonmatch() {
+    let input = "foo foo (";
+    let stream = TestStream::new(input);
+
+    let parser = any::<_, extra::Err<EmptyErr>>()
+      .try_map(|tok: Lexed<'_, TestToken>, _| match tok {
+        Lexed::Token(t) => {
+          if t.kind() == TestKind::LParen {
+            Ok(t.kind())
+          } else {
+            Err(Error.into())
+          }
+        }
+        Lexed::Error(e) => Err(e.into()),
+      })
+      .ignored()
+      .recover_with(skip_while_token(|tok: &TestToken| {
+        matches!(tok.kind(), TestKind::Ident)
+      }))
+      .ignore_then(next_kind_parser());
+
+    let result = parser.parse(stream);
+    assert!(result.errors().next().is_some());
+    assert_eq!(result.output(), Some(&TestKind::LParen));
+  }
 }

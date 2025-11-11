@@ -7,7 +7,7 @@ use ::chumsky::{
 
 use core::ops::Range;
 
-use crate::{Lexed, LosslessToken, Tokenizer, utils};
+use crate::{Lexed, Tokenizer, TriviaToken, utils};
 
 use super::*;
 
@@ -117,7 +117,7 @@ where
 /// This trait is automatically implemented for any type that implements Chumsky's
 /// [`SliceInput`] and [`ValueInput`] traits with the appropriate associated types.
 /// It provides parser combinators for handling trivia tokens when working with
-/// [`LosslessToken`] implementations.
+/// [`TriviaToken`] implementations.
 ///
 /// # Trivia Handling
 ///
@@ -131,7 +131,7 @@ where
 ///
 /// ```rust,ignore
 /// use chumsky::prelude::*;
-/// use logosky::{LogoStream, LogoStream, LosslessToken};
+/// use logosky::{LogoStream, LogoStream, TriviaToken};
 ///
 /// type MyStream<'a> = LogoStream<'a, MyToken>;
 ///
@@ -164,7 +164,7 @@ pub trait LogoStream<'a, T: Token<'a>>:
   /// Returns a parser that skips over trivia tokens.
   ///
   /// This parser consumes all consecutive trivia tokens (as identified by
-  /// [`LosslessToken::is_trivia()`]) from the input stream and returns `()`.
+  /// [`TriviaToken::is_trivia()`]) from the input stream and returns `()`.
   /// It stops when it encounters a non-trivia token or reaches the end of input.
   ///
   /// # Use Cases
@@ -179,7 +179,7 @@ pub trait LogoStream<'a, T: Token<'a>>:
   ///
   /// # Requirements
   ///
-  /// - The token type `T` must implement [`LosslessToken`]
+  /// - The token type `T` must implement [`TriviaToken`]
   ///
   /// # Example
   ///
@@ -209,7 +209,7 @@ pub trait LogoStream<'a, T: Token<'a>>:
   where
     Self: Sized + 'a,
     E: ParserExtra<'a, Self>,
-    T: LosslessToken<'a>,
+    T: TriviaToken<'a>,
   {
     Self::collect_trivias::<(), E>()
   }
@@ -217,7 +217,7 @@ pub trait LogoStream<'a, T: Token<'a>>:
   /// Returns a parser that collects trivia tokens into a container.
   ///
   /// This parser consumes consecutive trivia tokens (as identified by
-  /// [`LosslessToken::is_trivia()`]) and collects them into a container of type `C`.
+  /// [`TriviaToken::is_trivia()`]) and collects them into a container of type `C`.
   /// It stops collecting when it encounters a non-trivia token or reaches the end of input.
   ///
   /// # Use Cases
@@ -234,7 +234,7 @@ pub trait LogoStream<'a, T: Token<'a>>:
   ///
   /// # Requirements
   ///
-  /// - The token type `T` must implement [`LosslessToken`]
+  /// - The token type `T` must implement [`TriviaToken`]
   /// - The container type `C` must implement [`Container<Spanned<T>>`](chumsky::container::Container)
   ///
   /// # Example
@@ -277,7 +277,7 @@ pub trait LogoStream<'a, T: Token<'a>>:
     Self: Sized + 'a,
     C: Container<utils::Spanned<T>> + 'a,
     E: ParserExtra<'a, Self>,
-    T: LosslessToken<'a>,
+    T: TriviaToken<'a>,
   {
     custom(|inp| {
       let mut container = C::default();

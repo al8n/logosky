@@ -1,5 +1,8 @@
 pub use source::Source;
-pub use token::{Lexed, Logos, LosslessToken, Token, TokenExt};
+pub use token::{
+  DelimiterToken, IdentifierToken, KeywordToken, Lexed, LitToken, Logos, OperatorToken,
+  PunctuatorToken, Require, Token, TokenExt, TriviaToken,
+};
 
 /// The token related structures and traits
 pub mod token;

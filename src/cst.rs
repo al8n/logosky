@@ -85,7 +85,7 @@
 //! impl<'a, I, T, Error> Parseable<'a, I, T, Error> for Expression
 //! where
 //!     I: Tokenizer<'a, T>,
-//!     T: LosslessToken<'a>,
+//!     T: TriviaToken<'a>,
 //! {
 //!     type Language = MyLanguage;
 //!
@@ -138,7 +138,7 @@
 //! # See Also
 //!
 //! - [rowan documentation](https://docs.rs/rowan) - The underlying CST library
-//! - [`LosslessToken`](crate::LosslessToken) - For handling trivia in CSTs
+//! - [`TriviaToken`](crate::TriviaToken) - For handling trivia in CSTs
 
 use core::{cell::RefCell, marker::PhantomData};
 

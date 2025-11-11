@@ -18,6 +18,8 @@ pub use unterminated::*;
 
 use generic_arraydeque::{ArrayLength, GenericArrayDeque};
 
+use crate::utils::Span;
+
 mod errors;
 
 mod hex_escape;
@@ -37,6 +39,37 @@ mod unterminated;
 
 mod invalid_hex_digits;
 mod unicode_escape;
+
+/// Helper trait for producing placeholder AST/CST nodes during error recovery.
+///
+/// When the parser cannot construct a valid node (e.g., due to a missing identifier), it can call
+/// [`ErrorNode::error`] to synthesize a sentinel value anchored at the offending span. Downstream
+/// passes can detect these sentinel nodes and skip or report them appropriately without changing
+/// the surrounding AST/CST structure.
+///
+/// ## Example
+///
+/// ```rust
+/// use logosky::{error::ErrorNode, utils::Span};
+///
+/// #[derive(Debug, Clone)]
+/// struct FunctionName(&'static str);
+///
+/// impl ErrorNode for FunctionName {
+///     fn error(_span: Span) -> Self {
+///         FunctionName("<error>")
+///     }
+/// }
+///
+/// // During recovery:
+/// let span = Span::new(5, 10);
+/// let placeholder = FunctionName::error(span);
+/// assert_eq!(placeholder.0, "<error>");
+/// ```
+pub trait ErrorNode {
+  /// Creates a placeholder node spanning the erroneous source location.
+  fn error(span: Span) -> Self;
+}
 
 /// A container of error types
 pub trait ErrorContainer<E> {

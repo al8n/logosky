@@ -329,7 +329,7 @@
 
 ## New Features
 
-- **LosslessToken trait**: Introduced `LosslessToken<'a>` trait for tokens that preserve trivia information
+- **TriviaToken trait**: Introduced `TriviaToken<'a>` trait for tokens that preserve trivia information
   - Provides `is_trivia()` method to identify whitespace, comments, and other non-semantic tokens
   - Enables building parsers that can preserve formatting and comments (important for formatters, linters, and language servers)
 
@@ -343,10 +343,10 @@
 
 ## Examples
 
-### Using LosslessToken for trivia-aware parsing
+### Using TriviaToken for trivia-aware parsing
 
 ```rust
-use logosky::{Token, LosslessToken};
+use logosky::{Token, TriviaToken};
 
 #[derive(Debug, Clone, PartialEq)]
 struct MyToken {
@@ -363,7 +363,7 @@ impl Token<'_> for MyToken {
   }
 }
 
-impl LosslessToken<'_> for MyToken {
+impl TriviaToken<'_> for MyToken {
   fn is_trivia(&self) -> bool {
     matches!(self.kind, MyTokenKind::Whitespace | MyTokenKind::Comment)
   }
