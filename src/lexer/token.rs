@@ -1,7 +1,7 @@
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
-use logos::Lexer;
+use logos::{Lexer, Source};
 
-use crate::utils::{Span, Spanned};
+use crate::utils::{Span, Spanned, cmp::Equivalent};
 
 #[cfg(feature = "chumsky")]
 use crate::Tokenizer;
@@ -882,7 +882,8 @@ pub trait PunctuatorToken<'a>: Token<'a> {
 ///
 /// - Numbers: `is_integer_literal`, `is_float_literal`, `is_decimal_literal`, `is_hex_literal`,
 ///   `is_octal_literal`, `is_binary_literal`, `is_hex_float_literal`
-/// - Textual: `is_string_literal`, `is_raw_string_literal`, `is_char_literal`
+/// - Textual: `is_string_literal`, `is_inline_string_literal`, `is_multiline_string_literal`,
+///   `is_raw_string_literal`, `is_char_literal`
 /// - Byte-oriented: `is_byte_literal`, `is_byte_string_literal`
 /// - Semantic markers: `is_boolean_literal`, `is_true_literal`, `is_false_literal`, `is_null_literal`
 ///
@@ -1027,6 +1028,18 @@ pub trait LitToken<'a>: Token<'a> {
   /// Returns `true` when the token is any string literal (quoted text).
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_string_literal(&self) -> bool {
+    self.is_inline_string_literal() || self.is_multiline_string_literal()
+  }
+
+  /// Returns `true` when the token is a single-line/inline string literal.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_inline_string_literal(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` when the token is a multi-line string literal.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_multiline_string_literal(&self) -> bool {
     false
   }
 
@@ -1098,9 +1111,9 @@ pub trait LitToken<'a>: Token<'a> {
 /// use logos::Logos;
 ///
 /// #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
-/// enum MyTokens {
+/// enum MyTokens<'a> {
 ///     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*")]
-///     Identifier,
+///     Identifier(&'a str),
 ///     #[token("if")]
 ///     If,
 ///     #[token("else")]
@@ -1115,45 +1128,47 @@ pub trait LitToken<'a>: Token<'a> {
 /// }
 ///
 /// #[derive(Debug, Clone, PartialEq)]
-/// struct MyToken {
-///     kind: MyTokenKind,
+/// enum MyToken<'a> {
+///     Identifier(&'a str),
+///     If,
+///     Else,
 /// }
 ///
-/// impl Token<'_> for MyToken {
+/// impl<'a> Token<'a> for MyToken<'a> {
 ///     type Char = char;
 ///     type Kind = MyTokenKind;
-///     type Logos = MyTokens;
+///     type Logos = MyTokens<'a>;
 ///
 ///     fn kind(&self) -> Self::Kind {
-///         self.kind
+///         match self {
+///            MyToken::Identifier(_) => MyTokenKind::Identifier,
+///            MyToken::If => MyTokenKind::KeywordIf,
+///            MyToken::Else => MyTokenKind::KeywordElse,
+///         }
 ///     }
 /// }
 ///
-/// impl From<MyTokens> for MyToken {
-///     fn from(logos: MyTokens) -> Self {
-///         let kind = match logos {
-///             MyTokens::Identifier => MyTokenKind::Identifier,
-///             MyTokens::If => MyTokenKind::KeywordIf,
-///             MyTokens::Else => MyTokenKind::KeywordElse,
-///         };
-///         Self { kind }
+/// impl<'a> From<MyTokens<'a>> for MyToken<'a> {
+///     fn from(logos: MyTokens<'a>) -> Self {
+///         match logos {
+///             MyTokens::Identifier(s) => MyToken::Identifier(s),
+///             MyTokens::If => MyToken::If,
+///             MyTokens::Else => MyToken::Else,
+///         }
 ///     }
 /// }
 ///
-/// impl IdentToken<'_> for MyToken {
-///     fn is_identifier(&self) -> bool {
-///         matches!(self.kind, MyTokenKind::Identifier)
+/// impl<'a> IdentToken<'a> for MyToken<'a> {
+///     fn identifier(&self) -> Option<&'a str> {
+///         if let MyToken::Identifier(name) = self {
+///             Some(name)
+///         } else {
+///             None
+///         }
 ///     }
 ///
-///     fn is_keyword(&self) -> bool {
-///         matches!(
-///             self.kind,
-///             MyTokenKind::KeywordIf | MyTokenKind::KeywordElse
-///         )
-///     }
-///
-///     fn keyword_name(&self) -> Option<&'static str> {
-///         match self.kind {
+///     fn keyword(&self) -> Option<&'static str> {
+///         match self.kind() {
 ///             MyTokenKind::KeywordIf => Some("if"),
 ///             MyTokenKind::KeywordElse => Some("else"),
 ///             _ => None,
@@ -1165,26 +1180,43 @@ pub trait IdentToken<'a>: Token<'a> {
   /// Returns `true` when the token is an identifier (user-defined name).
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_identifier(&self) -> bool {
-    false
+    self.identifier().is_some()
+  }
+
+  /// Returns `true` when the identifier matches the given name.
+  ///
+  /// The default implementation defers to [`identifier`](IdentToken::identifier).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn matches_identifier(&self, name: &str) -> bool
+  where
+    str: Equivalent<<<Self::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+  {
+    self.identifier().is_some_and(|id| name.equivalent(&id))
+  }
+
+  /// Returns the identifier source, if this token is an identifier.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn identifier(&self) -> Option<<<Self::Logos as Logos<'a>>::Source as Source>::Slice<'a>> {
+    None
   }
 
   /// Returns `true` when the token is any reserved keyword.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_keyword(&self) -> bool {
-    false
+    self.keyword().is_some()
   }
 
   /// Returns `true` when the token matches the given keyword text.
   ///
-  /// The default implementation defers to [`keyword_name`](IdentToken::keyword_name).
+  /// The default implementation defers to [`keyword`](IdentToken::keyword).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_keyword_named(&self, keyword: &str) -> bool {
-    self.keyword_name() == Some(keyword)
+  fn matches_keyword(&self, keyword: &str) -> bool {
+    self.keyword() == Some(keyword)
   }
 
   /// Returns the canonical spelling of the keyword, if this token represents one.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn keyword_name(&self) -> Option<&'static str> {
+  fn keyword(&self) -> Option<&'static str> {
     None
   }
 }
@@ -1208,7 +1240,7 @@ pub trait IdentToken<'a>: Token<'a> {
 /// - Arithmetic: `is_math_operator`, `is_plus_operator`, `is_minus_operator`, `is_increment`, etc.
 /// - Assignment: `is_assignment_operator`, `is_simple_assignment`, `is_add_assign`, `is_shl_assign`, etc.
 /// - Logical: `is_logical_operator`, `is_logical_and`, `is_logical_or`, `is_logical_xor`, `is_logical_not`
-/// - Comparison: `is_comparison_operator`, `is_eq`, `is_ne`, `is_le`, etc.
+/// - Comparison: `is_comparison_operator`, `is_eq`, `is_strict_eq`, `is_ne`, `is_strict_ne`, `is_le`, etc.
 /// - Shift / bitwise: `is_shift_operator`, `is_shl`, `is_shr`, plus bitwise forms
 /// - Miscellaneous: `is_power_operator`, `is_arrow_operator`, `is_fat_arrow_operator`, `is_pipe_forward_operator`,
 ///   `is_backslash_operator`
@@ -1305,7 +1337,14 @@ pub trait OperatorToken<'a>: Token<'a> {
   /// Returns `true` when the token is any comparison operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_comparison_operator(&self) -> bool {
-    self.is_eq() || self.is_ne() || self.is_le() || self.is_le() || self.is_gt() || self.is_ge()
+    self.is_eq()
+      || self.is_strict_eq()
+      || self.is_ne()
+      || self.is_strict_ne()
+      || self.is_lt()
+      || self.is_le()
+      || self.is_gt()
+      || self.is_ge()
   }
 
   /// Returns `true` when the token is any logical operator (`&&`, `||`, `!`, `^^`).
@@ -1494,9 +1533,21 @@ pub trait OperatorToken<'a>: Token<'a> {
     false
   }
 
+  /// Returns `true` for strict equality operators (e.g., `===`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_strict_eq(&self) -> bool {
+    false
+  }
+
   /// Returns `true` for inequality operators such as `!=` or `<>`.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ne(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for strict inequality operators (e.g., `!==`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_strict_ne(&self) -> bool {
     false
   }
 
