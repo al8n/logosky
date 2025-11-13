@@ -203,7 +203,7 @@ where
     + 'a,
   E: crate::__private::chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
 {
-  crate::__private::chumsky::expected_token(
+  crate::__private::chumsky::token::expected_token(
     <T as crate::__private::OperatorToken<'a>>::is_mod,
     move || crate::__private::utils::Expected::One(expected()),
   )

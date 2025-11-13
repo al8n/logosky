@@ -64,7 +64,7 @@ macro_rules! builtin_expected_token_parser {
           Error: ::core::convert::From<<T::Logos as $crate::__private::logos::Logos<'a>>::Error> + ::core::convert::From<$crate::__private::error::UnexpectedEot> + ::core::convert::From<$crate::__private::error::UnexpectedToken<'e, T, K>> + 'a,
           E: $crate::__private::chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
         {
-          $crate::__private::chumsky::expected_token(
+          $crate::__private::chumsky::token::expected_token(
             <T as $crate::__private::$trait<'a>>::[< is_ $name >],
             move || $crate::__private::utils::Expected::One(expected()),
           )
