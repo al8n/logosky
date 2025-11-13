@@ -840,7 +840,9 @@ where
       if Equivalent::equivalent(raw, &t.data) {
         Ok(Spanned::new(span, t.data))
       } else {
-        Err(<Error as core::convert::From<_>>::from(UnexpectedKeyword::expected_one(span, t.data, raw)))
+        Err(<Error as core::convert::From<_>>::from(
+          UnexpectedKeyword::expected_one(span, t.data, raw),
+        ))
       }
     }
     Lexed::Error(e) => Err(<Error as core::convert::From<_>>::from(e)),
