@@ -1426,7 +1426,7 @@ pub trait KeywordToken<'a>: Token<'a> {
 /// }
 ///
 /// impl OperatorToken<'_> for MyToken {
-///     fn is_plus(&self) -> bool {
+///     fn is_add(&self) -> bool {
 ///         matches!(self.kind, MyTokenKind::Plus)
 ///     }
 ///
