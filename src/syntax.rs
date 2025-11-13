@@ -17,7 +17,7 @@
 //!
 //! ```rust
 //! # {
-//! use logosky::{utils::{syntax::Syntax, typenum::U3, Span, GenericArrayDeque}, error::IncompleteSyntax};
+//! use logosky::{utils::{typenum::{self, U3}, GenericArrayDeque, Span}, syntax::Syntax, error::IncompleteSyntax};
 //! use core::fmt;
 //!
 //! #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -97,7 +97,7 @@ use core::{
 ///
 /// ```rust
 /// # {
-/// use logosky::utils::{syntax::Syntax, typenum, GenericArrayDeque};
+/// use logosky::{utils::{typenum, GenericArrayDeque}, syntax::Syntax};
 /// use typenum::U5;
 /// use core::fmt;
 ///
@@ -309,7 +309,7 @@ pub trait Syntax {
 ///
 /// ```rust
 /// # {
-/// use logosky::{utils::{syntax::{Syntax, AstNode}, GenericArrayDeque, typenum::U2, Span}, error::IncompleteSyntax};
+/// use logosky::{utils::{GenericArrayDeque, typenum::U2, Span}, syntax::{Syntax, AstNode}, error::IncompleteSyntax};
 /// use core::fmt;
 ///
 /// // Define a language
@@ -382,7 +382,7 @@ pub trait Syntax {
 /// ```rust,ignore
 /// use logosky::{
 ///     chumsky::{Parser, extra::ParserExtra},
-///     utils::syntax::AstNode,
+///     syntax::AstNode,
 ///     error::IncompleteSyntax,
 /// };
 ///
@@ -473,4 +473,37 @@ pub trait AstNode<Lang> {
   /// }
   /// ```
   type Syntax: Syntax<Lang = Lang>;
+}
+
+/// Marker trait tying a language to its syntax kinds.
+///
+/// The `Language` trait connects your parser/AST to the concrete set of syntax kinds
+/// (tokens, node tags, etc.) that belong to a language. Implement it once per language or
+/// dialect so generic parsing infrastructure can stay agnostic of the actual enum.
+///
+/// ## Example
+///
+/// ```rust,ignore
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// pub enum MySyntaxKind {
+///     Identifier,
+///     Number,
+///     // ...
+/// }
+///
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// pub struct MyLanguage;
+///
+/// impl Language for MyLanguage {
+///     type SyntaxKind = MySyntaxKind;
+/// }
+/// ```
+pub trait Language: Sized + Copy + core::fmt::Debug + Eq + Ord + core::hash::Hash {
+  /// The syntax kind enum associated with this language.
+  type SyntaxKind: Sized + Copy + core::fmt::Debug + Eq + Ord + core::hash::Hash;
+}
+
+#[cfg(feature = "rowan")]
+impl<T: rowan::Language> Language for T {
+  type SyntaxKind = T::Kind;
 }

@@ -21,6 +21,9 @@ mod lexer;
 #[cfg_attr(docsrs, doc(cfg(feature = "rowan")))]
 pub mod cst;
 
+/// Syntax definitions and traits.
+pub mod syntax;
+
 /// Common utilities for working with tokens and lexers.
 pub mod utils;
 
@@ -41,7 +44,7 @@ mod punct;
 
 #[doc(hidden)]
 pub mod __private {
-  pub use super::{error, lexer::*, utils};
+  pub use super::{error, lexer::*, syntax, utils};
   pub use paste;
 
   #[cfg(feature = "chumsky")]

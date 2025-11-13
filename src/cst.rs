@@ -145,7 +145,7 @@ use core::{cell::RefCell, marker::PhantomData};
 use derive_more::{From, Into};
 use rowan::{GreenNodeBuilder, Language, SyntaxNode, SyntaxToken};
 
-use crate::utils::syntax::Syntax;
+use crate::syntax::Syntax;
 
 /// A builder for constructing concrete syntax trees.
 ///
