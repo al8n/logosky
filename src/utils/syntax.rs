@@ -474,3 +474,36 @@ pub trait AstNode<Lang> {
   /// ```
   type Syntax: Syntax<Lang = Lang>;
 }
+
+/// Marker trait tying a language to its syntax kinds.
+///
+/// The `Language` trait connects your parser/AST to the concrete set of syntax kinds
+/// (tokens, node tags, etc.) that belong to a language. Implement it once per language or
+/// dialect so generic parsing infrastructure can stay agnostic of the actual enum.
+///
+/// ## Example
+///
+/// ```rust,ignore
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// pub enum MySyntaxKind {
+///     Identifier,
+///     Number,
+///     // ...
+/// }
+///
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// pub struct MyLanguage;
+///
+/// impl Language for MyLanguage {
+///     type SyntaxKind = MySyntaxKind;
+/// }
+/// ```
+pub trait Language: Sized + Copy + core::fmt::Debug + Eq + Ord + core::hash::Hash {
+  /// The syntax kind enum associated with this language.
+  type SyntaxKind: Sized + Copy + core::fmt::Debug + Eq + Ord + core::hash::Hash;
+}
+
+#[cfg(feature = "rowan")]
+impl<T: rowan::Language> Language for T {
+  type SyntaxKind = T::Kind;
+}
