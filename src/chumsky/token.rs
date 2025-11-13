@@ -1,13 +1,17 @@
 use super::*;
 
-/// Identifier parsers
-pub mod ident;
-/// Lit token parsers
-pub mod lit;
+pub use ident::*;
+pub use lit::*;
+
 /// Operator parsers
 pub mod operator;
 /// Puncatuator parsers
 pub mod punct;
+
+/// Identifier parsers
+mod ident;
+/// Lit token parsers
+mod lit;
 
 mod macros;
 
