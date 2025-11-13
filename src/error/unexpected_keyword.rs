@@ -63,7 +63,7 @@ use crate::utils::{Expected, Span};
 /// );
 /// assert_eq!(error.found(), &"return");
 /// assert_eq!(error.span(), Span::new(10, 16));
-/// assert_eq!(format!("{}", error), "unexpected keyword 'return', expected 'fn'");
+/// assert_eq!(format!("{}", error), "unexpected 'return', expected 'fn' keyword");
 ///
 /// // Error when expecting one of multiple keywords
 /// let error = UnexpectedKeyword::expected_one_of(
@@ -73,7 +73,7 @@ use crate::utils::{Expected, Span};
 /// );
 /// assert_eq!(
 ///     format!("{}", error),
-///     "unexpected keyword 'class', expected one of: 'struct', 'enum', 'trait'"
+///     "unexpected 'class', expected one of: 'struct', 'enum', 'trait' keywords"
 /// );
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -101,7 +101,7 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
   /// );
   /// assert_eq!(error.found(), &"let");
   /// assert_eq!(error.span(), Span::new(5, 8));
-  /// assert_eq!(format!("{}", error), "unexpected keyword 'let', expected 'const'");
+  /// assert_eq!(format!("{}", error), "unexpected 'let', expected 'const' keyword");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new(span: Span, found: S, expected: Expected<'a, &'a str>) -> Self {
@@ -127,7 +127,7 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
   ///     "let"
   /// );
   /// assert_eq!(error.found(), &"var");
-  /// assert_eq!(format!("{}", error), "unexpected keyword 'var', expected 'let'");
+  /// assert_eq!(format!("{}", error), "unexpected 'var', expected 'let' keyword");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn expected_one(span: Span, found: S, expected: &'a str) -> Self {
@@ -151,7 +151,7 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
   /// assert_eq!(error.found(), &"function");
   /// assert_eq!(
   ///     format!("{}", error),
-  ///     "unexpected keyword 'function', expected one of: 'fn', 'async', 'const'"
+  ///     "unexpected 'function', expected one of: 'fn', 'async', 'const' keywords"
   /// );
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -246,7 +246,25 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
 impl<S: core::fmt::Display> core::fmt::Display for UnexpectedKeyword<'_, S> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    write!(f, "unexpected keyword '{}', {}", self.found, self.expected)
+    match self.expected {
+      Expected::One(expected) => {
+        write!(
+          f,
+          "unexpected '{}', expected '{}' keyword",
+          self.found, expected
+        )
+      }
+      Expected::OneOf(expected) => {
+        write!(f, "unexpected '{}', expected one of: ", self.found)?;
+        for (i, kw) in expected.iter().enumerate() {
+          if i > 0 {
+            write!(f, ", ")?;
+          }
+          write!(f, "'{}'", kw)?;
+        }
+        write!(f, " keywords")
+      }
+    }
   }
 }
 

@@ -1,6 +1,10 @@
 pub use chumsky::*;
 pub use tokenier::LogoStream;
 
+/// Identifier parsers
+pub mod ident;
+/// Lit token parsers
+pub mod lit;
 /// Operator parsers
 pub mod operator;
 /// Puncatuator parsers
@@ -16,7 +20,7 @@ use super::{Token, utils::Spanned};
 use crate::{
   KeywordToken, Lexed, Logos, Source,
   chumsky::{extra::ParserExtra, prelude::*},
-  error::UnexpectedToken,
+  error::{UnexpectedKeyword, UnexpectedToken},
   utils::{Expected, cmp::Equivalent},
 };
 
@@ -821,22 +825,26 @@ const _: () = {
 ///
 /// let parser = keyword("if", || SyntaxKind::if_KW);
 /// ```
-pub fn keyword<'a, 'e: 'a, I, T, K, Error, E>(
-  raw: &'a str,
-  expected: impl Fn() -> K + Clone + 'a,
+pub fn keyword<'a, 'e: 'a, I, T, Error, E>(
+  raw: &'e str,
 ) -> impl Parser<'a, I, Spanned<T>, E> + Clone
 where
   I: LogoStream<'a, T>,
   T: KeywordToken<'a>,
   str: Equivalent<T>,
-  K: 'e,
-  Error: From<<T::Logos as Logos<'a>>::Error> + From<UnexpectedToken<'e, T, K>> + 'a,
+  Error: From<<T::Logos as Logos<'a>>::Error> + From<UnexpectedKeyword<'e, T>> + 'a,
   E: ParserExtra<'a, I, Error = Error> + 'a,
 {
-  expected_token(
-    |t| Equivalent::equivalent(raw, t),
-    move || Expected::one(expected()),
-  )
+  any().try_map(move |lexed: Lexed<'_, T>, span| match lexed {
+    Lexed::Token(t) => {
+      if Equivalent::equivalent(raw, &t.data) {
+        Ok(Spanned::new(span, t.data))
+      } else {
+        Err(<Error as core::convert::From<_>>::from(UnexpectedKeyword::expected_one(span, t.data, raw)))
+      }
+    }
+    Lexed::Error(e) => Err(<Error as core::convert::From<_>>::from(e)),
+  })
 }
 
 /// Returns a parser that matches a token satisfying a predicate.
