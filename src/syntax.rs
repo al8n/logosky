@@ -17,7 +17,7 @@
 //!
 //! ```rust
 //! # {
-//! use logosky::{utils::{syntax::Syntax, typenum::U3, Span, GenericArrayDeque}, error::IncompleteSyntax};
+//! use logosky::{utils::{typenum::{self, U3}, GenericArrayDeque, Span}, syntax::Syntax, error::IncompleteSyntax};
 //! use core::fmt;
 //!
 //! #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -97,7 +97,7 @@ use core::{
 ///
 /// ```rust
 /// # {
-/// use logosky::utils::{syntax::Syntax, typenum, GenericArrayDeque};
+/// use logosky::{utils::{typenum, GenericArrayDeque}, syntax::Syntax};
 /// use typenum::U5;
 /// use core::fmt;
 ///
@@ -309,7 +309,7 @@ pub trait Syntax {
 ///
 /// ```rust
 /// # {
-/// use logosky::{utils::{syntax::{Syntax, AstNode}, GenericArrayDeque, typenum::U2, Span}, error::IncompleteSyntax};
+/// use logosky::{utils::{GenericArrayDeque, typenum::U2, Span}, syntax::{Syntax, AstNode}, error::IncompleteSyntax};
 /// use core::fmt;
 ///
 /// // Define a language
@@ -382,7 +382,7 @@ pub trait Syntax {
 /// ```rust,ignore
 /// use logosky::{
 ///     chumsky::{Parser, extra::ParserExtra},
-///     utils::syntax::AstNode,
+///     syntax::AstNode,
 ///     error::IncompleteSyntax,
 /// };
 ///

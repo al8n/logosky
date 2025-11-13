@@ -29,7 +29,8 @@
 //! ```rust
 //! # {
 //! use logosky::{
-//!     utils::{syntax::Syntax, typenum::U3, GenericArrayDeque},
+//!     utils::{typenum::U3, GenericArrayDeque},
+//!     syntax::Syntax,
 //!     error::IncompleteSyntax
 //! };
 //! use core::fmt;
@@ -89,7 +90,7 @@
 //! # }
 //! ```
 
-use crate::utils::{Span, syntax::Syntax};
+use crate::{syntax::Syntax, utils::Span};
 use generic_arraydeque::{GenericArrayDeque, typenum::Unsigned};
 
 use core::{
@@ -115,7 +116,7 @@ use core::{
 ///
 /// ```rust
 /// # {
-/// use logosky::{utils::{typenum, syntax::Syntax, GenericArrayDeque}, error::IncompleteSyntax};
+/// use logosky::{utils::{typenum, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
 /// use typenum::U3;
 /// use core::fmt;
 ///
@@ -184,7 +185,7 @@ use core::{
 ///
 /// ```rust
 /// # {
-/// # use logosky::{utils::{typenum, syntax::Syntax, GenericArrayDeque}, error::IncompleteSyntax};
+/// # use logosky::{utils::{typenum, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
 /// # use typenum::U2;
 /// # use core::fmt;
 /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -285,7 +286,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax, Span, GenericArrayDeque}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, Span, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
   /// # use typenum::U1;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -335,7 +336,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax, Span, GenericArrayDeque}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, Span, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
   /// # use typenum::U2;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -405,7 +406,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax, GenericArrayDeque}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
   /// # use typenum::U2;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -452,7 +453,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax, GenericArrayDeque}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
   /// # use typenum::U3;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -494,7 +495,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax, GenericArrayDeque}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
   /// # use typenum::U2;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -547,7 +548,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax, GenericArrayDeque}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
   /// # use typenum::U2;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -600,7 +601,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax, GenericArrayDeque}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
   /// # use typenum::U2;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -643,7 +644,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax, GenericArrayDeque}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
   /// # use typenum::U2;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -688,7 +689,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax, GenericArrayDeque}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
   /// # use typenum::U2;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -733,7 +734,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax, Span, GenericArrayDeque}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, Span, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
   /// # use typenum::U2;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -776,7 +777,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax, Span, GenericArrayDeque}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, Span, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
   /// # use typenum::U1;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -830,7 +831,7 @@ where
   ///
   /// ```rust
   /// # {
-  /// # use logosky::{utils::{typenum, syntax::Syntax, Span, GenericArrayDeque}, error::IncompleteSyntax};
+  /// # use logosky::{utils::{typenum, Span, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
   /// # use typenum::U1;
   /// # use core::fmt;
   /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
