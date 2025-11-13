@@ -8,6 +8,9 @@ pub mod operator;
 /// Puncatuator parsers
 pub mod punct;
 
+/// Parsers for handling error recovery
+pub mod recovery;
+
 /// Identifier parsers
 mod ident;
 /// Lit token parsers
