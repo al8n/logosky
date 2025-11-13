@@ -1,30 +1,30 @@
-//! Unexpected keyword error type for keyword-based parser error reporting.
+//! Unexpected identifier error type for identifier-based parser error reporting.
 //!
-//! This module provides the [`UnexpectedKeyword`] type, which is a specialized error type
-//! for keyword-based parsing where the expected values are always static string literals.
+//! This module provides the [`UnexpectedIdentifier`] type, which is a specialized error type
+//! for identifier-based parsing where the expected values are always static string literals.
 //!
-//! # Why UnexpectedKeyword?
+//! # Why UnexpectedIdentifier?
 //!
-//! While [`UnexpectedToken`](super::UnexpectedToken) is general-purpose, `UnexpectedKeyword`
-//! is optimized for the common case of keyword-based languages where:
+//! While [`UnexpectedToken`](super::UnexpectedToken) is general-purpose, `UnexpectedIdentifier`
+//! is optimized for the common case of identifier-based languages where:
 //! - The found value is always a string (or string-like type)
-//! - The expected values are always known string literals (keyword)
+//! - The expected values are always known string literals (identifier)
 //! - There's always a found value (unlike tokens which might hit end-of-input)
 //!
 //! # Common Use Cases
 //!
-//! - Language keyword: `if`, `while`, `for`, `class`, `fn`, etc.
-//! - Control flow keyword: `break`, `continue`, `return`
-//! - Declaration keyword: `let`, `const`, `var`, `type`
+//! - Language identifier: `if`, `while`, `for`, `class`, `fn`, etc.
+//! - Control flow identifier: `break`, `continue`, `return`
+//! - Declaration identifier: `let`, `const`, `var`, `type`
 //! - Access modifiers: `pub`, `private`, `protected`
 //!
 //! # Example
 //!
 //! ```
-//! use logosky::{utils::Span, error::UnexpectedKeyword};
+//! use logosky::{utils::Span, error::UnexpectedIdentifier};
 //!
 //! // Parser expected "async" but found "sync"
-//! let error = UnexpectedKeyword::expected_one(
+//! let error = UnexpectedIdentifier::expected_one(
 //!     Span::new(0, 4),
 //!     "sync",
 //!     "async"
@@ -34,74 +34,74 @@
 //! assert_eq!(error.span(), Span::new(0, 4));
 //! assert_eq!(
 //!     format!("{}", error),
-//!     "unexpected 'sync', expected 'async' keyword"
+//!     "unexpected 'sync', expected 'async' identifier"
 //! );
 //! ```
 
 use crate::utils::{Expected, Span};
 
-/// An error representing an unexpected keyword encountered during parsing.
+/// An error representing an unexpected identifier encountered during parsing.
 ///
-/// This error type is specifically designed for keyword-based parsing where the
-/// expected values are known string literals (keyword). Unlike `UnexpectedToken`,
+/// This error type is specifically designed for identifier-based parsing where the
+/// expected values are known string literals (identifier). Unlike `UnexpectedToken`,
 /// this type always has a found value and the expected values are always static strings.
 ///
 /// # Type Parameters
 ///
-/// * `S` - The type representing the found keyword (often `String` or `&str`)
+/// * `S` - The type representing the found identifier (often `String` or `&str`)
 ///
 /// # Examples
 ///
 /// ```
-/// use logosky::{utils::{Expected, Span}, error::UnexpectedKeyword};
+/// use logosky::{utils::{Expected, Span}, error::UnexpectedIdentifier};
 ///
-/// // Error when expecting a specific keyword
-/// let error = UnexpectedKeyword::expected_one(
+/// // Error when expecting a specific identifier
+/// let error = UnexpectedIdentifier::expected_one(
 ///     Span::new(10, 16),
 ///     "return",
 ///     "fn"
 /// );
 /// assert_eq!(error.found(), &"return");
 /// assert_eq!(error.span(), Span::new(10, 16));
-/// assert_eq!(format!("{}", error), "unexpected 'return', expected 'fn' keyword");
+/// assert_eq!(format!("{}", error), "unexpected 'return', expected 'fn' identifier");
 ///
-/// // Error when expecting one of multiple keyword
-/// let error = UnexpectedKeyword::expected_one_of(
+/// // Error when expecting one of multiple identifier
+/// let error = UnexpectedIdentifier::expected_one_of(
 ///     Span::new(0, 5),
 ///     "class",
 ///     &["struct", "enum", "trait"]
 /// );
 /// assert_eq!(
 ///     format!("{}", error),
-///     "unexpected 'class', expected one of: 'struct', 'enum', 'trait' keyword"
+///     "unexpected 'class', expected one of: 'struct', 'enum', 'trait' identifier"
 /// );
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct UnexpectedKeyword<'a, S> {
+pub struct UnexpectedIdentifier<'a, S> {
   span: Span,
   found: S,
   expected: Expected<'a, &'a str>,
 }
 
-impl<'a, S> UnexpectedKeyword<'a, S> {
-  /// Creates a new unexpected keyword error.
+impl<'a, S> UnexpectedIdentifier<'a, S> {
+  /// Creates a new unexpected identifier error.
   ///
-  /// This is the most general constructor that accepts the span, the found keyword,
-  /// and the expected keyword(s) wrapped in an `Expected` enum.
+  /// This is the most general constructor that accepts the span, the found identifier,
+  /// and the expected identifier(s) wrapped in an `Expected` enum.
   ///
   /// # Examples
   ///
   /// ```
-  /// use logosky::{utils::{Expected, Span}, error::UnexpectedKeyword};
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedIdentifier};
   ///
-  /// let error = UnexpectedKeyword::new(
+  /// let error = UnexpectedIdentifier::new(
   ///     Span::new(5, 8),
   ///     "let",
   ///     Expected::one("const")
   /// );
   /// assert_eq!(error.found(), &"let");
   /// assert_eq!(error.span(), Span::new(5, 8));
-  /// assert_eq!(format!("{}", error), "unexpected 'let', expected 'const' keyword");
+  /// assert_eq!(format!("{}", error), "unexpected 'let', expected 'const' identifier");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new(span: Span, found: S, expected: Expected<'a, &'a str>) -> Self {
@@ -112,38 +112,38 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
     }
   }
 
-  /// Creates a new unexpected keyword error with a single expected keyword.
+  /// Creates a new unexpected identifier error with a single expected identifier.
   ///
   /// This is a convenience method that combines `new` with `Expected::one`.
   ///
   /// # Examples
   ///
   /// ```
-  /// use logosky::{utils::Span, error::UnexpectedKeyword};
+  /// use logosky::{utils::Span, error::UnexpectedIdentifier};
   ///
-  /// let error = UnexpectedKeyword::expected_one(
+  /// let error = UnexpectedIdentifier::expected_one(
   ///     Span::new(0, 3),
   ///     "var",
   ///     "let"
   /// );
   /// assert_eq!(error.found(), &"var");
-  /// assert_eq!(format!("{}", error), "unexpected 'var', expected 'let' keyword");
+  /// assert_eq!(format!("{}", error), "unexpected 'var', expected 'let' identifier");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn expected_one(span: Span, found: S, expected: &'a str) -> Self {
     Self::new(span, found, Expected::one(expected))
   }
 
-  /// Creates a new unexpected keywords error with multiple expected keyword.
+  /// Creates a new unexpected identifier error with multiple expected identifier.
   ///
   /// This is a convenience method that combines `new` with `Expected::one_of`.
   ///
   /// # Examples
   ///
   /// ```
-  /// use logosky::{utils::Span, error::UnexpectedKeyword};
+  /// use logosky::{utils::Span, error::UnexpectedIdentifier};
   ///
-  /// let error = UnexpectedKeyword::expected_one_of(
+  /// let error = UnexpectedIdentifier::expected_one_of(
   ///     Span::new(10, 18),
   ///     "function",
   ///     &["fn", "async", "const"]
@@ -151,7 +151,7 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
   /// assert_eq!(error.found(), &"function");
   /// assert_eq!(
   ///     format!("{}", error),
-  ///     "unexpected 'function', expected one of: 'fn', 'async', 'const' keyword"
+  ///     "unexpected 'function', expected one of: 'fn', 'async', 'const' identifier"
   /// );
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -159,14 +159,14 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
     Self::new(span, found, Expected::one_of(expected))
   }
 
-  /// Returns the span of the unexpected keyword.
+  /// Returns the span of the unexpected identifier.
   ///
   /// # Examples
   ///
   /// ```
-  /// use logosky::{utils::Span, error::UnexpectedKeyword};
+  /// use logosky::{utils::Span, error::UnexpectedIdentifier};
   ///
-  /// let error = UnexpectedKeyword::expected_one(
+  /// let error = UnexpectedIdentifier::expected_one(
   ///     Span::new(20, 26),
   ///     "import",
   ///     "use"
@@ -178,14 +178,14 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
     self.span
   }
 
-  /// Returns a reference to the found keyword.
+  /// Returns a reference to the found identifier.
   ///
   /// # Examples
   ///
   /// ```
-  /// use logosky::{utils::Span, error::UnexpectedKeyword};
+  /// use logosky::{utils::Span, error::UnexpectedIdentifier};
   ///
-  /// let error = UnexpectedKeyword::expected_one(
+  /// let error = UnexpectedIdentifier::expected_one(
   ///     Span::new(0, 6),
   ///     "import",
   ///     "use"
@@ -197,21 +197,21 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
     &self.found
   }
 
-  /// Returns the expected keyword(s).
+  /// Returns the expected identifier(s).
   ///
   /// # Examples
   ///
   /// ```
-  /// use logosky::{utils::{Expected, Span}, error::UnexpectedKeyword};
+  /// use logosky::{utils::{Expected, Span}, error::UnexpectedIdentifier};
   ///
-  /// let error = UnexpectedKeyword::expected_one(
+  /// let error = UnexpectedIdentifier::expected_one(
   ///     Span::new(5, 11),
   ///     "export",
   ///     "pub"
   /// );
   /// assert_eq!(error.expected(), Expected::one("pub"));
-  /// if let Expected::One(keyword) = error.expected() {
-  ///     assert_eq!(keyword, "pub");
+  /// if let Expected::One(identifier) = error.expected() {
+  ///     assert_eq!(identifier, "pub");
   /// }
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -227,9 +227,9 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
   /// # Examples
   ///
   /// ```
-  /// use logosky::{utils::Span, error::UnexpectedKeyword};
+  /// use logosky::{utils::Span, error::UnexpectedIdentifier};
   ///
-  /// let mut error = UnexpectedKeyword::expected_one(
+  /// let mut error = UnexpectedIdentifier::expected_one(
   ///     Span::new(10, 13),
   ///     "var",
   ///     "let"
@@ -243,14 +243,14 @@ impl<'a, S> UnexpectedKeyword<'a, S> {
   }
 }
 
-impl<S: core::fmt::Display> core::fmt::Display for UnexpectedKeyword<'_, S> {
+impl<S: core::fmt::Display> core::fmt::Display for UnexpectedIdentifier<'_, S> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self.expected {
       Expected::One(expected) => {
         write!(
           f,
-          "unexpected '{}', expected '{}' keyword",
+          "unexpected '{}', expected '{}' identifier",
           self.found, expected
         )
       }
@@ -262,10 +262,10 @@ impl<S: core::fmt::Display> core::fmt::Display for UnexpectedKeyword<'_, S> {
           }
           write!(f, "'{}'", kw)?;
         }
-        write!(f, " keyword")
+        write!(f, " identifier")
       }
     }
   }
 }
 
-impl<S: core::fmt::Debug + core::fmt::Display> core::error::Error for UnexpectedKeyword<'_, S> {}
+impl<S: core::fmt::Debug + core::fmt::Display> core::error::Error for UnexpectedIdentifier<'_, S> {}

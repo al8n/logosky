@@ -1349,7 +1349,7 @@ pub trait KeywordToken<'a>: Token<'a> {
 ///
 /// # Usage
 ///
-/// - Aggregation helpers (`is_operator`, `is_math_operator`, `is_assignment_operator`, etc.) combine
+/// - Aggregation helpers (`is`, `is_math`, `is_assignment`, etc.) combine
 ///   the more granular predicates.
 /// - Every predicate **returns `false` by default**; override only what your language emits.
 /// - Consider implementing these methods alongside [`PunctuatorToken`] so punctuation and operator
@@ -1357,14 +1357,14 @@ pub trait KeywordToken<'a>: Token<'a> {
 ///
 /// # Covered Operator Families
 ///
-/// - Arithmetic: `is_math_operator`, `is_plus_operator`, `is_minus_operator`, `is_increment`, etc.
-/// - Assignment: `is_assignment_operator`, `is_simple_assignment`, `is_colon_assign`,
+/// - Arithmetic: `is_math`, `is_plus`, `is_minus`, `is_increment`, etc.
+/// - Assignment: `is_assignment`, `is_eq_assign`, `is_colon_eq_assign`,
 ///   `is_add_assign`, `is_shl_assign`, etc.
-/// - Logical: `is_logical_operator`, `is_logical_and`, `is_logical_or`, `is_logical_xor`, `is_logical_not`
-/// - Comparison: `is_comparison_operator`, `is_eq`, `is_strict_eq`, `is_ne`, `is_strict_ne`, `is_le`, etc.
-/// - Shift / bitwise: `is_shift_operator`, `is_shl`, `is_shr`, plus bitwise forms
-/// - Miscellaneous: `is_power_operator`, `is_arrow_operator`, `is_fat_arrow_operator`, `is_pipe_forward_operator`,
-///   `is_backslash_operator`
+/// - Logical: `is_logical`, `is_logical_and`, `is_logical_or`, `is_logical_xor`, `is_logical_not`
+/// - Comparison: `is_comparison`, `is_eq`, `is_strict_eq`, `is_ne`, `is_strict_ne`, `is_le`, etc.
+/// - Shift / bitwise: `is_shift`, `is_shl`, `is_shr`, plus bitwise forms
+/// - Miscellaneous: `pow`, `is_arrow`, `is_fat_arrow`, `is_pipe_forward`,
+///   `is_backslash`
 ///
 /// ## Example
 ///
@@ -1426,7 +1426,7 @@ pub trait KeywordToken<'a>: Token<'a> {
 /// }
 ///
 /// impl OperatorToken<'_> for MyToken {
-///     fn is_plus_operator(&self) -> bool {
+///     fn is_add(&self) -> bool {
 ///         matches!(self.kind, MyTokenKind::Plus)
 ///     }
 ///
@@ -1440,334 +1440,289 @@ pub trait KeywordToken<'a>: Token<'a> {
 /// }
 /// ```
 pub trait OperatorToken<'a>: Token<'a> {
-  /// Returns `true` when the token is any operator recognized by this trait.
+  /// Returns `true` when the token is the simple assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_operator(&self) -> bool {
-    self.is_math_operator()
-      || self.is_assignment_operator()
-      || self.is_shift_operator()
-      || self.is_comparison_operator()
-      || self.is_logical_operator()
-      || self.is_power_operator()
-      || self.is_arrow_operator()
-      || self.is_fat_arrow_operator()
-      || self.is_pipe_forward_operator()
-      || self.is_backslash_operator()
-  }
-
-  /// Returns `true` when the token is any arithmetic operator (`+`, `-`, `*`, `/`, `%`).
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_math_operator(&self) -> bool {
-    self.is_plus_operator()
-      || self.is_minus_operator()
-      || self.is_mul_operator()
-      || self.is_div_operator()
-      || self.is_mod_operator()
-  }
-
-  /// Returns `true` when the token is any comparison operator.
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_comparison_operator(&self) -> bool {
-    self.is_eq()
-      || self.is_strict_eq()
-      || self.is_ne()
-      || self.is_strict_ne()
-      || self.is_lt()
-      || self.is_le()
-      || self.is_gt()
-      || self.is_ge()
-  }
-
-  /// Returns `true` when the token is any logical operator (`&&`, `||`, `!`, `^^`).
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_logical_operator(&self) -> bool {
-    self.is_logical_and() || self.is_logical_or() || self.is_logical_not() || self.is_logical_xor()
-  }
-
-  /// Returns `true` when the token is any assignment-style operator.
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_assignment_operator(&self) -> bool {
-    self.is_simple_assignment()
-      || self.is_colon_assign()
-      || self.is_add_assign()
-      || self.is_sub_assign()
-      || self.is_mul_assign()
-      || self.is_div_assign()
-      || self.is_mod_assign()
-      || self.is_bitand_assign()
-      || self.is_bitor_assign()
-      || self.is_bitxor_assign()
-      || self.is_shl_assign()
-      || self.is_shr_assign()
-      || self.is_power_assign()
-      || self.is_backslash_assign()
-  }
-
-  /// Returns `true` when the token is any shift operator (`<<`, `>>`).
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_shift_operator(&self) -> bool {
-    self.is_shl() || self.is_shr()
-  }
-
-  /// Returns `true` when the token is the simple assignment operator (`=`).
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_simple_assignment(&self) -> bool {
+  fn is_eq_assign(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the colon-assignment operator (`:=`).
+  /// Returns `true` for the colon-assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_colon_assign(&self) -> bool {
+  fn is_colon_eq_assign(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the addition operator (`+`).
+  /// Returns `true` for the addition operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_plus_operator(&self) -> bool {
+  fn is_add(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the subtraction operator (`-`).
+  /// Returns `true` for the subtraction operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_minus_operator(&self) -> bool {
+  fn is_sub(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the multiplication operator (`*`).
+  /// Returns `true` for the multiplication operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_mul_operator(&self) -> bool {
+  fn is_mul(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the division operator (`/`).
+  /// Returns `true` for the division operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_div_operator(&self) -> bool {
+  fn is_div(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the modulo operator (`%`).
+  /// Returns `true` for the modulo operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_mod_operator(&self) -> bool {
+  fn is_mod(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the exponentiation operator (`**`, `^^`, etc.).
+  /// Returns `true` for the exponentiation operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_power_operator(&self) -> bool {
+  fn is_pow(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the power-assignment operator (e.g., `**=` or `^^=`).
+  /// Returns `true` for the power-assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_power_assign(&self) -> bool {
+  fn is_pow_assign(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the increment operator (`++`).
+  /// Returns `true` for the increment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_increment(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the decrement operator (`--`).
+  /// Returns `true` for the decrement operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_decrement(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the plus-assignment operator (`+=`).
+  /// Returns `true` for the plus-assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_add_assign(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the minus-assignment operator (`-=`).
+  /// Returns `true` for the minus-assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_sub_assign(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the multiply-assignment operator (`*=`).
+  /// Returns `true` for the multiply-assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_mul_assign(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the divide-assignment operator (`/=`).
+  /// Returns `true` for the divide-assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_div_assign(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the modulo-assignment operator (`%=`).
+  /// Returns `true` for the modulo-assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_mod_assign(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the bitwise AND operator (`&`).
+  /// Returns `true` for the bitwise AND operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_bitand(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the bitwise OR operator (`|`).
+  /// Returns `true` for the bitwise OR operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_bitor(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the bitwise XOR operator (`^`).
+  /// Returns `true` for the bitwise XOR operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_bitxor(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the bitwise AND assignment operator (`&=`).
+  /// Returns `true` for the bitwise AND assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_bitand_assign(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the bitwise OR assignment operator (`|=`).
+  /// Returns `true` for the bitwise OR assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_bitor_assign(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the bitwise XOR assignment operator (`^=`).
+  /// Returns `true` for the bitwise XOR assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_bitxor_assign(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the logical XOR operator (`^^`).
+  /// Returns `true` for the logical XOR operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_logical_xor(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the logical AND operator (`&&`).
+  /// Returns `true` for the logical AND operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_logical_and(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the logical OR operator (`||`).
+  /// Returns `true` for the logical OR operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_logical_or(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the logical NOT operator (`!`).
+  /// Returns `true` for the logical NOT operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_logical_not(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the equality comparison operator (`==`).
+  /// Returns `true` for the equality comparison operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_eq(&self) -> bool {
     false
   }
 
-  /// Returns `true` for strict equality operators (e.g., `===`).
+  /// Returns `true` for strict equality operators.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_strict_eq(&self) -> bool {
     false
   }
 
-  /// Returns `true` for inequality operators such as `!=` or `<>`.
+  /// Returns `true` for inequality operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ne(&self) -> bool {
     false
   }
 
-  /// Returns `true` for strict inequality operators (e.g., `!==`).
+  /// Returns `true` for strict inequality operators.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_strict_ne(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the less-than operator (`<`).
+  /// Returns `true` for the less-than operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_lt(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the less-than-or-equal operator (`<=`).
+  /// Returns `true` for the strict less-than operator.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_strict_lt(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the less-than-or-equal operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_le(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the greater-than operator (`>`).
+  /// Returns `true` for the strict less-than-or-equal operator.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_strict_le(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the greater-than operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_gt(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the greater-than-or-equal operator (`>=`).
+  /// Returns `true` for the strict greater-than operator.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_strict_gt(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the greater-than-or-equal operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_ge(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the left-shift operator (`<<`).
+  /// Returns `true` for the strict greater-than-or-equal operator.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_strict_ge(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the left-shift operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_shl(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the right-shift operator (`>>`).
+  /// Returns `true` for the right-shift operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_shr(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the left-shift assignment operator (`<<=`).
+  /// Returns `true` for the SAR operator.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn is_sar(&self) -> bool {
+    false
+  }
+
+  /// Returns `true` for the left-shift assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_shl_assign(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the right-shift assignment operator (`>>=`).
+  /// Returns `true` for the right-shift assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_shr_assign(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the arrow operator (`->`).
+  /// Returns `true` for the arrow operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_arrow_operator(&self) -> bool {
+  fn is_arrow(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the fat-arrow operator (`=>`).
+  /// Returns `true` for the fat-arrow operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_fat_arrow_operator(&self) -> bool {
+  fn is_fat_arrow(&self) -> bool {
     false
   }
 
-  /// Returns `true` for pipe-forward operators (`|>`).
+  /// Returns `true` for pipe-forward operators.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_pipe_forward_operator(&self) -> bool {
+  fn is_pipe_forward(&self) -> bool {
     false
   }
 
-  /// Returns `true` for the double-colon operator (`::`).
+  /// Returns `true` for the double-colon operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_double_colon(&self) -> bool {
     false
   }
 
-  /// Returns `true` for operators that include the backslash character (e.g., `\=`).
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_backslash_operator(&self) -> bool {
-    false
-  }
-
-  /// Returns `true` for backslash-assignment operators (`\=`).
+  /// Returns `true` for backslash-assignment operators.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_backslash_assign(&self) -> bool {
     false

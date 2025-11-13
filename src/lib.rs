@@ -41,11 +41,16 @@ mod punct;
 
 #[doc(hidden)]
 pub mod __private {
-  pub use super::{lexer::token, utils};
+  pub use super::{error, lexer::*, utils};
+  pub use paste;
 
   #[cfg(feature = "chumsky")]
   #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
-  pub use chumsky;
+  pub use super::LogoStream;
+  #[cfg(feature = "chumsky")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
+  pub use super::chumsky;
+
   pub use logos;
 
   #[cfg(any(feature = "std", feature = "alloc"))]

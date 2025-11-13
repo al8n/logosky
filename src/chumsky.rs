@@ -1,21 +1,21 @@
 pub use chumsky::*;
-
-use super::{Token, utils::Spanned};
-
 pub use tokenier::LogoStream;
+
+/// Token parsers
+pub mod token;
+
+/// Skip recovery strategies
+pub mod skip;
 
 mod tokenier;
 
-pub use skip::{skip_n_tokens, skip_until_token, skip_until_token_inclusive, skip_while_token};
+use super::{Token, utils::Spanned};
 
-mod skip;
-
-/// Ret
 use crate::{
-  KeywordToken, Lexed, Logos, OperatorToken, PunctuatorToken, Source,
+  KeywordToken, Lexed, Logos, Source,
   chumsky::{extra::ParserExtra, prelude::*},
   error::UnexpectedToken,
-  utils::cmp::Equivalent,
+  utils::{Expected, cmp::Equivalent},
 };
 
 /// A trait for types that can be parsed from a token stream using Chumsky parsers.
@@ -804,134 +804,3 @@ const _: () = {
     }
   }
 };
-
-/// Returns a parser that matches a specific keyword token.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use logosky::{chumsky::{keyword, LogoStream, prelude::*}, Tokenizer};
-///
-/// enum SyntaxKind {
-///   if_KW,
-///   // ...
-/// }
-///
-/// let parser = keyword("if", || SyntaxKind::if_KW);
-/// ```
-pub fn keyword<'a, I, T, K, Error, E>(
-  raw: &str,
-  expected: impl Fn() -> K + Clone + 'a,
-) -> impl Parser<'a, I, T, E> + Clone
-where
-  I: LogoStream<'a, T>,
-  T: KeywordToken<'a>,
-  str: Equivalent<T>,
-  K: 'a,
-  Error: From<<T::Logos as Logos<'a>>::Error> + From<UnexpectedToken<'a, T, K>> + 'a,
-  E: ParserExtra<'a, I, Error = Error> + 'a,
-{
-  match_token(raw, expected)
-}
-
-/// Returns a parser that matches a specific keyword token.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use logosky::{chumsky::{punctuator, LogoStream, prelude::*}, Tokenizer};
-///
-/// enum SyntaxKind {
-///   Comma,
-///   // ...
-/// }
-///
-/// let parser = punctuator(",", || SyntaxKind::Comma);
-/// ```
-pub fn punctuator<'a, I, T, K, Error, E>(
-  raw: &str,
-  expected: impl Fn() -> K + Clone + 'a,
-) -> impl Parser<'a, I, T, E> + Clone
-where
-  I: LogoStream<'a, T>,
-  T: PunctuatorToken<'a>,
-  str: Equivalent<T>,
-  K: 'a,
-  Error: From<<T::Logos as Logos<'a>>::Error> + From<UnexpectedToken<'a, T, K>> + 'a,
-  E: ParserExtra<'a, I, Error = Error> + 'a,
-{
-  match_token(raw, expected)
-}
-
-/// Returns a parser that matches a specific keyword token.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use logosky::{chumsky::{operator, LogoStream, prelude::*}, Tokenizer};
-///
-/// enum SyntaxKind {
-///   ColonAssign,
-///   // ...
-/// }
-///
-/// let parser = operator(":=", || SyntaxKind::ColonAssign);
-/// ```
-pub fn operator<'a, I, T, K, Error, E>(
-  raw: &str,
-  expected: impl Fn() -> K + Clone + 'a,
-) -> impl Parser<'a, I, T, E> + Clone
-where
-  I: LogoStream<'a, T>,
-  T: OperatorToken<'a>,
-  str: Equivalent<T>,
-  K: 'a,
-  Error: From<<T::Logos as Logos<'a>>::Error> + From<UnexpectedToken<'a, T, K>> + 'a,
-  E: ParserExtra<'a, I, Error = Error> + 'a,
-{
-  match_token(raw, expected)
-}
-
-/// Matches the next token using an [`Equivalent`] comparison against a reference value.
-///
-/// This helper underpins higher-level utilities like [`keyword`] and [`punctuator`], letting you
-/// validate arbitrary tokens (kinds, strings, etc.) while emitting an [`UnexpectedToken`] error when
-/// the comparison fails.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use logosky::{chumsky::{match_token, LogoStream}, Tokenizer};
-///
-/// enum Kind { Plus, Minus }
-/// struct Tok { kind: Kind }
-/// // Assume Tok implements `Token` and `Equivalent<Kind>`
-///
-/// let parser = match_token(&Kind::Plus, || "a plus sign");
-/// let stream = Tokenizer::new("+");
-/// assert!(parser.parse(stream).into_result().is_ok());
-/// ```
-pub fn match_token<'a, I, T, R, K, Error, E>(
-  raw: &R,
-  expected: impl Fn() -> K + Clone + 'a,
-) -> impl Parser<'a, I, T, E> + Clone
-where
-  I: LogoStream<'a, T>,
-  T: Token<'a>,
-  R: ?Sized + Equivalent<T>,
-  K: 'a,
-  Error: From<<T::Logos as Logos<'a>>::Error> + From<UnexpectedToken<'a, T, K>> + 'a,
-  E: ParserExtra<'a, I, Error = Error> + 'a,
-{
-  any().try_map(move |lexed: Lexed<'_, T>, span| match lexed {
-    Lexed::Token(t) => {
-      if Equivalent::equivalent(raw, &t.data) {
-        Ok(t.data)
-      } else {
-        let e = UnexpectedToken::expected_one_with_found(span, t.data, expected());
-        Err(<Error as core::convert::From<_>>::from(e))
-      }
-    }
-    Lexed::Error(e) => Err(<Error as core::convert::From<_>>::from(e)),
-  })
-}
