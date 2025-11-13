@@ -31,7 +31,7 @@ macro_rules! expected_token_parser {
           I: $crate::__private::LogoStream<'a, T>,
           T: $crate::__private::Token<'a>,
           K: 'e,
-          Error: ::core::convert::From<<T::Logos as $crate::__private::logos::Logos<'a>>::Error> + ::core::convert::From<$crate::__private::error::UnexpectedEot> + ::core::convert::From<$crate::__private::error::UnexpectedToken<'a, T, K>> + 'a,
+          Error: ::core::convert::From<<T::Logos as $crate::__private::logos::Logos<'a>>::Error> + ::core::convert::From<$crate::__private::error::UnexpectedEot> + ::core::convert::From<$crate::__private::error::UnexpectedToken<'e, T, K>> + 'a,
           E: $crate::__private::chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
         {
           $crate::__private::chumsky::expected_token(
@@ -61,7 +61,7 @@ macro_rules! builtin_expected_token_parser {
           I: $crate::__private::LogoStream<'a, T>,
           T: $crate::__private::$trait<'a>,
           K: 'e,
-          Error: ::core::convert::From<<T::Logos as $crate::__private::logos::Logos<'a>>::Error> + ::core::convert::From<$crate::__private::error::UnexpectedEot> + ::core::convert::From<$crate::__private::error::UnexpectedToken<'a, T, K>> + 'a,
+          Error: ::core::convert::From<<T::Logos as $crate::__private::logos::Logos<'a>>::Error> + ::core::convert::From<$crate::__private::error::UnexpectedEot> + ::core::convert::From<$crate::__private::error::UnexpectedToken<'e, T, K>> + 'a,
           E: $crate::__private::chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
         {
           $crate::__private::chumsky::expected_token(

@@ -1363,7 +1363,7 @@ pub trait KeywordToken<'a>: Token<'a> {
 /// - Logical: `is_logical`, `is_logical_and`, `is_logical_or`, `is_logical_xor`, `is_logical_not`
 /// - Comparison: `is_comparison`, `is_eq`, `is_strict_eq`, `is_ne`, `is_strict_ne`, `is_le`, etc.
 /// - Shift / bitwise: `is_shift`, `is_shl`, `is_shr`, plus bitwise forms
-/// - Miscellaneous: `is_power`, `is_arrow`, `is_fat_arrow`, `is_pipe_forward`,
+/// - Miscellaneous: `pow`, `is_arrow`, `is_fat_arrow`, `is_pipe_forward`,
 ///   `is_backslash`
 ///
 /// ## Example
@@ -1454,13 +1454,13 @@ pub trait OperatorToken<'a>: Token<'a> {
 
   /// Returns `true` for the addition operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_plus(&self) -> bool {
+  fn is_add(&self) -> bool {
     false
   }
 
   /// Returns `true` for the subtraction operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_minus(&self) -> bool {
+  fn is_sub(&self) -> bool {
     false
   }
 
@@ -1484,13 +1484,13 @@ pub trait OperatorToken<'a>: Token<'a> {
 
   /// Returns `true` for the exponentiation operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_power(&self) -> bool {
+  fn is_pow(&self) -> bool {
     false
   }
 
   /// Returns `true` for the power-assignment operator.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn is_power_assign(&self) -> bool {
+  fn is_pow_assign(&self) -> bool {
     false
   }
 
