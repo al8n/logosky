@@ -244,9 +244,9 @@ mod unicode_escape;
 ///
 /// # See Also
 ///
-/// - [`Recoverable`](crate::chumsky::Recoverable): Trait for error-recovering parsers
 /// - [`via_parser`](crate::chumsky::recovery::via_parser): Recovery combinator
 /// - [`or_else`](crate::chumsky::Parser::or_else): Fallback for failed parsing
+/// - [`DelimitedByBrace`](crate::chumsky::delimited::DelimitedByBrace): Delimited parser with recovery
 pub trait ErrorNode {
   /// Creates a placeholder node for **malformed content**.
   ///

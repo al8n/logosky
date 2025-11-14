@@ -1,9 +1,8 @@
 //! Token skipping utilities for error recovery.
 //!
-//! This module provides generic utilities for implementing error recovery in parsers
-//! via the [`Recoverable`](crate::chumsky::Recoverable) trait. These functions enable parsers
-//! to skip over malformed input until reaching a "synchronization point" where parsing
-//! can safely resume.
+//! This module provides generic utilities for implementing error recovery in parsers.
+//! These functions enable parsers to skip over malformed input until reaching a
+//! "synchronization point" where parsing can safely resume.
 //!
 //! # Design Philosophy
 //!
@@ -67,52 +66,48 @@
 //! ## GraphQL Field Definition Recovery
 //!
 //! ```rust,ignore
-//! use logosky::chumsky::{Recoverable, skip_until_token};
+//! use logosky::chumsky::skip_until_token;
 //!
-//! impl<...> Recoverable<...> for FieldDefinition {
-//!     fn parser<E>() -> impl Parser<...> {
-//!         name_parser()
-//!             .then(colon_parser().or_not())
-//!             .then(type_parser().or_not())
-//!             .try_map_with(|(name, colon, ty), exa| {
-//!                 // Validate and collect errors
-//!                 let mut errors = IncompleteSyntax::new(...);
-//!                 if colon.is_none() { errors.add(Component::Colon); }
-//!                 if ty.is_none() { errors.add(Component::Type); }
+//! fn field_definition_parser<E>() -> impl Parser<...> {
+//!     name_parser()
+//!         .then(colon_parser().or_not())
+//!         .then(type_parser().or_not())
+//!         .try_map_with(|(name, colon, ty), exa| {
+//!             // Validate and collect errors
+//!             let mut errors = IncompleteSyntax::new(...);
+//!             if colon.is_none() { errors.add(Component::Colon); }
+//!             if ty.is_none() { errors.add(Component::Type); }
 //!
-//!                 if errors.is_empty() {
-//!                     Ok(FieldDefinition { name, ty: ty.unwrap() })
-//!                 } else {
-//!                     Err(Error::from(errors))
-//!                 }
-//!             })
-//!             .recover_with(via_parser(
-//!                 skip_until_token(|tok| matches!(tok,
-//!                     SyntacticToken::Punctuator(Punctuator::Comma) |
-//!                     SyntacticToken::Punctuator(Punctuator::Newline) |
-//!                     SyntacticToken::Punctuator(Punctuator::RBrace)
-//!                 ))
-//!                 .map_with(|_, exa| FieldDefinition::placeholder(exa.span()))
+//!             if errors.is_empty() {
+//!                 Ok(FieldDefinition { name, ty: ty.unwrap() })
+//!             } else {
+//!                 Err(Error::from(errors))
+//!             }
+//!         })
+//!         .recover_with(via_parser(
+//!             skip_until_token(|tok| matches!(tok,
+//!                 SyntacticToken::Punctuator(Punctuator::Comma) |
+//!                 SyntacticToken::Punctuator(Punctuator::Newline) |
+//!                 SyntacticToken::Punctuator(Punctuator::RBrace)
 //!             ))
-//!     }
+//!             .map_with(|_, exa| FieldDefinition::placeholder(exa.span()))
+//!         ))
 //! }
 //! ```
 //!
 //! ## JSON Object Recovery
 //!
 //! ```rust,ignore
-//! impl<...> Recoverable<...> for JsonObject {
-//!     fn parser<E>() -> impl Parser<...> {
-//!         key_value_pairs()
-//!             .recover_with(via_parser(
-//!                 skip_until_token(|tok| matches!(tok,
-//!                     JsonToken::Comma |   // Next key-value
-//!                     JsonToken::RBrace |  // End of object
-//!                     JsonToken::Eof       // End of input
-//!                 ))
-//!                 .map_with(|_, exa| JsonObject::empty(exa.span()))
+//! fn json_object_parser<E>() -> impl Parser<...> {
+//!     key_value_pairs()
+//!         .recover_with(via_parser(
+//!             skip_until_token(|tok| matches!(tok,
+//!                 JsonToken::Comma |   // Next key-value
+//!                 JsonToken::RBrace |  // End of object
+//!                 JsonToken::Eof       // End of input
 //!             ))
-//!     }
+//!             .map_with(|_, exa| JsonObject::empty(exa.span()))
+//!         ))
 //! }
 //! ```
 //!
@@ -189,14 +184,12 @@ use super::LogoStream;
 /// ```rust,ignore
 /// use logosky::chumsky::skip_until_token_strategy;
 ///
-/// impl Recoverable<...> for FieldDefinition {
-///     fn parser<E>() -> impl Parser<...> {
-///         field_parser()
-///             // Use strategy directly with recover_with
-///             .recover_with(skip_until_token_strategy(|tok| matches!(tok,
-///                 Token::Comma | Token::Newline | Token::RBrace
-///             )))
-///     }
+/// fn field_definition_parser<E>() -> impl Parser<...> {
+///     field_parser()
+///         // Use strategy directly with recover_with
+///         .recover_with(skip_until_token_strategy(|tok| matches!(tok,
+///             Token::Comma | Token::Newline | Token::RBrace
+///         )))
 /// }
 /// ```
 ///

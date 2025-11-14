@@ -30,7 +30,7 @@
 //! Scenario 3 returns an error instead of attempting to parse unbounded content,
 //! which prevents consuming tokens from outer parsing contexts.
 //!
-//! # Example: Building a Recoverable Delimited Parser
+//! # Example: Building a Delimited Parser with Recovery
 //!
 //! ```rust,ignore
 //! use logosky::chumsky::token::recovery::{emit_with, skip_through_closing_delimiter};
