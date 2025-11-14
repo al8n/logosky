@@ -14,14 +14,13 @@
 //! - [`DelimitedByBracket`](crate::chumsky::delimited::DelimitedByBracket): Content enclosed by `[` and `]`
 //! - [`DelimitedByAngle`](crate::chumsky::delimited::DelimitedByAngle): Content enclosed by `<` and `>`
 
-use core::marker::PhantomData;
-
 use crate::{
   Lexed, LogoStream, Logos, PunctuatorToken, Source, Token,
   chumsky::{
     Parser,
     extra::ParserExtra,
     prelude::*,
+    skip::skip_until_token_inclusive,
     token::{
       punct::{
         angle_close, angle_open, brace_close, brace_open, bracket_close, bracket_open, paren_close,
@@ -35,12 +34,7 @@ use crate::{
     UndelimitedBrace, UndelimitedBracket, UndelimitedParen, UnexpectedEot, UnexpectedToken,
     UnopenedAngle, UnopenedBrace, UnopenedBracket, UnopenedParen,
   },
-  syntax::Language,
-  utils::{
-    Span,
-    cmp::Equivalent,
-    delimiter::{Delimiter, LAngle, LBrace, LBracket, LParen, RAngle, RBrace, RBracket, RParen},
-  },
+  utils::{Span, delimiter::Delimiter},
 };
 
 /// Generates a delimited content type with comprehensive error recovery.
@@ -62,6 +56,7 @@ macro_rules! delimited_by {
       open_fn: $open_fn:ident,
       close_fn: $close_fn:ident,
       check_open_fn: $check_open_fn:ident,
+      check_close_fn: $check_close_fn:ident,
       unclosed_error: $unclosed_error:ident,
       unopened_error: $unopened_error:ident,
       undelimited_error: $undelimited_error:ident,
@@ -69,13 +64,12 @@ macro_rules! delimited_by {
   ) => {
     $(#[$meta])*
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-    pub struct $name<Content, Lang> {
+    pub struct $name<Content> {
       span: Span,
       content: Content,
-      _m: PhantomData<Lang>,
     }
 
-    impl<Content, Lang> $name<Content, Lang> {
+    impl<Content> $name<Content> {
       #[doc = concat!("Creates a new ", $delim_name, "-delimited content.")]
       ///
       /// # Parameters
@@ -93,7 +87,6 @@ macro_rules! delimited_by {
         Self {
           span,
           content,
-          _m: PhantomData,
         }
       }
 
@@ -138,15 +131,15 @@ macro_rules! delimited_by {
       #[doc = concat!("let parser = ", stringify!($name), "::parser(my_content_parser);")]
       /// ```
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn parser<'a, I, T, Error, E>(
+      pub fn parser<'a, I, T, Error, SyntaxKind, E>(
         content_parser: impl Parser<'a, I, Content, E> + Clone,
+        open_kind: impl Fn() -> SyntaxKind + Clone + 'a,
+        close_kind: impl Fn() -> SyntaxKind + Clone + 'a,
       ) -> impl Parser<'a, I, Self, E> + Clone
       where
         T: PunctuatorToken<'a>,
-        str: Equivalent<T>,
-        Lang: Language,
-        Lang::SyntaxKind: From<$left_type> + From<$right_type> + 'a,
-        Error: From<UnexpectedToken<'a, T, Lang::SyntaxKind>>
+        SyntaxKind: 'a,
+        Error: From<UnexpectedToken<'a, T, SyntaxKind>>
           + From<<T::Logos as Logos<'a>>::Error>
           + 'a,
         Self: Sized + 'a,
@@ -156,8 +149,8 @@ macro_rules! delimited_by {
       {
         content_parser
           .delimited_by(
-            $open_fn(|| $left_type.into()),
-            $close_fn(|| $right_type.into()),
+            $open_fn(move || open_kind()),
+            $close_fn(move || close_kind()),
           )
           .map_with(|content, exa| Self::new(exa.span(), content))
       }
@@ -262,15 +255,13 @@ macro_rules! delimited_by {
       ///
       /// The key insight is that **delimiter errors are structural** (delimiter-level concern)
       /// while **syntax errors are local** (content-level concern).
-      pub fn recoverable_parser<'a, I, T, Error, E>(
+      pub fn recoverable_parser<'a, I, T, Error, SyntaxKind, E>(
         content_parser: impl Parser<'a, I, Content, E> + Clone,
       ) -> impl Parser<'a, I, Self, E> + Clone
       where
         T: PunctuatorToken<'a>,
-        str: Equivalent<T>,
-        Lang: Language,
-        Lang::SyntaxKind: From<$left_type> + From<$right_type> + 'a,
-        Error: From<UnexpectedToken<'a, T, Lang::SyntaxKind>>
+        SyntaxKind: 'a,
+        Error: From<UnexpectedToken<'a, T, SyntaxKind>>
           + From<$unclosed_error>
           + From<$undelimited_error>
           + From<$unopened_error>
@@ -306,19 +297,23 @@ macro_rules! delimited_by {
           if open_delimiter_token {
             // Parse content until closing delimiter (or EOF if missing)
             let content = inp.parse(
-              content_parser.clone().then_ignore(
-                $close_fn(|| $right_type.into())
-                  .or_not() // Make closing delimiter optional for recovery
-                  .validate(|t, exa, emitter| {
-                    if t.is_none() {
-                      // Closing delimiter is missing - emit error
-                      emitter.emit(Error::from($unclosed_error::$delim_method(exa.span())));
-                    }
-                    t
-                  }),
-              ),
+              content_parser.clone()
             )?;
-            return Ok(Self::new(inp.span_since(&before), content));
+
+            match inp.peek() {
+              Some(Lexed::Token(t)) if t.$check_close_fn() => {
+                inp.skip(); // Consume the closing delimiter
+                return Ok(Self::new(inp.span_since(&before), content));
+              }
+              _ => {
+                // Closing delimiter is missing - emit error
+                let span = inp.span_since(&before);
+                let _ = inp.parse(emit_with(move || {
+                  Error::from($unclosed_error::$delim_method(span))
+                }));
+                return Ok(Self::new(span, content));
+              }
+            }
           }
 
           // ============================================================
@@ -344,8 +339,9 @@ macro_rules! delimited_by {
             let content = inp.parse(
               content_parser
                 .clone()
-                .then_ignore($close_fn(|| $right_type.into())),
+                .then_ignore(skip_until_token_inclusive(|t: &T| t.$check_close_fn()))
             )?;
+
             return Ok(Self::new(inp.span_since(&before), content));
           }
 
@@ -397,6 +393,7 @@ delimited_by! {
     open_fn: brace_open,
     close_fn: brace_close,
     check_open_fn: is_brace_open,
+    check_close_fn: is_brace_close,
     unclosed_error: UnclosedBrace,
     unopened_error: UnopenedBrace,
     undelimited_error: UndelimitedBrace,
@@ -430,6 +427,7 @@ delimited_by! {
     open_fn: paren_open,
     close_fn: paren_close,
     check_open_fn: is_paren_open,
+    check_close_fn: is_paren_close,
     unclosed_error: UnclosedParen,
     unopened_error: UnopenedParen,
     undelimited_error: UndelimitedParen,
@@ -463,6 +461,7 @@ delimited_by! {
     open_fn: bracket_open,
     close_fn: bracket_close,
     check_open_fn: is_bracket_open,
+    check_close_fn: is_bracket_close,
     unclosed_error: UnclosedBracket,
     unopened_error: UnopenedBracket,
     undelimited_error: UndelimitedBracket,
@@ -496,6 +495,7 @@ delimited_by! {
     open_fn: angle_open,
     close_fn: angle_close,
     check_open_fn: is_angle_open,
+    check_close_fn: is_angle_close,
     unclosed_error: UnclosedAngle,
     unopened_error: UnopenedAngle,
     undelimited_error: UndelimitedAngle,
