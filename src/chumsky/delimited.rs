@@ -16,14 +16,15 @@
 //!
 //! # Recovery Behavior
 //!
-//! The `recoverable_parser` method returns `Option<Self>`:
+//! The `recoverable_parser` method returns `Result<Self, Span>`:
 //!
-//! - `Some(delimited)` - At least one delimiter is present, content was parsed (possibly with errors)
-//! - `None` - No delimiters found; returns `None` to prevent over-consumption in nested contexts
+//! - `Ok(delimited)` - At least one delimiter is present, content was parsed (possibly with errors)
+//! - `Err(span)` - No delimiters found; returns the span of the region where delimiters were expected
 //!
 //! This design is **critical for correctness**: when no delimiters are found, attempting to parse
 //! content could consume tokens belonging to outer parsing contexts, leading to cascading failures.
-//! By returning `None`, we localize errors and allow parent parsers to continue normally.
+//! By returning `Err(span)`, we localize errors, provide position information, and allow parent
+//! parsers to continue normally.
 //!
 //! ## Example: Preventing Over-Consumption
 //!
@@ -36,8 +37,8 @@
 //! ```
 //!
 //! If an inner parser tries to parse `let y := 2` as a delimited block but finds no delimiters,
-//! it returns `None` immediately instead of consuming `let z := 3` and the outer `}`. This keeps
-//! errors localized and prevents parse failures from cascading to parent contexts.
+//! it returns `Err(span)` immediately instead of consuming `let z := 3` and the outer `}`. This
+//! keeps errors localized and prevents parse failures from cascading to parent contexts.
 
 use crate::{
   Lexed, LogoStream, Logos, PunctuatorToken, Source, Token,
@@ -188,12 +189,13 @@ macro_rules! delimited_by {
       ///
       /// # Return Value
       ///
-      #[doc = concat!("Returns `Option<", stringify!($name), ">`:")]
-      #[doc = concat!("- `Some(", stringify!($name), ")` - When at least one delimiter is present (Scenarios 1 & 2)")]
-      /// - `None` - When no delimiters are found (Scenario 3)
+      #[doc = concat!("Returns `Result<", stringify!($name), ", Span>`:")]
+      #[doc = concat!("- `Ok(", stringify!($name), ")` - At least one delimiter is present (Scenarios 1 & 2)")]
+      /// - `Err(span)` - No delimiters found (Scenario 3), returns the span where delimiters were expected
       ///
       /// This design prevents over-consumption: if there are no delimiters, we're not
-      /// actually in a delimited context, so we don't attempt to parse content.
+      /// actually in a delimited context, so we don't attempt to parse content. The error
+      /// span provides position information useful for diagnostics and recovery.
       ///
       /// # Recovery Strategy
       ///
@@ -210,7 +212,7 @@ macro_rules! delimited_by {
       /// - Parse content normally
       /// - Check for closing delimiter after content
       #[doc = concat!("- If missing: Emit `", stringify!($unclosed_error), "` error with span of entire delimited region")]
-      #[doc = concat!("- Return `Some(", stringify!($name), ")` with all successfully parsed content")]
+      #[doc = concat!("- Return `Ok(", stringify!($name), ")` with all successfully parsed content")]
       ///
       #[doc = concat!("## Scenario 2: No Opening Delimiter, Has Closing Delimiter `", $delim_close, "`")]
       ///
@@ -220,7 +222,7 @@ macro_rules! delimited_by {
       /// - Use `skip_through_closing_delimiter` to scan for closing delimiter
       #[doc = concat!("- If found: Rewind and emit `", stringify!($unopened_error), "` error")]
       /// - Parse content from start to closing delimiter (bounded)
-      #[doc = concat!("- Return `Some(", stringify!($name), ")` with recovered content")]
+      #[doc = concat!("- Return `Ok(", stringify!($name), ")` with recovered content")]
       ///
       /// ## Scenario 3: Neither Opening Nor Closing Delimiter
       ///
@@ -229,7 +231,7 @@ macro_rules! delimited_by {
       /// **Behavior**:
       #[doc = concat!("- Emit `", stringify!($undelimited_error), "` error with span covering scanned region")]
       /// - **Do NOT parse content** to prevent over-consumption from outer contexts
-      /// - Return `None` indicating no delimited content was found
+      /// - Return `Err(span)` indicating no delimited content was found, where span marks the position
       ///
       /// # Error Emission
       ///
@@ -244,7 +246,7 @@ macro_rules! delimited_by {
       /// ```text
       #[doc = concat!("Input:  ", $delim_open, " item1 item2 item3 ", $delim_close)]
       /// Errors: (none)
-      #[doc = concat!("Result: Some(", stringify!($name), " with 3 items)")]
+      #[doc = concat!("Result: Ok(", stringify!($name), " with 3 items)")]
       /// ```
       ///
       /// ## Missing Closing Delimiter (Scenario 1)
@@ -252,7 +254,7 @@ macro_rules! delimited_by {
       /// ```text
       #[doc = concat!("Input:  ", $delim_open, " item1 item2 item3")]
       #[doc = concat!("Errors: ", stringify!($unclosed_error), " at position of entire region")]
-      #[doc = concat!("Result: Some(", stringify!($name), " with 3 items)")]
+      #[doc = concat!("Result: Ok(", stringify!($name), " with 3 items)")]
       /// ```
       ///
       /// ## Missing Opening Delimiter (Scenario 2)
@@ -260,7 +262,7 @@ macro_rules! delimited_by {
       /// ```text
       #[doc = concat!("Input:  item1 item2 item3 ", $delim_close)]
       #[doc = concat!("Errors: ", stringify!($unopened_error), " at position of content + closing delimiter")]
-      #[doc = concat!("Result: Some(", stringify!($name), " with 3 items)")]
+      #[doc = concat!("Result: Ok(", stringify!($name), " with 3 items)")]
       /// ```
       ///
       /// ## Missing Both Delimiters (Scenario 3)
@@ -268,7 +270,7 @@ macro_rules! delimited_by {
       /// ```text
       /// Input:  item1 item2 item3
       #[doc = concat!("Errors: ", stringify!($undelimited_error), " at scanned region")]
-      /// Result: None (no content parsed to prevent over-consumption)
+      /// Result: Err(span) (no content parsed to prevent over-consumption, span indicates position)
       /// ```
       ///
       /// ## With Malformed Content (Scenario 1)
@@ -276,7 +278,7 @@ macro_rules! delimited_by {
       /// ```text
       #[doc = concat!("Input:  ", $delim_open, " good_item BAD!@# good_item ", $delim_close)]
       /// Errors: (content parser emits error for BAD!@#)
-      #[doc = concat!("Result: Some(", stringify!($name), " with good_item, error_node, good_item)")]
+      #[doc = concat!("Result: Ok(", stringify!($name), " with good_item, error_node, good_item)")]
       /// ```
       ///
       /// # Design Rationale
@@ -291,10 +293,10 @@ macro_rules! delimited_by {
       /// The key insight is that **delimiter errors are structural** (delimiter-level concern)
       /// while **syntax errors are local** (content-level concern).
       ///
-      /// ## Why Scenario 3 Returns `None`
+      /// ## Why Scenario 3 Returns `Err(Span)`
       ///
-      /// The decision to return `None` when no delimiters are found is **critical for preventing
-      /// over-consumption** in nested contexts:
+      /// The decision to return `Err(span)` when no delimiters are found is **critical for preventing
+      /// over-consumption** in nested contexts while providing position information:
       ///
       /// ```text
       /// // Example: Nested blocks where inner block is malformed
@@ -305,23 +307,30 @@ macro_rules! delimited_by {
       /// }  // ← Outer closing brace
       /// ```
       ///
-      /// **Without `None` (parsing content unbounded):**
+      /// **Without error return (parsing content unbounded):**
       /// - Inner parser would consume: `let y := 2`, `let z := 3`, and `}` (outer brace!)
       /// - Outer parser would fail because its closing delimiter was stolen
       /// - Cascading parse failures in parent contexts
       ///
-      /// **With `None` (refusing to parse):**
+      /// **With `Err(span)` (refusing to parse with position info):**
       /// - Inner parser emits `UndelimitedBrace` error
-      /// - Returns `None` immediately without consuming tokens
+      /// - Returns `Err(span)` immediately without consuming tokens
+      /// - The span indicates where delimiters were expected (useful for diagnostics)
       /// - Outer parser continues normally and can handle remaining content
       /// - Errors remain localized to the problematic region
+      ///
+      /// **Why `Err(Span)` instead of `Option`:**
+      /// - `Err(span)` clearly indicates "parsing failed due to missing delimiters"
+      /// - The span provides precise position information for error reporting
+      /// - Callers can distinguish "no delimiters" from "successfully parsed empty content"
+      /// - Enables better error recovery strategies in parent parsers
       ///
       /// This design choice embodies the principle: **"If you don't see what you expect,
       /// don't guess."** When delimiters are absent, we're not in a delimited context at all,
       /// so attempting to parse content would be making unfounded assumptions about structure.
       pub fn recoverable_parser<'a, I, T, Error, SyntaxKind, E>(
         content_parser: impl Parser<'a, I, Content, E> + Clone,
-      ) -> impl Parser<'a, I, Option<Self>, E> + Clone
+      ) -> impl Parser<'a, I, Result<Self, Span>, E> + Clone
       where
         T: PunctuatorToken<'a>,
         SyntaxKind: 'a,
@@ -367,7 +376,7 @@ macro_rules! delimited_by {
             match inp.peek() {
               Some(Lexed::Token(t)) if t.$check_close_fn() => {
                 inp.skip(); // Consume the closing delimiter
-                return Ok(Some(Self::new(inp.span_since(&before), content)));
+                return Ok(Ok(Self::new(inp.span_since(&before), content)));
               }
               _ => {
                 // Closing delimiter is missing - emit error
@@ -375,7 +384,7 @@ macro_rules! delimited_by {
                 let _ = inp.parse(emit_with(move || {
                   Error::from($unclosed_error::$delim_method(span))
                 }));
-                return Ok(Some(Self::new(span, content)));
+                return Ok(Ok(Self::new(span, content)));
               }
             }
           }
@@ -406,7 +415,7 @@ macro_rules! delimited_by {
                 .then_ignore(skip_until_token_inclusive(|t: &T| t.$check_close_fn()))
             )?;
 
-            return Ok(Some(Self::new(inp.span_since(&before), content)));
+            return Ok(Ok(Self::new(inp.span_since(&before), content)));
           }
 
           // ============================================================
@@ -418,7 +427,7 @@ macro_rules! delimited_by {
             Error::from($undelimited_error::$delim_method(scaned))
           }));
 
-          Ok(None)
+          Ok(Err(inp.span_since(&before)))
         })
       }
     }

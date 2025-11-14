@@ -1,3 +1,102 @@
+//! Error recovery utilities for delimiter-based parsing.
+//!
+//! This module provides utilities for implementing robust error recovery when parsing
+//! delimiter-delimited content. These functions are the building blocks used by higher-level
+//! parsers like [`DelimitedByBrace`](crate::chumsky::delimited::DelimitedByBrace) to handle
+//! missing or malformed delimiters gracefully.
+//!
+//! # Core Recovery Functions
+//!
+//! ## Error Emission
+//!
+//! - [`emit`](crate::chumsky::token::recovery::emit): Emits an error without consuming input (eager)
+//! - [`emit_with`](crate::chumsky::token::recovery::emit_with): Emits an error without consuming input (lazy, on-demand)
+//!
+//! ## Delimiter Scanning
+//!
+//! - [`scan_closing_delimiter`](crate::chumsky::token::recovery::scan_closing_delimiter): Non-destructive lookahead for closing delimiter
+//! - [`skip_to_closing_delimiter`](crate::chumsky::token::recovery::skip_to_closing_delimiter): Consumes tokens up to (but not including) closing delimiter
+//! - [`skip_through_closing_delimiter`](crate::chumsky::token::recovery::skip_through_closing_delimiter): Consumes tokens through (and including) closing delimiter
+//!
+//! # Recovery Philosophy
+//!
+//! These utilities follow a **three-scenario recovery pattern** for delimited content:
+//!
+//! 1. **Opening delimiter present**: Parse content, check for closing delimiter
+//! 2. **Only closing delimiter**: Scan for it, emit error, parse bounded content
+//! 3. **No delimiters**: Emit error, return `Err(span)` to prevent over-consumption
+//!
+//! The key principle is: **"If you don't see what you expect, don't guess."**
+//! Scenario 3 returns an error instead of attempting to parse unbounded content,
+//! which prevents consuming tokens from outer parsing contexts.
+//!
+//! # Example: Building a Recoverable Delimited Parser
+//!
+//! ```rust,ignore
+//! use logosky::chumsky::token::recovery::{emit_with, skip_through_closing_delimiter};
+//! use logosky::utils::delimiter::Delimiter;
+//!
+//! // Parse content delimited by braces with recovery
+//! custom(|inp| {
+//!     let before = inp.cursor();
+//!
+//!     // SCENARIO 1: Check for opening brace
+//!     if let Some(Lexed::Token(t)) = inp.peek() {
+//!         if t.is_brace_open() {
+//!             inp.skip();
+//!             let content = inp.parse(content_parser)?;
+//!
+//!             // Check for closing brace
+//!             match inp.peek() {
+//!                 Some(Lexed::Token(t)) if t.is_brace_close() => {
+//!                     inp.skip();
+//!                     return Ok(Ok(Delimited { span: inp.span_since(&before), content }));
+//!                 }
+//!                 _ => {
+//!                     // Emit UnclosedBrace error
+//!                     let span = inp.span_since(&before);
+//!                     inp.parse(emit_with(|| UnclosedBrace::brace(span)))?;
+//!                     return Ok(Ok(Delimited { span, content }));
+//!                 }
+//!             }
+//!         }
+//!     }
+//!
+//!     // SCENARIO 2: No opening, check for closing
+//!     let checkpoint = inp.save();
+//!     let (scanned, closing) = inp.parse(skip_through_closing_delimiter(Delimiter::Brace))?;
+//!
+//!     if closing.is_some() {
+//!         inp.rewind(checkpoint);
+//!         inp.parse(emit_with(|| UnopenedBrace::brace(scanned)))?;
+//!         let content = inp.parse(content_parser.then_ignore(skip_until_brace_close))?;
+//!         return Ok(Ok(Delimited { span: inp.span_since(&before), content }));
+//!     }
+//!
+//!     // SCENARIO 3: No delimiters at all
+//!     inp.rewind(checkpoint);
+//!     inp.parse(emit_with(|| UndelimitedBrace::brace(scanned)))?;
+//!     Ok(Err(inp.span_since(&before))) // Don't parse content!
+//! })
+//! ```
+//!
+//! # Why Return `Err(Span)` in Scenario 3?
+//!
+//! When no delimiters are found, returning `Err(span)` instead of attempting to parse
+//! prevents **over-consumption** in nested contexts:
+//!
+//! ```text
+//! {
+//!   let x := 1
+//!   let y := 2  // ← Missing braces, triggers Scenario 3
+//!   let z := 3
+//! }             // ← Outer closing brace
+//! ```
+//!
+//! If we tried to parse unbounded content in Scenario 3, the inner parser would consume
+//! `let z := 3` and the outer `}`, breaking the parent parser. By returning `Err(span)`,
+//! we keep errors localized and allow outer parsers to continue normally.
+
 use logos::Logos;
 
 use crate::{
