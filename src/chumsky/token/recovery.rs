@@ -3,7 +3,7 @@ use logos::Logos;
 use crate::{
   DelimiterToken, Lexed, LogoStream, Token,
   chumsky::{Parser, extra::ParserExtra, prelude::*},
-  utils::delimiter::Delimiter,
+  utils::{Spanned, delimiter::Delimiter},
 };
 
 /// Emits a parser error without consuming input.
@@ -48,6 +48,50 @@ where
     .rewind()
 }
 
+/// Emits a parser error without consuming input.
+///
+/// # Overview
+///
+/// `emit` is a tiny parser combinator that **records** an error by calling
+/// [`Emitter::emit`](chumsky::extra::ParserExtra::Emitter) and then rewinds so the
+/// surrounding parser can decide how to continue. No tokens are consumed, which makes
+/// it perfect for recovery strategies where you need to log a diagnostic but keep the
+/// lookahead intact.
+///
+/// # When to Use
+///
+/// - Inside `recover_with` to report why recovery was triggered.
+/// - Alongside `skip_*` helpers to emit one diagnostic per skipped token.
+/// - Any time you need to attach context-specific errors without advancing the stream.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use logosky::chumsky::token::recovery::emit;
+///
+/// parser.recover_with(chumsky::Parser::recover_with(
+///     emit_with(|| MyError::MissingCloseBrace)
+/// ).or(my_fallback_parser));
+/// ```
+///
+/// The example above emits `MissingCloseBrace` but leaves the cursor untouched so
+/// `my_fallback_parser` (or later combinators) can keep inspecting the same input.
+pub fn emit_with<'a, I, T, Error, E>(
+  err: impl Fn() -> Error + Clone + 'a,
+) -> impl Parser<'a, I, (), E> + Clone
+where
+  I: LogoStream<'a, T>,
+  T: Token<'a>,
+  E: ParserExtra<'a, I, Error = Error> + 'a,
+  Error: 'a,
+{
+  any()
+    .validate(move |_, _, emitter| {
+      emitter.emit(err());
+    })
+    .rewind()
+}
+
 /// Scans ahead for a matching closing delimiter and rewinds before returning.
 ///
 /// This function performs a non-destructive lookahead to check if a matching closing
@@ -56,8 +100,8 @@ where
 ///
 /// # Returns
 ///
-/// - `Ok(true)` if a matching closing delimiter was found
-/// - `Ok(false)` if EOF was reached without finding a match
+/// - `Ok(Some(Spanned<T>))` if a matching closing delimiter was found, the token is returned
+/// - `Ok(None)` if EOF was reached without finding a match
 ///
 /// # Delimiter Matching
 ///
@@ -99,7 +143,7 @@ where
 /// - [`skip_through_closing_delimiter`]: Skip through delimiter (for recovery)
 pub fn scan_closing_delimiter<'a, I, T, Error, E>(
   delimiter: Delimiter,
-) -> impl Parser<'a, I, bool, E> + Clone
+) -> impl Parser<'a, I, Option<Spanned<T>>, E> + Clone
 where
   I: LogoStream<'a, T>,
   T: DelimiterToken<'a>,
@@ -118,7 +162,7 @@ where
         Some(Lexed::Token(tok)) if delimiter.is_close(&*tok) => {
           if depth == 0 {
             inp.rewind(checkpoint);
-            return Ok(true);
+            return Ok(Some(tok));
           } else {
             depth -= 1;
             inp.skip();
@@ -126,7 +170,7 @@ where
         }
         None => {
           inp.rewind(checkpoint);
-          return Ok(false);
+          return Ok(None);
         }
         _ => {
           inp.skip();
@@ -197,7 +241,7 @@ where
 /// - [`skip_through_closing_delimiter`]: Skip and consume delimiter
 pub fn skip_to_closing_delimiter<'a, I, T, Error, E>(
   delimiter: Delimiter,
-) -> impl Parser<'a, I, Result<usize, usize>, E> + Clone
+) -> impl Parser<'a, I, Result<(usize, Spanned<T>), usize>, E> + Clone
 where
   I: LogoStream<'a, T>,
   T: DelimiterToken<'a>,
@@ -219,7 +263,7 @@ where
           if depth == 0 {
             // Found matching closing delimiter!
             // Leave positioned BEFORE it (don't consume)
-            return Ok(Ok(skipped));
+            return Ok(Ok((skipped, tok)));
           } else {
             depth -= 1;
             inp.skip();
@@ -330,7 +374,7 @@ where
 /// - [`skip_to_closing_delimiter`]: Skip to delimiter (leaves delimiter)
 pub fn skip_through_closing_delimiter<'a, I, T, Error, E>(
   delimiter: Delimiter,
-) -> impl Parser<'a, I, bool, E> + Clone
+) -> impl Parser<'a, I, Option<Spanned<T>>, E> + Clone
 where
   I: LogoStream<'a, T>,
   T: DelimiterToken<'a>,
@@ -351,7 +395,7 @@ where
             // Found matching closing delimiter!
             // Consume it and position AFTER it
             inp.skip();
-            return Ok(true);
+            return Ok(Some(tok));
           } else {
             depth -= 1;
             inp.skip();
@@ -359,7 +403,7 @@ where
         }
         None => {
           // Reached EOF without finding closing delimiter
-          return Ok(false);
+          return Ok(None);
         }
         Some(Lexed::Error(_)) => {
           // Emit lexer error but continue recovery
@@ -521,7 +565,7 @@ mod tests {
         scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
           .then_ignore(any().repeated());
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(true));
+      assert!(matches!(result.into_result(), Ok(Some(_))));
     }
 
     #[test]
@@ -532,7 +576,7 @@ mod tests {
         scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Paren)
           .then_ignore(any().repeated());
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(true));
+      assert!(matches!(result.into_result(), Ok(Some(_))));
     }
 
     #[test]
@@ -543,7 +587,7 @@ mod tests {
         scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Bracket)
           .then_ignore(any().repeated());
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(true));
+      assert!(matches!(result.into_result(), Ok(Some(_))));
     }
 
     #[test]
@@ -554,7 +598,7 @@ mod tests {
         scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
           .then_ignore(any().repeated());
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(true));
+      assert!(matches!(result.into_result(), Ok(Some(_))));
     }
 
     #[test]
@@ -565,7 +609,7 @@ mod tests {
         scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Paren)
           .then_ignore(any().repeated());
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(true));
+      assert!(matches!(result.into_result(), Ok(Some(_))));
     }
 
     #[test]
@@ -576,7 +620,7 @@ mod tests {
         scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
           .then_ignore(any().repeated());
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(false));
+      assert_eq!(result.into_result(), Ok(None));
     }
 
     #[test]
@@ -586,7 +630,7 @@ mod tests {
       let parser =
         scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(false));
+      assert_eq!(result.into_result(), Ok(None));
     }
 
     #[test]
@@ -598,7 +642,7 @@ mod tests {
           .then_ignore(any().repeated());
       let result = parser.parse(stream);
       // Should not find brace, only paren exists
-      assert_eq!(result.into_result(), Ok(false));
+      assert_eq!(result.into_result(), Ok(None));
     }
 
     #[test]
@@ -611,14 +655,14 @@ mod tests {
         scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
           .then_ignore(any().repeated());
       let result = parser.parse(stream.clone());
-      assert_eq!(result.into_result(), Ok(true));
+      assert!(matches!(result.into_result(), Ok(Some(_))));
 
       // Second scan should still work (non-destructive)
       let parser =
         scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
           .then_ignore(any().repeated());
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(true));
+      assert!(matches!(result.into_result(), Ok(Some(_))));
     }
   }
 
@@ -636,8 +680,11 @@ mod tests {
             Lexed::Error(_) => Err(TestError(Cheap::new(span))),
           }),
         );
-      let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok((Ok(1), TestTokenKind::RBrace))); // Skipped 1 token (word)
+      let (res, tok) = parser.parse(stream).into_result().unwrap();
+      let (skipped, spanned) = res.unwrap();
+      assert_eq!(skipped, 1); // Skipped 1 token (word)
+      assert_eq!(tok, TestTokenKind::RBrace);
+      assert_eq!(spanned.data.kind, TestTokenKind::RBrace);
     }
 
     #[test]
@@ -651,8 +698,11 @@ mod tests {
             Lexed::Error(_) => Err(TestError(Cheap::new(span))),
           }),
         );
-      let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok((Ok(3), TestTokenKind::RBrace))); // Skipped 3 tokens
+      let (res, tok) = parser.parse(stream).into_result().unwrap();
+      let (skipped, spanned) = res.unwrap();
+      assert_eq!(skipped, 3); // Skipped 3 tokens
+      assert_eq!(tok, TestTokenKind::RBrace);
+      assert_eq!(spanned.data.kind, TestTokenKind::RBrace);
     }
 
     #[test]
@@ -666,9 +716,12 @@ mod tests {
             Lexed::Error(_) => Err(TestError(Cheap::new(span))),
           }),
         );
-      let result = parser.parse(stream);
       // Should skip: foo, {, bar, }, baz = 5 tokens
-      assert_eq!(result.into_result(), Ok((Ok(5), TestTokenKind::RBrace)));
+      let (res, tok) = parser.parse(stream).into_result().unwrap();
+      let (skipped, spanned) = res.unwrap();
+      assert_eq!(skipped, 5);
+      assert_eq!(tok, TestTokenKind::RBrace);
+      assert_eq!(spanned.data.kind, TestTokenKind::RBrace);
     }
 
     #[test]
@@ -682,9 +735,12 @@ mod tests {
             Lexed::Error(_) => Err(TestError(Cheap::new(span))),
           }),
         );
-      let result = parser.parse(stream);
+      let (res, tok) = parser.parse(stream).into_result().unwrap();
+      let (skipped, spanned) = res.unwrap();
       // Should skip: {, {, {, }, }, } = 6 tokens
-      assert_eq!(result.into_result(), Ok((Ok(6), TestTokenKind::RBrace)));
+      assert_eq!(skipped, 6);
+      assert_eq!(tok, TestTokenKind::RBrace);
+      assert_eq!(spanned.data.kind, TestTokenKind::RBrace);
     }
 
     #[test]
@@ -708,8 +764,11 @@ mod tests {
             Lexed::Error(_) => Err(TestError(Cheap::new(span))),
           }),
         );
-      let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok((Ok(0), TestTokenKind::RBrace))); // No tokens skipped
+      let (res, tok) = parser.parse(stream).into_result().unwrap();
+      let (skipped, spanned) = res.unwrap();
+      assert_eq!(skipped, 0); // No tokens skipped
+      assert_eq!(tok, TestTokenKind::RBrace);
+      assert_eq!(spanned.data.kind, TestTokenKind::RBrace);
     }
 
     #[test]
@@ -747,7 +806,7 @@ mod tests {
       let parser =
         skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(true));
+      assert!(matches!(result.into_result(), Ok(Some(_))));
     }
 
     #[test]
@@ -757,7 +816,7 @@ mod tests {
       let parser =
         skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(true));
+      assert!(matches!(result.into_result(), Ok(Some(_))));
     }
 
     #[test]
@@ -767,7 +826,7 @@ mod tests {
       let parser =
         skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(true));
+      assert!(matches!(result.into_result(), Ok(Some(_))));
     }
 
     #[test]
@@ -777,7 +836,7 @@ mod tests {
       let parser =
         skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(false));
+      assert_eq!(result.into_result(), Ok(None));
     }
 
     #[test]
@@ -787,7 +846,7 @@ mod tests {
       let parser =
         skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(true));
+      assert!(matches!(result.into_result(), Ok(Some(_))));
     }
 
     #[test]
@@ -797,7 +856,7 @@ mod tests {
       let parser =
         skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
-      assert_eq!(result.into_result(), Ok(false));
+      assert_eq!(result.into_result(), Ok(None));
     }
 
     #[test]
@@ -882,9 +941,13 @@ mod tests {
             Lexed::Error(_) => Err(TestError(Cheap::new(span))),
           }),
         );
-      let result = parser.parse(stream);
+
       // Should skip: (, {, } = 3 tokens, stop before )
-      assert_eq!(result.into_result(), Ok((Ok(2), TestTokenKind::RParen)));
+      let (res, tok) = parser.parse(stream).into_result().unwrap();
+      let (skipped, spanned) = res.unwrap();
+      assert_eq!(skipped, 2);
+      assert_eq!(tok, TestTokenKind::RParen);
+      assert_eq!(spanned.data.kind, tok);
     }
 
     #[test]
@@ -918,7 +981,7 @@ mod tests {
           .then_ignore(any().repeated());
       let result = parser.parse(stream);
       // Should find the } after skipping ()
-      assert_eq!(result.into_result(), Ok(true));
+      assert!(matches!(result.into_result(), Ok(Some(_))));
     }
   }
 }
