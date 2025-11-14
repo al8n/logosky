@@ -619,12 +619,15 @@ where
 /// This function consumes tokens until it finds a closing delimiter that matches
 /// the given delimiter type at depth 0, then consumes the closing delimiter as well.
 /// It tracks nesting depth to find the correct matching delimiter. The input is left
-/// positioned **AFTER** the closing delimiter.
+/// positioned **AFTER** the closing delimiter (if found).
 ///
 /// # Returns
 ///
-/// - `Ok(true)` if delimiter was found and consumed
-/// - `Ok(false)` if EOF was reached without finding a match
+/// Returns `(Span, Option<Spanned<T>>)` where:
+/// - `Span`: The span from start position to current position (covers all scanned tokens)
+/// - `Option<Spanned<T>>`:
+///   - `Some(token)`: Found and consumed closing delimiter at depth 0, with its span and data
+///   - `None`: Reached EOF without finding a closing delimiter
 ///
 /// # Delimiter Matching
 ///
@@ -651,6 +654,8 @@ where
 ///
 /// # Examples
 ///
+/// ## Basic Usage: Skip Malformed Block
+///
 /// ```rust,ignore
 /// use logosky::chumsky::token::recovery::skip_through_closing_delimiter;
 /// use logosky::utils::delimiter::Delimiter;
@@ -660,13 +665,42 @@ where
 ///     Ok(stmt) => statements.push(stmt),
 ///     Err(_) => {
 ///         // Failed to parse - skip the entire malformed block
-///         if skip_through_closing_delimiter(Delimiter::Brace).parse(stream) {
-///             // Successfully skipped, continue with next statement
-///         } else {
-///             // Reached EOF - block was unclosed
-///             break;
+///         let (span, closing) = skip_through_closing_delimiter(Delimiter::Brace).parse(stream)?;
+///
+///         match closing {
+///             Some(token) => {
+///                 // Successfully skipped to closing brace at token.span
+///                 // Now positioned after }, continue with next statement
+///                 println!("Skipped malformed block from {} to {}", span.start(), span.end());
+///             }
+///             None => {
+///                 // Reached EOF - block was unclosed
+///                 println!("Unclosed block starting at {}", span.start());
+///                 break;
+///             }
 ///         }
 ///     }
+/// }
+/// ```
+///
+/// ## Recovery with Position Information
+///
+/// ```rust,ignore
+/// // Use span information for precise error reporting
+/// let (scanned_span, closing_delim) = skip_through_closing_delimiter(Delimiter::Paren).parse(stream)?;
+///
+/// if let Some(closing_token) = closing_delim {
+///     // Report what was skipped
+///     errors.push(Error::new(
+///         scanned_span,
+///         format!("Skipped malformed content up to closing ')' at {}", closing_token.span.end())
+///     ));
+/// } else {
+///     // Report unclosed delimiter
+///     errors.push(Error::new(
+///         scanned_span,
+///         "Unclosed '(' - reached end of file"
+///     ));
 /// }
 /// ```
 ///
