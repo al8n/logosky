@@ -1,10 +1,52 @@
 use logos::Logos;
 
 use crate::{
-  DelimiterToken, Lexed, LogoStream,
-  chumsky::{Parser, extra::ParserExtra, prelude::*},
-  utils::delimiter::Delimiter,
+  DelimiterToken, Lexed, LogoStream, Token, chumsky::{Parser, extra::ParserExtra, prelude::*}, utils::delimiter::Delimiter
 };
+
+/// Emits a parser error without consuming input.
+///
+/// # Overview
+///
+/// `emit` is a tiny parser combinator that **records** an error by calling
+/// [`Emitter::emit`](chumsky::extra::ParserExtra::Emitter) and then rewinds so the
+/// surrounding parser can decide how to continue. No tokens are consumed, which makes
+/// it perfect for recovery strategies where you need to log a diagnostic but keep the
+/// lookahead intact.
+///
+/// # When to Use
+///
+/// - Inside `recover_with` to report why recovery was triggered.
+/// - Alongside `skip_*` helpers to emit one diagnostic per skipped token.
+/// - Any time you need to attach context-specific errors without advancing the stream.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use logosky::chumsky::token::recovery::emit;
+///
+/// parser.recover_with(chumsky::Parser::recover_with(
+///     emit(MyError::MissingCloseBrace)
+/// ).or(my_fallback_parser));
+/// ```
+///
+/// The example above emits `MissingCloseBrace` but leaves the cursor untouched so
+/// `my_fallback_parser` (or later combinators) can keep inspecting the same input.
+pub fn emit<'a, I, T, Error, E>(
+  err: Error,
+) -> impl Parser<'a, I, (), E> + Clone
+where
+  I: LogoStream<'a, T>,
+  T: Token<'a>,
+  E: ParserExtra<'a, I, Error = Error> + 'a,
+  Error: Clone + 'a,
+{
+  any()
+    .validate(move |_, _, emitter| {
+      emitter.emit(err.clone());
+    })
+    .rewind()
+}
 
 /// Scans ahead for a matching closing delimiter and rewinds before returning.
 ///
