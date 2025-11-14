@@ -119,7 +119,7 @@ macro_rules! delimited_by {
 
       /// Consumes self and returns the span and the content between the delimiters.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn into_parts(self) -> (Span, Content) {
+      pub fn into_components(self) -> (Span, Content) {
         (self.span, self.content)
       }
 
