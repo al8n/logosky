@@ -117,6 +117,12 @@ macro_rules! delimited_by {
         &self.content
       }
 
+      /// Consumes self and returns the span and the content between the delimiters.
+      #[cfg_attr(not(tarpaulin), inline(always))]
+      pub fn into_parts(self) -> (Span, Content) {
+        (self.span, self.content)
+      }
+
       #[doc = concat!("Returns a parser that expects content delimited by `", $delim_open, "` and `", $delim_close, "`.")]
       ///
       /// This is a **strict parser** that fails if either delimiter is missing.
@@ -256,7 +262,6 @@ macro_rules! delimited_by {
       ///
       /// The key insight is that **delimiter errors are structural** (delimiter-level concern)
       /// while **syntax errors are local** (content-level concern).
-      #[cfg_attr(not(tarpaulin), inline(always))]
       pub fn recoverable_parser<'a, I, T, Error, E>(
         content_parser: impl Parser<'a, I, Content, E> + Clone,
       ) -> impl Parser<'a, I, Self, E> + Clone
