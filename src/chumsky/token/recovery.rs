@@ -1,7 +1,9 @@
 use logos::Logos;
 
 use crate::{
-  DelimiterToken, Lexed, LogoStream, Token, chumsky::{Parser, extra::ParserExtra, prelude::*}, utils::delimiter::Delimiter
+  DelimiterToken, Lexed, LogoStream, Token,
+  chumsky::{Parser, extra::ParserExtra, prelude::*},
+  utils::delimiter::Delimiter,
 };
 
 /// Emits a parser error without consuming input.
@@ -32,9 +34,7 @@ use crate::{
 ///
 /// The example above emits `MissingCloseBrace` but leaves the cursor untouched so
 /// `my_fallback_parser` (or later combinators) can keep inspecting the same input.
-pub fn emit<'a, I, T, Error, E>(
-  err: Error,
-) -> impl Parser<'a, I, (), E> + Clone
+pub fn emit<'a, I, T, Error, E>(err: Error) -> impl Parser<'a, I, (), E> + Clone
 where
   I: LogoStream<'a, T>,
   T: Token<'a>,
