@@ -518,117 +518,57 @@ where
 /// Skips tokens until reaching and consuming a matching closing delimiter.
 ///
 /// This function consumes tokens until it finds a closing delimiter that matches
-/// the given delimiter type at depth 0, then **also consumes the closing delimiter**.
+/// the given delimiter type at depth 0, then consumes the closing delimiter as well.
 /// It tracks nesting depth to find the correct matching delimiter. The input is left
 /// positioned **AFTER** the closing delimiter.
 ///
-/// # Parameters
-///
-/// - `delimiter`: The delimiter type to search for (e.g., `Delimiter::Brace` for `{}`)
-///
 /// # Returns
 ///
-/// Returns `(Span, Option<Spanned<T>>)` where:
-/// - `Span`: The span from start position through the closing delimiter (or to EOF)
-/// - `Option<Spanned<T>>`:
-///   - `Some(token)`: Found and consumed the closing delimiter
-///   - `None`: Reached EOF without finding a matching delimiter
-///
-/// **Important**: When successful (`Some`), the input is positioned AFTER the closing delimiter.
-/// The delimiter has been consumed and cannot be inspected after this call.
+/// - `Ok(true)` if delimiter was found and consumed
+/// - `Ok(false)` if EOF was reached without finding a match
 ///
 /// # Delimiter Matching
 ///
-/// The function correctly handles nested delimiters by tracking depth:
+/// The function correctly handles nested delimiters:
 ///
 /// ```text
 /// {        // Skip this (depth 0 → 1)
 ///   {      // Skip this (depth 1 → 2)
-///     }    // Skip this (depth 2 → 1, nested close)
-///   }      // Skip this (depth 1 → 0, nested close)
+///     }    // Skip this (depth 2 → 1)
+///   }      // Skip this (depth 1 → 0)
 /// }        // CONSUME THIS (depth 0) → positioned AFTER }
 /// ```
 ///
 /// # Error Handling
 ///
-/// Lexer errors encountered during skipping are emitted via the error emitter but do
-/// not stop the scan. This ensures comprehensive error reporting even during recovery,
-/// allowing the parser to report all malformed tokens encountered while skipping.
+/// Lexer errors encountered during skipping are emitted but do not stop the scan.
+/// This ensures comprehensive error reporting even during recovery.
 ///
 /// # Use Cases
 ///
-/// - **Complete block discard**: Skip entire unparseable block including its delimiters
-/// - **Fast-forward recovery**: Quickly advance to next valid parse point
-/// - **Nested structure cleanup**: Discard failed nested blocks entirely
-/// - **Statement-level recovery**: Skip malformed statements in block parsing
+/// - **Skip malformed blocks**: Discard entire unparseable block
+/// - **Fast-forward recovery**: Skip to next valid parse point
+/// - **Nested block cleanup**: Skip failed nested structures
 ///
 /// # Examples
-///
-/// ## Statement-Level Recovery
 ///
 /// ```rust,ignore
 /// use logosky::chumsky::token::recovery::skip_through_closing_delimiter;
 /// use logosky::utils::delimiter::Delimiter;
 ///
-/// // Parse multiple statements, recovering from failures
-/// let statements = statement_parser
-///     .recover_with(via_parser(
-///         skip_through_closing_delimiter(Delimiter::Brace)
-///             .try_map(|(span, found), _| {
-///                 match found {
-///                     Some(_) => Ok(ErrorNode::new(span)), // Recovered
-///                     None => Err(UnclosedBlock::new(span)), // Can't recover
-///                 }
-///             })
-///     ))
-///     .repeated()
-///     .collect();
-/// ```
-///
-/// ## Block-Level Recovery Loop
-///
-/// ```rust,ignore
-/// let mut blocks = vec![];
-///
-/// loop {
-///     match block_parser.parse(stream) {
-///         Ok(block) => blocks.push(block),
-///         Err(_) => {
-///             // Failed to parse - skip this malformed block entirely
-///             let (span, found) = skip_through_closing_delimiter(Delimiter::Brace)
-///                 .parse(stream)?;
-///
-///             match found {
-///                 Some(closing) => {
-///                     // Successfully skipped and consumed the closing brace
-///                     // Emit error and continue with next block
-///                     emit(MalformedBlock::new(span));
-///                 }
-///                 None => {
-///                     // Hit EOF - block was unclosed, can't continue
-///                     emit(UnclosedBlock::new(span));
-///                     break;
-///                 }
-///             }
+/// // Completely skip a malformed nested block
+/// match statement_parser.parse(stream) {
+///     Ok(stmt) => statements.push(stmt),
+///     Err(_) => {
+///         // Failed to parse - skip the entire malformed block
+///         if skip_through_closing_delimiter(Delimiter::Brace).parse(stream) {
+///             // Successfully skipped, continue with next statement
+///         } else {
+///             // Reached EOF - block was unclosed
+///             break;
 ///         }
 ///     }
 /// }
-/// ```
-///
-/// ## Nested Error Recovery
-///
-/// ```rust,ignore
-/// // Skip nested braces when inner parsing fails
-/// inner_parser
-///     .delimited_by(
-///         just(Token::LBrace),
-///         just(Token::RBrace)
-///     )
-///     .recover_with(via_parser(
-///         // Skip everything including the closing brace
-///         skip_through_closing_delimiter(Delimiter::Brace)
-///             .map(|(span, _)| ErrorPlaceholder::new(span))
-///     ))
 /// ```
 ///
 /// # Comparison with skip_to_closing_delimiter
@@ -637,34 +577,22 @@ where
 /// skip_to_closing_delimiter:
 ///   { content } more
 ///            ^ positioned here (before })
-///            Note: Delimiter still available for inspection
 ///
 /// skip_through_closing_delimiter:
 ///   { content } more
 ///              ^ positioned here (after })
-///              Note: Delimiter has been consumed
 /// ```
 ///
-/// **Choose `skip_to` when:**
-/// - You need to inspect the delimiter token before deciding what to do
-/// - You want to emit errors with the delimiter's precise span
-/// - You need to validate the delimiter matches expectations
+/// Use `skip_to` when you want to manually handle the closing delimiter
+/// (e.g., to emit custom errors or track positions).
 ///
-/// **Choose `skip_through` when:**
-/// - You want to completely discard the malformed content
-/// - You're implementing statement-level recovery in a block
-/// - You need to quickly advance past nested structures
-/// - The delimiter information isn't needed for diagnostics
-///
-/// # Performance Note
-///
-/// This function consumes tokens linearly until finding the delimiter or EOF.
-/// Time complexity is O(n) where n is the number of tokens through the delimiter.
+/// Use `skip_through` when you want to completely discard the block including
+/// its delimiter (e.g., when recovering from malformed nested blocks).
 ///
 /// # See Also
 ///
-/// - [`scan_closing_delimiter`]: Non-destructive check without consuming tokens
-/// - [`skip_to_closing_delimiter`]: Stops before delimiter (allows inspection)
+/// - [`scan_closing_delimiter`]: Check if delimiter exists (non-destructive)
+/// - [`skip_to_closing_delimiter`]: Skip to delimiter (leaves delimiter)
 pub fn skip_through_closing_delimiter<'a, I, T, Error, E>(
   delimiter: Delimiter,
 ) -> impl Parser<'a, I, (Span, Option<Spanned<T>>), E> + Clone

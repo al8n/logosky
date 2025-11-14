@@ -455,8 +455,8 @@ pub trait Syntax {
 /// # See Also
 ///
 /// - [`Syntax`]: Defines the structure and components of syntax elements
-/// - [`IncompleteSyntax`]: Error type for tracking missing syntax components
-/// - [`Parseable`]: Trait for types that can be parsed
+/// - [`IncompleteSyntax`](crate::error::IncompleteSyntax): Error type for tracking missing syntax components
+/// - [`Parseable`](crate::chumsky::Parseable): Trait for types that can be parsed
 pub trait AstNode<Lang> {
   /// The syntax type associated with this AST node.
   ///

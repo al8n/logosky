@@ -4,6 +4,9 @@ pub use tokenier::LogoStream;
 /// Token parsers
 pub mod token;
 
+/// Generic purpose delimited by parsers
+pub mod delimited;
+
 /// Skip recovery strategies
 pub mod skip;
 

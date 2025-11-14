@@ -2,20 +2,60 @@ use derive_more::{Display, IsVariant};
 
 use crate::DelimiterToken;
 
+/// `{`.
+#[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display("{{")]
+pub struct LBrace;
+
+/// `}`.
+#[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display("}}")]
+pub struct RBrace;
+
 /// `{}` delimiters.
 #[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display("{{}}")]
 pub struct Brace;
+
+/// `(`
+#[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display("(")]
+pub struct LParen;
+
+/// `)`
+#[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display(")")]
+pub struct RParen;
 
 /// `()` delimiters.
 #[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display("()")]
 pub struct Paren;
 
+/// `[`
+#[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display("[")]
+pub struct LBracket;
+
+/// `]`
+#[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display("]")]
+pub struct RBracket;
+
 /// `[]` delimiters.
 #[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display("[]")]
 pub struct Bracket;
+
+/// `<`
+#[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display("<")]
+pub struct LAngle;
+
+/// `>`
+#[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display(">")]
+pub struct RAngle;
 
 /// `<>` delimiters.
 #[derive(Debug, Default, Display, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -1,7 +1,7 @@
 //! Token skipping utilities for error recovery.
 //!
 //! This module provides generic utilities for implementing error recovery in parsers
-//! via the [`Recoverable`](super::Recoverable) trait. These functions enable parsers
+//! via the [`Recoverable`](crate::chumsky::Recoverable) trait. These functions enable parsers
 //! to skip over malformed input until reaching a "synchronization point" where parsing
 //! can safely resume.
 //!
