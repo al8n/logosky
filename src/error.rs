@@ -331,6 +331,74 @@ pub trait ErrorNode {
   fn missing(span: Span) -> Self;
 }
 
+impl ErrorNode for &str {
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn error(_span: Span) -> Self {
+    "<error>"
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn missing(_span: Span) -> Self {
+    "<missing>"
+  }
+}
+
+impl ErrorNode for &[u8] {
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn error(_span: Span) -> Self {
+    b"<error>"
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn missing(_span: Span) -> Self {
+    b"<missing>"
+  }
+}
+
+#[cfg(feature = "bytes")]
+#[cfg_attr(docsrs, doc(cfg(feature = "bytes")))]
+impl ErrorNode for bytes::Bytes {
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn error(_span: Span) -> Self {
+    bytes::Bytes::from_static(b"<error>")
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn missing(_span: Span) -> Self {
+    bytes::Bytes::from_static(b"<missing>")
+  }
+}
+
+#[cfg(feature = "hipstr")]
+#[cfg_attr(docsrs, doc(cfg(feature = "hipstr")))]
+const _: () = {
+  use hipstr::{HipByt, HipStr};
+
+  impl ErrorNode for HipStr<'_> {
+    #[cfg_attr(not(tarpaulin), inline(always))]
+    fn error(_span: Span) -> Self {
+      HipStr::borrowed("<error>")
+    }
+
+    #[cfg_attr(not(tarpaulin), inline(always))]
+    fn missing(_span: Span) -> Self {
+      HipStr::borrowed("<missing>")
+    }
+  }
+
+  impl ErrorNode for HipByt<'_> {
+    #[cfg_attr(not(tarpaulin), inline(always))]
+    fn error(_span: Span) -> Self {
+      HipByt::borrowed(b"<error>")
+    }
+
+    #[cfg_attr(not(tarpaulin), inline(always))]
+    fn missing(_span: Span) -> Self {
+      HipByt::borrowed(b"<missing>")
+    }
+  }
+};
+
 /// A container of error types
 pub trait ErrorContainer<E> {
   /// The iterator type for the container.
