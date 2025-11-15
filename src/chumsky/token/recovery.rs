@@ -413,8 +413,19 @@ where
 /// - [`emit`]: Emit an error without consuming input
 /// - [`emit_with`]: Emit an error created from a function without consuming input
 /// - [`skip_until_token`](super::skip::skip_until_token): Skip tokens without emitting errors
+///
+/// Emits errors for each token until the matcher succeeds, optionally returning the matching token.
+///
+/// This helper scans forward, calling `matcher` on every token. If the matcher returns `Err(error)`,
+/// the error is emitted and scanning continues. When the matcher finally returns `Ok(())`, the
+/// matching token is consumed and returned. If end-of-input is reached before any token matches,
+/// the parser returns `Ok(None)` without emitting an extra error (you can attach one via
+/// `.validate` if desired).
+///
+/// Use this when you need to synchronise on the next "safe" token while reporting every skipped
+/// token along the way—e.g., skipping to the next statement keyword or delimiter.
 pub fn emit_until_token<'a, I, T, Error, E>(
-  matcher: impl Fn(&T) -> Result<(), Error> + Clone + 'a,
+  matcher: impl Fn(&Spanned<T>) -> Result<(), Error> + Clone + 'a,
 ) -> impl Parser<'a, I, Option<Spanned<T>>, E> + Clone
 where
   I: LogoStream<'a, T>,
@@ -424,28 +435,31 @@ where
 {
   custom(move |inp| {
     loop {
-      let result = inp.parse(any().validate(|t: Lexed<'_, T>, _, emitter| match t {
-        Lexed::Token(tok) => match matcher(&*tok) {
-          Ok(()) => Some(tok),
-          Err(e) => {
-            emitter.emit(e);
-            None
-          }
-        },
-        Lexed::Error(e) => {
-          emitter.emit(Error::from(e));
-          None
-        }
-      }))?;
+      let result = inp.parse(
+        any()
+          .validate(|t: Lexed<'_, T>, _, emitter| match t {
+            Lexed::Token(tok) => match matcher(&tok) {
+              Ok(()) => Some(tok),
+              Err(e) => {
+                emitter.emit(e);
+                None
+              }
+            },
+            Lexed::Error(e) => {
+              emitter.emit(Error::from(e));
+              None
+            }
+          })
+          .or_not(),
+      )?;
 
       match result {
-        Some(tok) => return Ok(Some(tok)),
-        None => {
-          // Validation failed, continue to next token
-          // If we've reached EOF, the any() parser will return an error
-          // and we'll exit the loop
+        Some(Some(tok)) => return Ok(Some(tok)),
+        Some(None) => {
+          // Validation failed, continue scanning
           continue;
         }
+        None => return Ok(None),
       }
     }
   })

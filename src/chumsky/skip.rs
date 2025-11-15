@@ -393,7 +393,9 @@ where
 /// This is useful when you want to fast-forward the token stream past a known delimiter
 /// (e.g., skip until the next `)` and discard it). If you need to keep the matching token
 /// for the next parser, use [`skip_until_token`] instead.
-pub fn skip_until_token_inclusive<'a, I, T, E, F>(predicate: F) -> impl Parser<'a, I, Option<Spanned<T>>, E> + Clone
+pub fn skip_until_token_inclusive<'a, I, T, E, F>(
+  predicate: F,
+) -> impl Parser<'a, I, Option<Spanned<T>>, E> + Clone
 where
   I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
   T: Token<'a>,
@@ -403,26 +405,33 @@ where
 {
   custom(move |inp| {
     loop {
-      let result = inp.parse(any().validate(|t: Lexed<'_, T>, _, emitter| match t {
-        Lexed::Token(tok) => if predicate(&*tok) {
-          Some(tok)
-        } else {
-          None
-        },
-        Lexed::Error(e) => {
-          emitter.emit(E::Error::from(e));
-          None
-        }
-      }))?;
+      let result = inp.parse(
+        any()
+          .validate(|t: Lexed<'_, T>, _, emitter| match t {
+            Lexed::Token(tok) => {
+              if predicate(&*tok) {
+                Some(tok)
+              } else {
+                None
+              }
+            }
+            Lexed::Error(e) => {
+              emitter.emit(E::Error::from(e));
+              None
+            }
+          })
+          .or_not(),
+      )?;
 
       match result {
-        Some(tok) => return Ok(Some(tok)),
-        None => {
+        Some(Some(tok)) => return Ok(Some(tok)),
+        Some(None) => {
           // Validation failed, continue to next token
           // If we've reached EOF, the any() parser will return an error
           // and we'll exit the loop
           continue;
         }
+        None => return Ok(None), // End of input reached
       }
     }
   })
@@ -979,9 +988,10 @@ mod tests {
         Lexed::Error(e) => Err(e.into()),
       })
       .ignored()
-      .recover_with(via_parser(skip_until_token_inclusive(|tok: &TestToken| {
-        matches!(tok.kind(), TestKind::Ident)
-      }).ignored()))
+      .recover_with(via_parser(
+        skip_until_token_inclusive(|tok: &TestToken| matches!(tok.kind(), TestKind::Ident))
+          .ignored(),
+      ))
       .ignore_then(next_kind_parser());
 
     let result = parser.parse(stream);
