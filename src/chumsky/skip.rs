@@ -124,7 +124,7 @@
 //! })
 //! ```
 
-use crate::{Lexed, Token};
+use crate::{Lexed, Token, utils::Spanned};
 use chumsky::{Parser, prelude::*, recovery::Strategy};
 use logos::{Logos, Source};
 
@@ -393,7 +393,7 @@ where
 /// This is useful when you want to fast-forward the token stream past a known delimiter
 /// (e.g., skip until the next `)` and discard it). If you need to keep the matching token
 /// for the next parser, use [`skip_until_token`] instead.
-pub fn skip_until_token_inclusive<'a, I, T, E, F>(predicate: F) -> impl Parser<'a, I, (), E> + Clone
+pub fn skip_until_token_inclusive<'a, I, T, E, F>(predicate: F) -> impl Parser<'a, I, Option<Spanned<T>>, E> + Clone
 where
   I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
   T: Token<'a>,
@@ -402,26 +402,29 @@ where
   F: Fn(&T) -> bool + Clone + 'a,
 {
   custom(move |inp| {
-    while let Some(lexed) = inp.peek() {
-      match lexed {
-        Lexed::Token(spanned_tok) => {
-          if predicate(&spanned_tok) {
-            inp.skip(); // Consume the matching token
-            return Ok(());
-          }
-          inp.skip();
+    loop {
+      let result = inp.parse(any().validate(|t: Lexed<'_, T>, _, emitter| match t {
+        Lexed::Token(tok) => if predicate(&*tok) {
+          Some(tok)
+        } else {
+          None
+        },
+        Lexed::Error(e) => {
+          emitter.emit(E::Error::from(e));
+          None
         }
-        Lexed::Error(_) => {
-          // inp does not have an emit method, so we use a validate parser to emit the error
-          inp.parse(any().validate(|tok, _, emitter| {
-            if let Lexed::Error(err) = tok {
-              emitter.emit(E::Error::from(err));
-            }
-          }))?;
+      }))?;
+
+      match result {
+        Some(tok) => return Ok(Some(tok)),
+        None => {
+          // Validation failed, continue to next token
+          // If we've reached EOF, the any() parser will return an error
+          // and we'll exit the loop
+          continue;
         }
       }
     }
-    Ok(())
   })
 }
 
@@ -978,7 +981,7 @@ mod tests {
       .ignored()
       .recover_with(via_parser(skip_until_token_inclusive(|tok: &TestToken| {
         matches!(tok.kind(), TestKind::Ident)
-      })))
+      }).ignored()))
       .ignore_then(next_kind_parser());
 
     let result = parser.parse(stream);
