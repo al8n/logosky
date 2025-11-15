@@ -280,6 +280,177 @@ where
     .rewind()
 }
 
+/// Repeatedly parses tokens until finding one that passes validation, emitting errors for invalid tokens.
+///
+/// This parser consumes tokens from the input stream, validating each one with the provided
+/// `matcher` function. Invalid tokens and lexer errors are emitted, and parsing continues.
+/// When a valid token is found (matcher returns `Ok(())`), parsing stops and returns it.
+/// If EOF is reached without finding a valid token, returns `None`.
+///
+/// This is useful for error recovery scenarios where you want to skip malformed tokens
+/// while reporting each error, until you find a valid synchronization point.
+///
+/// # Parameters
+///
+/// - `matcher`: A function that validates a token and returns `Result<(), Error>`:
+///   - `Ok(())`: Token is valid; stop parsing and return this token
+///   - `Err(error)`: Token is invalid; emit error and continue to next token
+///
+/// # Returns
+///
+/// A parser that produces `Option<Spanned<T>>`:
+/// - `Some(token)`: Found a token that passed validation
+/// - `None`: Reached EOF without finding a valid token
+///
+/// # Error Behavior
+///
+/// For each invalid token encountered:
+/// 1. **Validation failure**: `matcher` returns `Err(error)` → error is emitted, parsing continues
+/// 2. **Lexer error**: Input contains a lexer error → error is emitted, parsing continues
+///
+/// All errors are accumulated in the parser's error state for later retrieval.
+///
+/// # Examples
+///
+/// ## Skip to Statement Boundary
+///
+/// ```rust,ignore
+/// use logosky::chumsky::token::recovery::emit_until_token;
+///
+/// // Skip malformed tokens until finding a semicolon or brace
+/// let recover_to_statement = emit_until_token(|tok| {
+///     match tok {
+///         Token::Semicolon | Token::RBrace | Token::LBrace => Ok(()),
+///         _ => Err(Error::UnexpectedToken(tok.clone())),
+///     }
+/// });
+///
+/// // Input: "garbage tokens ; more code"
+/// // Emits errors for "garbage" and "tokens", returns Some(Semicolon)
+/// ```
+///
+/// ## Recover from Invalid Identifier
+///
+/// ```rust,ignore
+/// // Skip tokens until finding a valid identifier
+/// let find_valid_ident = emit_until_token(|tok| {
+///     match tok {
+///         Token::Identifier(name) if !is_keyword(name) => Ok(()),
+///         Token::Identifier(kw) => Err(Error::KeywordAsIdentifier(kw)),
+///         tok => Err(Error::ExpectedIdentifier(tok)),
+///     }
+/// });
+///
+/// // Input: "123 if else validName"
+/// // Emits errors for "123", "if", "else"
+/// // Returns Some(Identifier("validName"))
+/// ```
+///
+/// ## Skip to Closing Delimiter
+///
+/// ```rust,ignore
+/// // Skip to a closing delimiter for recovery
+/// let skip_to_close = emit_until_token(|tok| {
+///     match tok {
+///         Token::RBrace | Token::RParen | Token::RBracket => Ok(()),
+///         _ => Err(Error::SkippedToken),
+///     }
+/// });
+///
+/// // Input: "malformed content } next"
+/// // Emits errors for each malformed token
+/// // Returns Some(RBrace)
+/// ```
+///
+/// ## With Unwrap and Recovery
+///
+/// ```rust,ignore
+/// use logosky::chumsky::prelude::*;
+///
+/// // Find valid token or use placeholder if EOF
+/// let validated = emit_until_token(|tok| {
+///     match tok {
+///         Token::Keyword(_) => Ok(()),
+///         _ => Err(Error::ExpectedKeyword),
+///     }
+/// })
+/// .unwrapped() // Panics on None - use only when guaranteed to find token
+/// // Or with recovery:
+/// .or(empty().map_with(|_, exa| {
+///     Spanned::new(exa.span(), Token::placeholder())
+/// }));
+/// ```
+///
+/// ## Bounded Skip with Fallback
+///
+/// ```rust,ignore
+/// // Skip up to 10 tokens looking for semicolon
+/// let limited_skip = emit_until_token(|tok| {
+///     match tok {
+///         Token::Semicolon => Ok(()),
+///         _ => Err(Error::SkippedToken),
+///     }
+/// })
+/// .take(10) // Limit how many tokens to skip
+/// .or(just(Token::Semicolon).map_with(|tok, exa| {
+///     Spanned::new(exa.span(), tok)
+/// }));
+/// ```
+///
+/// # When to Use
+///
+/// Use `emit_until_token` when you need to:
+/// - **Skip malformed tokens** while reporting each error until finding a valid synchronization point
+/// - **Recover from errors** by skipping to a known-good token (semicolon, brace, keyword)
+/// - **Validate conditionally** where only certain tokens are valid in a given context
+///
+/// For simpler cases:
+/// - Use [`skip_until_token`] if you don't need to emit errors for skipped tokens
+/// - Use `.filter()` if you just want to filter without error reporting
+///
+/// # See Also
+///
+/// - [`emit`]: Emit an error without consuming input
+/// - [`emit_with`]: Emit an error created from a function without consuming input
+/// - [`skip_until_token`](super::skip::skip_until_token): Skip tokens without emitting errors
+pub fn emit_until_token<'a, I, T, Error, E>(
+  matcher: impl Fn(&T) -> Result<(), Error> + Clone + 'a,
+) -> impl Parser<'a, I, Option<Spanned<T>>, E> + Clone
+where
+  I: LogoStream<'a, T>,
+  T: Token<'a>,
+  E: ParserExtra<'a, I, Error = Error> + 'a,
+  Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
+{
+  custom(move |inp| {
+    loop {
+      let result = inp.parse(any().validate(|t: Lexed<'_, T>, _, emitter| match t {
+        Lexed::Token(tok) => match matcher(&*tok) {
+          Ok(()) => Some(tok),
+          Err(e) => {
+            emitter.emit(e);
+            None
+          }
+        },
+        Lexed::Error(e) => {
+          emitter.emit(Error::from(e));
+          None
+        }
+      }))?;
+
+      match result {
+        Some(tok) => return Ok(Some(tok)),
+        None => {
+          // Validation failed, continue to next token
+          // If we've reached EOF, the any() parser will return an error
+          // and we'll exit the loop
+          continue;
+        }
+      }
+    }
+  })
+}
+
 /// Scans ahead for a matching closing delimiter and rewinds before returning.
 ///
 /// This function performs a non-destructive lookahead to check if a matching closing

@@ -74,8 +74,45 @@
 //! let expr = Expr::Variable(var);
 //! ```
 
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
+
+use crate::{error::ErrorNode, utils::Span};
+
 pub use ident::*;
 pub use lit::*;
 
 mod ident;
 mod lit;
+
+/// A type representing a recoverable parse node, which can be a valid node,
+/// an error node with span, or a missing node with span.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, IsVariant, TryUnwrap, Unwrap)]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
+pub enum Recoverable<T> {
+  /// A valid parse node.
+  Node(T),
+  /// An error node with associated span.
+  Error(Span),
+  /// A missing node with associated span.
+  Missing(Span),
+}
+
+impl<T> ErrorNode for Recoverable<T> {
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn error(span: Span) -> Self {
+    Self::Error(span)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn missing(span: Span) -> Self {
+    Self::Missing(span)
+  }
+}
+
+impl<T> From<T> for Recoverable<T> {
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn from(node: T) -> Self {
+    Self::Node(node)
+  }
+}
