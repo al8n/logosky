@@ -97,6 +97,7 @@
 //! `let z := 3` and the outer `}`, breaking the parent parser. By returning `Err(span)`,
 //! we keep errors localized and allow outer parsers to continue normally.
 
+use chumsky::input::Emitter;
 use logos::Logos;
 
 use crate::{
@@ -470,7 +471,615 @@ where
         Some(Some(tok)) => {
           inp.rewind(cur);
           return Ok((skipped, Some(tok)));
-        },
+        }
+        Some(None) => {
+          skipped += 1;
+          // Validation failed, continue scanning
+          continue;
+        }
+        None => return Ok((skipped, None)),
+      }
+    }
+  })
+}
+
+/// Repeatedly parses tokens until finding one that matches, with full control over error emission and result transformation.
+///
+/// This is a more flexible version of [`emit_until_token`] that gives the matcher function
+/// direct access to the error emitter and allows transforming the matched token into a
+/// different output type. The matching token is **NOT** consumed (left in the stream).
+///
+/// # Parameters
+///
+/// - `matcher`: A function that validates and optionally transforms a token:
+///   - Arguments: `(token: Spanned<T>, emitter: &mut Emitter<Error>)`
+///   - Returns `Option<O>`:
+///     - `Some(value)`: Token is valid; stop parsing and return this value
+///     - `None`: Token is invalid; parsing continues to next token
+///   - The matcher can emit zero, one, or multiple errors via the emitter
+///
+/// # Returns
+///
+/// Returns `(usize, Option<O>)` where:
+/// - `usize`: Number of tokens skipped (where matcher returned `None`)
+/// - `Option<O>`:
+///   - `Some(value)`: Found a matching token and transformed it to `O` (NOT consumed, still in stream)
+///   - `None`: Reached EOF without finding a match
+///
+/// # Key Differences from emit_until_token
+///
+/// 1. **Error control**: Matcher has direct access to emitter, can emit conditional or multiple errors
+/// 2. **Transformation**: Matcher can transform the token into a different type `O`
+/// 3. **Flexibility**: Matcher can inspect token and decide whether to emit errors
+///
+/// # Use Cases
+///
+/// - **Conditional error emission**: Only emit errors for specific token patterns
+/// - **Multiple errors per token**: Emit multiple diagnostics for a single malformed token
+/// - **Token transformation**: Extract and transform data from the matching token
+/// - **Context-aware recovery**: Emit different errors based on recovery context
+///
+/// # Examples
+///
+/// ## Conditional Error Emission
+///
+/// ```rust,ignore
+/// use logosky::chumsky::token::recovery::emit_error_until_token;
+///
+/// // Only emit errors for truly invalid tokens, silently skip whitespace
+/// let (skipped, found) = emit_error_until_token(|tok, emitter| {
+///     match &tok.data {
+///         Token::Semicolon => Some(tok.span), // Found! Return the span
+///         Token::Whitespace | Token::Comment => None, // Skip silently
+///         _ => {
+///             // Skip with error
+///             emitter.emit(Error::UnexpectedToken {
+///                 found: tok.data.clone(),
+///                 span: tok.span
+///             });
+///             None
+///         }
+///     }
+/// })
+/// .parse(stream)?;
+/// ```
+///
+/// ## Multiple Errors Per Token
+///
+/// ```rust,ignore
+/// // Emit multiple diagnostics for a single malformed token
+/// let (_, found) = emit_error_until_token(|tok, emitter| {
+///     match &tok.data {
+///         Token::Identifier(name) if is_valid_identifier(name) => {
+///             Some(name.clone()) // Valid identifier, return it
+///         }
+///         Token::Identifier(name) => {
+///             // Emit multiple errors for invalid identifier
+///             if name.starts_with(|c: char| c.is_numeric()) {
+///                 emitter.emit(Error::IdentifierStartsWithNumber(tok.span));
+///             }
+///             if name.contains("__") {
+///                 emitter.emit(Error::IdentifierDoubleUnderscore(tok.span));
+///             }
+///             None // Continue searching
+///         }
+///         _ => {
+///             emitter.emit(Error::ExpectedIdentifier(tok.span));
+///             None
+///         }
+///     }
+/// })
+/// .parse(stream)?;
+/// ```
+///
+/// ## Token Transformation
+///
+/// ```rust,ignore
+/// // Extract specific data from the matching token
+/// let (skipped, keyword_data) = emit_error_until_token(|tok, emitter| {
+///     match &tok.data {
+///         Token::Keyword(kw) => {
+///             // Transform token into just the keyword data we need
+///             Some((kw.clone(), tok.span))
+///         }
+///         _ => {
+///             emitter.emit(Error::ExpectedKeyword(tok.span));
+///             None
+///         }
+///     }
+/// })
+/// .parse(stream)?;
+///
+/// if let Some((keyword, span)) = keyword_data {
+///     println!("Found keyword {:?} at {:?} after skipping {} tokens",
+///              keyword, span, skipped);
+/// }
+/// ```
+///
+/// ## Context-Aware Error Messages
+///
+/// ```rust,ignore
+/// // Emit different errors based on position in recovery
+/// let mut attempts = 0;
+/// let (_, found) = emit_error_until_token(move |tok, emitter| {
+///     attempts += 1;
+///     match &tok.data {
+///         Token::Semicolon => Some(tok.span),
+///         _ if attempts == 1 => {
+///             emitter.emit(Error::ExpectedSemicolon(tok.span));
+///             None
+///         }
+///         _ if attempts > 10 => {
+///             emitter.emit(Error::TooManyTokensSkipped {
+///                 span: tok.span,
+///                 count: attempts
+///             });
+///             None
+///         }
+///         _ => None, // Skip subsequent tokens silently
+///     }
+/// })
+/// .parse(stream)?;
+/// ```
+///
+/// ## Discarding the Result
+///
+/// ```rust,ignore
+/// // When you don't need the count or output value
+/// emit_error_until_token(|tok, emitter| {
+///     match &tok.data {
+///         Token::RBrace => Some(()),
+///         _ => {
+///             emitter.emit(Error::ExpectedRBrace(tok.span));
+///             None
+///         }
+///     }
+/// })
+/// .ignored() // Discard (count, option) tuple
+/// .ignore_then(next_parser())
+/// ```
+///
+/// # See Also
+///
+/// - [`emit_until_token`]: Simpler version with `Result`-based matcher
+/// - [`emit_error_until_token_inclusive`]: Inclusive version that consumes the matching token
+/// - [`skip_until_token`](crate::chumsky::skip::skip_until_token): Skip without emitting errors
+pub fn emit_error_until_token<'a, I, T, O, Error, E>(
+  matcher: impl Fn(Spanned<T>, &mut Emitter<Error>) -> Option<O> + Clone + 'a,
+) -> impl Parser<'a, I, (usize, Option<O>), E> + Clone
+where
+  I: LogoStream<'a, T>,
+  T: Token<'a>,
+  E: ParserExtra<'a, I, Error = Error> + 'a,
+  Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
+{
+  custom(move |inp| {
+    let mut skipped = 0;
+    loop {
+      let cur = inp.save();
+      let result = inp.parse(
+        any()
+          .validate(|t: Lexed<'_, T>, _, emitter| match t {
+            Lexed::Token(tok) => matcher(tok, emitter),
+            Lexed::Error(e) => {
+              emitter.emit(Error::from(e));
+              None
+            }
+          })
+          .or_not(),
+      )?;
+
+      match result {
+        Some(Some(tok)) => {
+          inp.rewind(cur);
+          return Ok((skipped, Some(tok)));
+        }
+        Some(None) => {
+          skipped += 1;
+          // Validation failed, continue scanning
+          continue;
+        }
+        None => return Ok((skipped, None)),
+      }
+    }
+  })
+}
+
+/// Repeatedly parses tokens until finding one that passes validation, emitting errors and **consuming** the valid token.
+///
+/// This is the inclusive version of [`emit_until_token`]. It behaves identically except that
+/// when a valid token is found (matcher returns `Ok(())`), the token **IS** consumed from the
+/// stream and returned. This is useful when you want to skip malformed tokens and consume the
+/// synchronization point in one operation.
+///
+/// # Parameters
+///
+/// - `matcher`: A function that validates a token and returns `Result<(), Error>`:
+///   - `Ok(())`: Token is valid; stop parsing, consume and return this token
+///   - `Err(error)`: Token is invalid; emit error and continue to next token
+///
+/// # Returns
+///
+/// Returns `(usize, Option<Spanned<T>>)` where:
+/// - `usize`: Number of invalid tokens encountered and emitted as errors
+/// - `Option<Spanned<T>>`:
+///   - `Some(token)`: Found and consumed a valid token
+///   - `None`: Reached EOF without finding a valid token
+///
+/// # Error Behavior
+///
+/// For each invalid token encountered:
+/// 1. **Validation failure**: `matcher` returns `Err(error)` → error is emitted, parsing continues
+/// 2. **Lexer error**: Input contains a lexer error → error is emitted, parsing continues
+///
+/// All errors are accumulated in the parser's error state for later retrieval.
+///
+/// # When to Use
+///
+/// Use `emit_until_token_inclusive` when you need to:
+/// - **Skip and consume**: Skip malformed tokens and consume the synchronization point (e.g., semicolon, closing brace)
+/// - **Error reporting with recovery**: Report each skipped token as an error while recovering
+/// - **Bounded recovery**: Know exactly how many errors occurred during recovery
+///
+/// Use [`emit_until_token`] when you need to preserve the matching token for the next parser.
+///
+/// # Examples
+///
+/// ## Skip to and Consume Semicolon
+///
+/// ```rust,ignore
+/// use logosky::chumsky::token::recovery::emit_until_token_inclusive;
+///
+/// // Skip malformed tokens until finding and consuming a semicolon
+/// let (error_count, found) = emit_until_token_inclusive(|tok| {
+///     match &tok.data {
+///         Token::Semicolon => Ok(()),
+///         _ => Err(Error::ExpectedSemicolon(tok.span)),
+///     }
+/// })
+/// .parse(stream)?;
+///
+/// match found {
+///     Some(semi) => {
+///         println!("Recovered by skipping {} tokens, consumed semicolon at {:?}",
+///                  error_count, semi.span);
+///         // Semicolon is consumed, continue with next statement
+///     }
+///     None => {
+///         return Err(Error::MissingSemicolon { errors: error_count });
+///     }
+/// }
+/// ```
+///
+/// ## Statement Recovery with Delimiter
+///
+/// ```rust,ignore
+/// // Parse statement, recovering by skipping to and consuming closing brace
+/// statement_parser()
+///     .recover_with(via_parser(
+///         emit_until_token_inclusive(|tok| {
+///             match &tok.data {
+///                 Token::RBrace | Token::Semicolon => Ok(()),
+///                 _ => Err(Error::SkippedToken(tok.span)),
+///             }
+///         })
+///         .map_with(|(errors, delim), exa| {
+///             if errors > 0 {
+///                 eprintln!("Skipped {} invalid tokens", errors);
+///             }
+///             Statement::error(exa.span())
+///         })
+///     ))
+/// ```
+///
+/// ## Recovery with Detailed Diagnostics
+///
+/// ```rust,ignore
+/// match emit_until_token_inclusive(|tok| {
+///     match &tok.data {
+///         Token::RBrace => Ok(()),
+///         _ => Err(Error::UnexpectedInBlock {
+///             found: tok.data.clone(),
+///             span: tok.span
+///         }),
+///     }
+/// })
+/// .parse(stream)?
+/// {
+///     (0, Some(brace)) => {
+///         // Clean recovery, no errors
+///         println!("Block properly closed at {:?}", brace.span);
+///     }
+///     (count, Some(brace)) => {
+///         // Recovered after errors
+///         println!("Block closed at {:?} after {} errors", brace.span, count);
+///         // brace is already consumed, positioned after }
+///     }
+///     (count, None) => {
+///         // No closing brace found
+///         return Err(Error::UnclosedBlock {
+///             errors_encountered: count
+///         });
+///     }
+/// }
+/// ```
+///
+/// ## Discarding the Result
+///
+/// ```rust,ignore
+/// // When you don't need the count or token information
+/// emit_until_token_inclusive(|tok| {
+///     match &tok.data {
+///         Token::RBrace | Token::Semicolon => Ok(()),
+///         _ => Err(Error::SkippedToken(tok.span)),
+///     }
+/// })
+/// .ignored() // Discard (count, token) tuple
+/// .ignore_then(next_parser())
+/// ```
+///
+/// # Comparison with emit_until_token
+///
+/// ```text
+/// emit_until_token:
+///   malformed tokens ; next
+///                    ^ token NOT consumed, positioned here
+///
+/// emit_until_token_inclusive:
+///   malformed tokens ; next
+///                      ^ token consumed, positioned here
+/// ```
+///
+/// Use `emit_until_token` when you need to inspect or handle the matching token specially.
+/// Use `emit_until_token_inclusive` when you want to skip past it entirely.
+///
+/// # See Also
+///
+/// - [`emit_until_token`]: Non-inclusive version that preserves the matching token
+/// - [`skip_until_token_inclusive`](crate::chumsky::skip::skip_until_token_inclusive): Skip without emitting errors for each token
+/// - [`emit`]: Emit an error without consuming input
+/// - [`emit_with`]: Emit an error created from a function without consuming input
+pub fn emit_until_token_inclusive<'a, I, T, Error, E>(
+  matcher: impl Fn(&Spanned<T>) -> Result<(), Error> + Clone + 'a,
+) -> impl Parser<'a, I, (usize, Option<Spanned<T>>), E> + Clone
+where
+  I: LogoStream<'a, T>,
+  T: Token<'a>,
+  E: ParserExtra<'a, I, Error = Error> + 'a,
+  Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
+{
+  custom(move |inp| {
+    let mut skipped = 0;
+    loop {
+      let result = inp.parse(
+        any()
+          .validate(|t: Lexed<'_, T>, _, emitter| match t {
+            Lexed::Token(tok) => match matcher(&tok) {
+              Ok(()) => Some(tok),
+              Err(e) => {
+                emitter.emit(e);
+                None
+              }
+            },
+            Lexed::Error(e) => {
+              emitter.emit(Error::from(e));
+              None
+            }
+          })
+          .or_not(),
+      )?;
+
+      match result {
+        Some(Some(tok)) => {
+          return Ok((skipped, Some(tok)));
+        }
+        Some(None) => {
+          skipped += 1;
+          // Validation failed, continue scanning
+          continue;
+        }
+        None => return Ok((skipped, None)),
+      }
+    }
+  })
+}
+
+/// Repeatedly parses tokens until finding one that matches, with full control over error emission, **consuming** the matching token.
+///
+/// This is the inclusive version of [`emit_error_until_token`]. It behaves identically except
+/// that when a matching token is found (matcher returns `Some(value)`), the token **IS**
+/// consumed from the stream. This gives you full control over error emission and result
+/// transformation while consuming the synchronization point.
+///
+/// # Parameters
+///
+/// - `matcher`: A function that validates and optionally transforms a token:
+///   - Arguments: `(token: Spanned<T>, emitter: &mut Emitter<Error>)`
+///   - Returns `Option<O>`:
+///     - `Some(value)`: Token is valid; consume it, stop parsing, and return this value
+///     - `None`: Token is invalid; parsing continues to next token
+///   - The matcher can emit zero, one, or multiple errors via the emitter
+///
+/// # Returns
+///
+/// Returns `(usize, Option<O>)` where:
+/// - `usize`: Number of tokens skipped (where matcher returned `None`)
+/// - `Option<O>`:
+///   - `Some(value)`: Found and consumed a matching token, transformed to `O`
+///   - `None`: Reached EOF without finding a match
+///
+/// # Key Differences
+///
+/// vs [`emit_error_until_token`]:
+/// - **Consumption**: This version consumes the matching token
+///
+/// vs [`emit_until_token_inclusive`]:
+/// - **Error control**: Direct access to emitter, can emit conditional or multiple errors
+/// - **Transformation**: Can transform token into different type `O`
+///
+/// # Use Cases
+///
+/// - **Skip and consume with conditional errors**: Skip to and consume a delimiter, only emitting errors for truly invalid tokens
+/// - **Transform and consume**: Extract data from the matching token and consume it in one operation
+/// - **Multi-error recovery**: Emit multiple diagnostics while recovering and consuming the sync point
+///
+/// # Examples
+///
+/// ## Skip to and Consume Semicolon with Conditional Errors
+///
+/// ```rust,ignore
+/// use logosky::chumsky::token::recovery::emit_error_until_token_inclusive;
+///
+/// // Skip to semicolon, emitting errors only for invalid tokens (not whitespace)
+/// let (errors, semi_span) = emit_error_until_token_inclusive(|tok, emitter| {
+///     match &tok.data {
+///         Token::Semicolon => Some(tok.span), // Found and consume
+///         Token::Whitespace | Token::Comment => None, // Skip silently
+///         _ => {
+///             emitter.emit(Error::UnexpectedToken {
+///                 found: tok.data.clone(),
+///                 expected: "semicolon",
+///                 span: tok.span
+///             });
+///             None
+///         }
+///     }
+/// })
+/// .parse(stream)?;
+///
+/// match semi_span {
+///     Some(span) => {
+///         println!("Recovered at {:?} after {} errors", span, errors);
+///         // Semicolon is consumed, continue parsing
+///     }
+///     None => {
+///         return Err(Error::MissingSemicolon { errors_emitted: errors });
+///     }
+/// }
+/// ```
+///
+/// ## Transform and Consume Delimiter
+///
+/// ```rust,ignore
+/// // Extract delimiter type and consume it
+/// let (skipped, delim_info) = emit_error_until_token_inclusive(|tok, emitter| {
+///     match &tok.data {
+///         Token::RBrace => Some(("brace", tok.span)),
+///         Token::RParen => Some(("paren", tok.span)),
+///         Token::RBracket => Some(("bracket", tok.span)),
+///         _ => {
+///             emitter.emit(Error::ExpectedClosingDelimiter(tok.span));
+///             None
+///         }
+///     }
+/// })
+/// .parse(stream)?;
+///
+/// if let Some((delim_type, span)) = delim_info {
+///     println!("Closed {} at {:?}", delim_type, span);
+///     // Delimiter is consumed, positioned after it
+/// }
+/// ```
+///
+/// ## Multiple Errors with Consumption
+///
+/// ```rust,ignore
+/// // Emit multiple errors for malformed tokens, consume when valid found
+/// statement_parser()
+///     .recover_with(via_parser(
+///         emit_error_until_token_inclusive(|tok, emitter| {
+///             match &tok.data {
+///                 Token::Semicolon => Some(tok.span), // Valid, consume
+///                 Token::Identifier(name) if name.starts_with("$") => {
+///                     // Malformed identifier - emit multiple warnings
+///                     emitter.emit(Error::DeprecatedSyntax(tok.span));
+///                     emitter.emit(Error::ConsiderRefactoring {
+///                         span: tok.span,
+///                         suggestion: "Use modern syntax"
+///                     });
+///                     None
+///                 }
+///                 _ => {
+///                     emitter.emit(Error::UnexpectedToken(tok.span));
+///                     None
+///                 }
+///             }
+///         })
+///         .map_with(|(errors, _), exa| {
+///             if errors > 0 {
+///                 eprintln!("Statement recovery: {} errors", errors);
+///             }
+///             Statement::error(exa.span())
+///         })
+///     ))
+/// ```
+///
+/// ## Discarding the Result
+///
+/// ```rust,ignore
+/// // When you don't need the count or output value
+/// emit_error_until_token_inclusive(|tok, emitter| {
+///     match &tok.data {
+///         Token::RBrace | Token::Semicolon => Some(()),
+///         Token::Whitespace => None, // Skip silently
+///         _ => {
+///             emitter.emit(Error::SkippedToken(tok.span));
+///             None
+///         }
+///     }
+/// })
+/// .ignored() // Discard (count, option) tuple
+/// .ignore_then(next_parser())
+/// ```
+///
+/// # Comparison with emit_error_until_token
+///
+/// ```text
+/// emit_error_until_token:
+///   malformed tokens ; next
+///                    ^ token NOT consumed, positioned here
+///
+/// emit_error_until_token_inclusive:
+///   malformed tokens ; next
+///                      ^ token consumed, positioned here
+/// ```
+///
+/// Use the non-inclusive version when you need to inspect or handle the matching token.
+/// Use this inclusive version when you want to skip past it entirely.
+///
+/// # See Also
+///
+/// - [`emit_error_until_token`]: Non-inclusive version that preserves the matching token
+/// - [`emit_until_token_inclusive`]: Simpler version with `Result`-based matcher
+/// - [`skip_until_token_inclusive`](crate::chumsky::skip::skip_until_token_inclusive): Skip without emitting errors
+pub fn emit_error_until_token_inclusive<'a, I, T, O, Error, E>(
+  matcher: impl Fn(Spanned<T>, &mut Emitter<Error>) -> Option<O> + Clone + 'a,
+) -> impl Parser<'a, I, (usize, Option<O>), E> + Clone
+where
+  I: LogoStream<'a, T>,
+  T: Token<'a>,
+  E: ParserExtra<'a, I, Error = Error> + 'a,
+  Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
+{
+  custom(move |inp| {
+    let mut skipped = 0;
+    loop {
+      let result = inp.parse(
+        any()
+          .validate(|t: Lexed<'_, T>, _, emitter| match t {
+            Lexed::Token(tok) => matcher(tok, emitter),
+            Lexed::Error(e) => {
+              emitter.emit(Error::from(e));
+              None
+            }
+          })
+          .or_not(),
+      )?;
+
+      match result {
+        Some(Some(tok)) => {
+          return Ok((skipped, Some(tok)));
+        }
         Some(None) => {
           skipped += 1;
           // Validation failed, continue scanning

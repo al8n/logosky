@@ -76,7 +76,10 @@
 
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 
-use crate::{error::ErrorNode, utils::Span};
+use crate::{
+  error::ErrorNode,
+  utils::{AsSpan, Span},
+};
 
 pub use ident::*;
 pub use lit::*;
@@ -96,6 +99,19 @@ pub enum Recoverable<T> {
   Error(Span),
   /// A missing node with associated span.
   Missing(Span),
+}
+
+impl<T> AsSpan<Span> for Recoverable<T>
+where
+  T: AsSpan<Span>,
+{
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn as_span(&self) -> &Span {
+    match self {
+      Self::Node(node) => node.as_span(),
+      Self::Error(span) | Self::Missing(span) => span,
+    }
+  }
 }
 
 impl<T> ErrorNode for Recoverable<T> {

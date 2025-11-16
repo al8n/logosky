@@ -7,6 +7,9 @@ pub mod token;
 /// Generic purpose delimited by parsers
 pub mod delimited;
 
+/// Generic purpose separated by parsers
+pub mod separated;
+
 /// Skip recovery strategies
 pub mod skip;
 

@@ -762,7 +762,9 @@ where
 /// - [`skip_until_token_strategy`]: Strategy version for use with `recover_with`
 /// - [`skip_while_token`]: Skip while predicate matches (inverse behavior)
 #[inline]
-pub fn skip_until_token<'a, I, T, E, F>(predicate: F) -> impl Parser<'a, I, (usize, Option<Spanned<T>>), E> + Clone
+pub fn skip_until_token<'a, I, T, E, F>(
+  predicate: F,
+) -> impl Parser<'a, I, (usize, Option<Spanned<T>>), E> + Clone
 where
   I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
   T: Token<'a>,
@@ -796,7 +798,7 @@ where
         Some(Some(tok)) => {
           inp.rewind(ck); // Rewind to before the matching token
           return Ok((skipped, Some(tok)));
-        },
+        }
         Some(None) => {
           skipped += 1;
           // Validation failed, continue to next token
@@ -920,7 +922,9 @@ where
 /// - [`skip_while_token_strategy`]: Strategy version for use with `recover_with`
 /// - [`skip_n_tokens`]: Skip a fixed number of tokens
 #[inline]
-pub fn skip_while_token<'a, I, T, E, F>(predicate: F) -> impl Parser<'a, I, (usize, Option<Spanned<T>>), E> + Clone
+pub fn skip_while_token<'a, I, T, E, F>(
+  predicate: F,
+) -> impl Parser<'a, I, (usize, Option<Spanned<T>>), E> + Clone
 where
   I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
   T: Token<'a>,
@@ -1055,9 +1059,9 @@ mod tests {
         Lexed::Error(e) => Err(e.into()),
       })
       .ignored()
-      .recover_with(via_parser(skip_until_token(|tok: &TestToken| {
-        matches!(tok.kind(), TestKind::Ident)
-      }).ignored()))
+      .recover_with(via_parser(
+        skip_until_token(|tok: &TestToken| matches!(tok.kind(), TestKind::Ident)).ignored(),
+      ))
       .ignore_then(next_kind_parser());
 
     let result = parser.parse(stream);
@@ -1184,9 +1188,9 @@ mod tests {
         Lexed::Error(e) => Err(e.into()),
       })
       .ignored()
-      .recover_with(via_parser(skip_while_token(|tok: &TestToken| {
-        matches!(tok.kind(), TestKind::Ident)
-      }).ignored()))
+      .recover_with(via_parser(
+        skip_while_token(|tok: &TestToken| matches!(tok.kind(), TestKind::Ident)).ignored(),
+      ))
       .ignore_then(next_kind_parser());
 
     let result = parser.parse(stream);

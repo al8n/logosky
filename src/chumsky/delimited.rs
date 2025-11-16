@@ -158,10 +158,10 @@ macro_rules! delimited_by {
       /// ```
       #[cfg_attr(not(tarpaulin), inline(always))]
       pub fn parser<'a, I, T, Error, SyntaxKind, E>(
-        content_parser: impl Parser<'a, I, Content, E> + Clone,
+        content_parser: impl Parser<'a, I, Content, E> + Clone + 'a,
         open_kind: impl Fn() -> SyntaxKind + Clone + 'a,
         close_kind: impl Fn() -> SyntaxKind + Clone + 'a,
-      ) -> impl Parser<'a, I, Self, E> + Clone
+      ) -> impl Parser<'a, I, Self, E> + Clone + 'a
       where
         T: PunctuatorToken<'a>,
         SyntaxKind: 'a,
@@ -329,8 +329,8 @@ macro_rules! delimited_by {
       /// don't guess."** When delimiters are absent, we're not in a delimited context at all,
       /// so attempting to parse content would be making unfounded assumptions about structure.
       pub fn recoverable_parser<'a, I, T, Error, SyntaxKind, E>(
-        content_parser: impl Parser<'a, I, Content, E> + Clone,
-      ) -> impl Parser<'a, I, Result<Self, Span>, E> + Clone
+        content_parser: impl Parser<'a, I, Content, E> + Clone + 'a,
+      ) -> impl Parser<'a, I, Result<Self, Span>, E> + Clone + 'a
       where
         T: PunctuatorToken<'a>,
         SyntaxKind: 'a,
