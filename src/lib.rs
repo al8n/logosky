@@ -21,6 +21,9 @@ mod lexer;
 #[cfg_attr(docsrs, doc(cfg(feature = "rowan")))]
 pub mod cst;
 
+/// Common types for any programming language.
+pub mod types;
+
 /// Syntax definitions and traits.
 pub mod syntax;
 
