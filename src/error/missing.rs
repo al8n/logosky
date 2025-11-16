@@ -166,15 +166,9 @@ where
   }
 }
 
-impl<T, Lang> fmt::Debug for Missing<T, Lang>
-where
-  T: Syntax<Lang = Lang>,
-  Lang: Language,
-  <Lang as Language>::SyntaxKind: fmt::Debug,
-{
+impl<T, Lang> fmt::Debug for Missing<T, Lang> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("Missing")
-      .field("kind", &self.kind())
       .field("before", &self.before)
       .field("after", &self.after)
       .finish()

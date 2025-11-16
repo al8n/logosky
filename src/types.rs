@@ -78,6 +78,7 @@ use derive_more::{IsVariant, TryUnwrap, Unwrap};
 
 use crate::{
   error::ErrorNode,
+  syntax::{Language, Syntax},
   utils::{AsSpan, Span},
 };
 
@@ -111,6 +112,30 @@ where
       Self::Node(node) => node.as_span(),
       Self::Error(span) | Self::Missing(span) => span,
     }
+  }
+}
+
+impl<T> Syntax for Recoverable<T>
+where
+  T: Syntax,
+{
+  type Lang = T::Lang;
+  const KIND: <Self::Lang as Language>::SyntaxKind = T::KIND;
+
+  type Component = T::Component;
+
+  type COMPONENTS = T::COMPONENTS;
+
+  type REQUIRED = T::REQUIRED;
+
+  fn possible_components()
+  -> &'static generic_arraydeque::GenericArrayDeque<Self::Component, Self::COMPONENTS> {
+    T::possible_components()
+  }
+
+  fn required_components()
+  -> &'static generic_arraydeque::GenericArrayDeque<Self::Component, Self::REQUIRED> {
+    T::required_components()
   }
 }
 

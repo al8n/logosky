@@ -157,15 +157,15 @@ macro_rules! delimited_by {
       #[doc = concat!("let parser = ", stringify!($name), "::parser(my_content_parser);")]
       /// ```
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn parser<'a, I, T, Error, SyntaxKind, E>(
+      pub fn parser<'a, 'e: 'a, I, T, Error, SyntaxKind, E>(
         content_parser: impl Parser<'a, I, Content, E> + Clone + 'a,
         open_kind: impl Fn() -> SyntaxKind + Clone + 'a,
         close_kind: impl Fn() -> SyntaxKind + Clone + 'a,
       ) -> impl Parser<'a, I, Self, E> + Clone + 'a
       where
         T: PunctuatorToken<'a>,
-        SyntaxKind: 'a,
-        Error: From<UnexpectedToken<'a, T, SyntaxKind>>
+        SyntaxKind: 'e,
+        Error: From<UnexpectedToken<'e, T, SyntaxKind>>
           + From<<T::Logos as Logos<'a>>::Error>
           + 'a,
         Self: Sized + 'a,
@@ -328,13 +328,13 @@ macro_rules! delimited_by {
       /// This design choice embodies the principle: **"If you don't see what you expect,
       /// don't guess."** When delimiters are absent, we're not in a delimited context at all,
       /// so attempting to parse content would be making unfounded assumptions about structure.
-      pub fn recoverable_parser<'a, I, T, Error, SyntaxKind, E>(
+      pub fn recoverable_parser<'a, 'e: 'a, I, T, Error, SyntaxKind, E>(
         content_parser: impl Parser<'a, I, Content, E> + Clone + 'a,
       ) -> impl Parser<'a, I, Result<Self, Span>, E> + Clone + 'a
       where
         T: PunctuatorToken<'a>,
-        SyntaxKind: 'a,
-        Error: From<UnexpectedToken<'a, T, SyntaxKind>>
+        SyntaxKind: 'e,
+        Error: From<UnexpectedToken<'e, T, SyntaxKind>>
           + From<$unclosed_error>
           + From<$undelimited_error>
           + From<$unopened_error>
