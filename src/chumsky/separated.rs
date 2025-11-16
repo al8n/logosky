@@ -102,7 +102,7 @@ pub fn separated_by<'a, 'e: 'a, I, T, E, O, C, Sep, Lang>(
   is_sep_token: impl Fn(&T) -> bool + Clone + 'a,
   is_end_token: impl Fn(&T) -> bool + Clone + 'a,
   sep_kind: impl Fn() -> Lang::SyntaxKind + Clone + 'a,
-  on_trailing_sep: impl Fn(&mut Emitter<E::Error>) + Clone + 'a
+  on_trailing_sep: impl Fn(Span, Spanned<T>, &mut Emitter<E::Error>) + Clone + 'a,
 ) -> impl Parser<'a, I, Spanned<C>, E> + Clone + 'a
 where
   T: PunctuatorToken<'a>,
@@ -124,6 +124,7 @@ where
     let start_checkpoint = inp.cursor();
     let mut last_span: Span = inp.span_since(&start_checkpoint);
     let mut expect_item = true;
+    let mut last_sep: Option<Spanned<T>> = None;
 
     loop {
       // If we're waiting for an item, allow early termination (empty list or trailing separator)
@@ -134,10 +135,15 @@ where
             // A trailing separator is found, we should report something!
 
             // ignore the err, as we just want the emitter
-            let _ = inp.parse(any().validate(|_, _, emitter| {
-              on_trailing_sep(emitter);
-            }).rewind());
-
+            if let Some(last_sep) = last_sep.take() {
+              let _ = inp.parse(
+                any()
+                  .validate(|_, _, emitter| {
+                    on_trailing_sep(last_span, last_sep.clone(), emitter);
+                  })
+                  .rewind(),
+              );
+            }
             return Ok(Spanned::new(inp.span_since(&start_checkpoint), container));
           }
           Some(Lexed::Token(_)) => {
@@ -167,6 +173,7 @@ where
         Some(Lexed::Token(tok)) if is_sep_token(&tok) => {
           inp.skip();
           expect_item = true;
+          last_sep = Some(tok);
           continue;
         }
         Some(Lexed::Token(tok)) if is_end_token(&tok) => {
@@ -234,89 +241,13 @@ where
   E: ParserExtra<'a, I> + 'a,
   C: ChumskyContainer<O> + 'a,
 {
-  custom(move |inp| {
-    let mut container = C::default();
-    let start_checkpoint = inp.cursor();
-    let mut last_span: Span = inp.span_since(&start_checkpoint);
-    let mut expect_item = true;
-
-    loop {
-      // If we're waiting for an item, allow early termination (empty list or trailing separator)
-      if expect_item {
-        match inp.peek() {
-          Some(Lexed::Token(tok)) if is_end_token(&tok) => {
-            return Ok(Spanned::new(inp.span_since(&start_checkpoint), container));
-          }
-          Some(Lexed::Token(_)) => {
-            let item = inp.parse(content_parser.clone())?;
-            last_span = *item.as_span();
-            container.push(item);
-            expect_item = false;
-            continue;
-          }
-          Some(Lexed::Error(_)) => {
-            // Consume lexer error and keep waiting for an item
-            inp.parse(any().validate(|lexed, _, emitter| {
-              if let Lexed::Error(err) = lexed {
-                emitter.emit(E::Error::from(err));
-              }
-            }))?;
-            continue;
-          }
-          None => {
-            return Err(UnexpectedEot::eot(inp.span_since(&start_checkpoint)).into());
-          }
-        }
-      }
-
-      // Expecting a separator or end token after an item
-      match inp.peek() {
-        Some(Lexed::Token(tok)) if is_sep_token(&tok) => {
-          inp.skip();
-          expect_item = true;
-          continue;
-        }
-        Some(Lexed::Token(tok)) if is_end_token(&tok) => {
-          return Ok(Spanned::new(inp.span_since(&start_checkpoint), container));
-        }
-        Some(Lexed::Token(Spanned { span, data: tok })) => {
-          // Consume the unexpected token while emitting diagnostics
-          inp.parse(
-            any()
-              .validate(|_, _, emitter| {
-                emitter.emit(E::Error::from(UnexpectedToken::expected_one_with_found(
-                  span,
-                  tok.clone(),
-                  sep_kind(),
-                )));
-                emitter.emit(E::Error::from(Missing::new(last_span).with_after(span)));
-              })
-              .or_not()
-              .rewind(),
-          )?;
-          // Loop continues with expect_item still false, so we'll ask the content_parser
-          expect_item = true;
-          continue;
-        }
-        Some(Lexed::Error(_)) => {
-          // Consume lexer error and keep waiting for an item
-          inp.parse(any().validate(|lexed, exa, emitter| {
-            if let Lexed::Error(err) = lexed {
-              emitter.emit(E::Error::from(err));
-            }
-            emitter.emit(E::Error::from(
-              Missing::new(last_span).with_after(exa.span()),
-            ));
-          }))?;
-          expect_item = true;
-          continue;
-        }
-        None => {
-          return Err(UnexpectedEot::eot(inp.span_since(&start_checkpoint)).into());
-        }
-      }
-    }
-  })
+  separated_by(
+    content_parser,
+    is_sep_token,
+    is_end_token,
+    sep_kind,
+    |_, _, _| {},
+  )
 }
 
 /// Writes parsed items into an external container while parsing a delimited list.
