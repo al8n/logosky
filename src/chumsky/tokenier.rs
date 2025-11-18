@@ -159,7 +159,8 @@ where
 /// }
 /// ```
 pub trait LogoStream<'a, T: Token<'a>>:
-  SliceInput<'a> + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>
+  SliceInput<'a, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>
+  + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>
 {
   /// Returns a parser that skips over trivia tokens.
   ///
@@ -299,7 +300,8 @@ pub trait LogoStream<'a, T: Token<'a>>:
 
 impl<'a, T, I> LogoStream<'a, T> for I
 where
-  I: SliceInput<'a> + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>,
+  I: SliceInput<'a, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>
+    + ValueInput<'a, Span = utils::Span, Token = Lexed<'a, T>>,
   T: Token<'a>,
 {
 }

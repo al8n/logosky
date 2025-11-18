@@ -101,7 +101,7 @@ use crate::{
 pub fn separated_by<'a, 'e: 'a, I, T, E, O, C, Sep, Lang>(
   content_parser: impl Parser<'a, I, O, E> + Clone + 'a,
   is_sep_token: impl Fn(&T) -> bool + Clone + 'a,
-  is_end_token: impl Fn(&T) -> bool + Clone + 'a,
+  is_end_token: impl Fn(Option<&T>) -> bool + Clone + 'a,
   sep_kind: impl Fn() -> Lang::SyntaxKind + Clone + 'a,
   on_trailing_sep: impl Fn(Span, Spanned<T>, &mut Emitter<E::Error>) + Clone + 'a,
 ) -> impl Parser<'a, I, Spanned<C>, E> + Clone + 'a
@@ -131,7 +131,7 @@ where
       // If we're waiting for an item, allow early termination (empty list or trailing separator)
       if expect_item {
         match inp.peek() {
-          Some(Lexed::Token(tok)) if is_end_token(&tok) => {
+          Some(Lexed::Token(tok)) if is_end_token(Some(&tok)) => {
             // we are expecting an item, but found the end token instead;
             // A trailing separator is found, we should report something!
 
@@ -173,7 +173,12 @@ where
                   .rewind(),
               );
             }
-            return Err(UnexpectedEot::eot(inp.span_since(&start_checkpoint)).into());
+
+            if is_end_token(None) {
+              return Ok(Spanned::new(inp.span_since(&start_checkpoint), container));
+            } else {
+              return Err(UnexpectedEot::eot(inp.span_since(&start_checkpoint)).into());
+            }
           }
         }
       }
@@ -186,7 +191,7 @@ where
           last_sep = Some(tok);
           continue;
         }
-        Some(Lexed::Token(tok)) if is_end_token(&tok) => {
+        Some(Lexed::Token(tok)) if is_end_token(Some(&tok)) => {
           return Ok(Spanned::new(inp.span_since(&start_checkpoint), container));
         }
         Some(Lexed::Token(Spanned { span, data: tok })) => {
@@ -222,6 +227,10 @@ where
           continue;
         }
         None => {
+          if is_end_token(None) {
+            return Ok(Spanned::new(inp.span_since(&start_checkpoint), container));
+          }
+
           return Err(UnexpectedEot::eot(inp.span_since(&start_checkpoint)).into());
         }
       }
@@ -242,7 +251,7 @@ where
 pub fn separated_by_allow_trailing<'a, 'e: 'a, I, T, E, O, C, Sep, Lang>(
   content_parser: impl Parser<'a, I, O, E> + Clone + 'a,
   is_sep_token: impl Fn(&T) -> bool + Clone + 'a,
-  is_end_token: impl Fn(&T) -> bool + Clone + 'a,
+  is_end_token: impl Fn(Option<&T>) -> bool + Clone + 'a,
   sep_kind: impl Fn() -> Lang::SyntaxKind + Clone + 'a,
 ) -> impl Parser<'a, I, Spanned<C>, E> + Clone + 'a
 where

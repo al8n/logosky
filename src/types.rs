@@ -83,9 +83,11 @@ use crate::{
 };
 
 pub use ident::*;
+pub use keyword::*;
 pub use lit::*;
 
 mod ident;
+mod keyword;
 mod lit;
 
 /// A type representing a recoverable parse node, which can be a valid node,

@@ -398,6 +398,22 @@ where
     }
   }
 
+  /// Helper function that tries to push a component with deduplication logic.
+  ///
+  /// Returns `None` if the component was added or already exists (success),
+  /// `Some(component)` if the buffer is full (failure).
+  #[inline(always)]
+  fn try_push_front_impl(
+    components: &mut GenericArrayDeque<S::Component, S::COMPONENTS>,
+    component: S::Component,
+  ) -> Option<S::Component> {
+    if components.contains(&component) {
+      None
+    } else {
+      components.push_front(component)
+    }
+  }
+
   /// Returns the number of missing components.
   ///
   /// The length is always at least 1.
@@ -591,6 +607,62 @@ where
     }
   }
 
+  /// Pushes a new missing component into the error from the front.
+  ///
+  /// If the component already exists in the error, this is a no-op (silently succeeds).
+  /// This maintains the set semantics where each component appears at most once.
+  ///
+  /// # Panics
+  ///
+  /// Panics if the error is already full and the component is not already present.
+  ///
+  /// # Examples
+  ///
+  /// ```rust
+  /// # {
+  /// # use logosky::{utils::{typenum, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
+  /// # use typenum::U2;
+  /// # use core::fmt;
+  /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+  /// # enum Component { A, B }
+  /// # impl fmt::Display for Component {
+  /// #     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+  /// #         match self { Self::A => write!(f, "A"), Self::B => write!(f, "B") }
+  /// #     }
+  /// # }
+  /// # struct MyLang;
+  /// # struct MySyntax;
+  /// # impl Syntax for MySyntax {
+  /// #     type Component = Component;
+  /// #     type COMPONENTS = U2;
+  /// #     type REQUIRED = U2;
+  /// #     type Lang = MyLang;
+  /// #     fn possible_components() -> &'static GenericArrayDeque<Component, U2> {
+  /// #         const COMPONENTS: &GenericArrayDeque<Component, U2> = &GenericArrayDeque::from_array([Component::A, Component::B]);
+  /// #         COMPONENTS
+  /// #     }
+  /// #     fn required_components() -> &'static GenericArrayDeque<Component, U2> {
+  /// #         const REQUIRED: &GenericArrayDeque<Component, U2> = &GenericArrayDeque::from_array([Component::A, Component::B]);
+  /// #         REQUIRED
+  /// #     }
+  /// # }
+  /// let mut error = IncompleteSyntax::<MySyntax>::new(
+  ///     logosky::utils::Span::new(10, 15),
+  ///     Component::A
+  /// );
+  /// error.push_front(Component::B);
+  /// // Pushing the same component again is a no-op
+  /// error.push_front(Component::A);
+  /// assert_eq!(error.len(), 2);
+  /// # }
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn push_front(&mut self, component: S::Component) {
+    if self.try_push_front(component).is_some() {
+      panic!("IncompleteSyntax buffer overflow: cannot push more components")
+    }
+  }
+
   /// Tries to push a new missing component into the error.
   ///
   /// Returns:
@@ -636,6 +708,53 @@ where
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn try_push(&mut self, component: S::Component) -> Option<S::Component> {
     Self::try_push_impl(&mut self.components, component)
+  }
+
+  /// Tries to push a new missing component into the error from the front.
+  ///
+  /// Returns:
+  /// - `None` if the component was added or already exists (success)
+  /// - `Some(component)` if the buffer is full and the component is not present (failure)
+  ///
+  /// # Examples
+  ///
+  /// ```rust
+  /// # {
+  /// # use logosky::{utils::{typenum, GenericArrayDeque}, syntax::Syntax, error::IncompleteSyntax};
+  /// # use typenum::U2;
+  /// # use core::fmt;
+  /// # #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+  /// # enum Component { A, B, C }
+  /// # impl fmt::Display for Component {
+  /// #     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "X") }
+  /// # }
+  /// # struct MyLang;
+  /// # struct MySyntax;
+  /// # impl Syntax for MySyntax {
+  /// #     type Component = Component;
+  /// #     type COMPONENTS = U2;
+  /// #     type REQUIRED = U2;
+  /// #     type Lang = MyLang;
+  /// #     fn possible_components() -> &'static GenericArrayDeque<Component, U2> {
+  /// #         const COMPONENTS: &GenericArrayDeque<Component, U2> = &GenericArrayDeque::from_array([Component::A, Component::B]);
+  /// #         COMPONENTS
+  /// #     }
+  /// #     fn required_components() -> &'static GenericArrayDeque<Component, U2> {
+  /// #         const REQUIRED: &GenericArrayDeque<Component, U2> = &GenericArrayDeque::from_array([Component::A, Component::B]);
+  /// #         REQUIRED
+  /// #     }
+  /// # }
+  /// let mut error = IncompleteSyntax::<MySyntax>::new(
+  ///     logosky::utils::Span::new(10, 15),
+  ///     Component::A
+  /// );
+  /// assert!(error.try_push_front(Component::B).is_none()); // Success
+  /// assert_eq!(error.try_push_front(Component::C), Some(Component::C)); // Full!
+  /// # }
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn try_push_front(&mut self, component: S::Component) -> Option<S::Component> {
+    Self::try_push_front_impl(&mut self.components, component)
   }
 
   /// Returns a slice of the missing components.

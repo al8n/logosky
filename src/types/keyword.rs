@@ -1,67 +1,67 @@
-//! Identifier types for language syntax trees.
+//! Keywordifier types for language syntax trees.
 //!
 //! This module provides generic identifier types that can be used across different
-//! programming languages and string representations. Identifiers are fundamental
+//! programming languages and string representations. Keywordifiers are fundamental
 //! building blocks in most languages, representing names for variables, functions,
 //! types, and other named entities.
 //!
 //! # Design Philosophy
 //!
-//! The [`Ident`] type is generic over both the source string type (`S`) and the
+//! The [`Keyword`] type is generic over both the source string type (`S`) and the
 //! language marker (`Lang`). This design provides maximum flexibility:
 //!
 //! - **String type flexibility**: Use `&str` for zero-copy parsing, `String` for
 //!   owned data, or custom interned string types for memory efficiency
-//! - **Language safety**: The `Lang` parameter ensures identifiers from different
+//! - **Language safety**: The `Lang` parameter ensures keywords from different
 //!   languages don't mix accidentally
-//! - **Span tracking**: All identifiers carry their source location for diagnostics
+//! - **Span tracking**: All keywords carry their source location for diagnostics
 //!
 //! # Common Usage Patterns
 //!
 //! ## Zero-Copy Parsing
 //!
 //! ```rust,ignore
-//! use logosky::types::Ident;
+//! use logosky::types::Keyword;
 //! use logosky::utils::Span;
 //!
-//! // Parse identifiers without allocating
-//! type YulIdent<'a> = Ident<&'a str, YulLang>;
+//! // Parse keywords without allocating
+//! type YulKeyword<'a> = Keyword<&'a str, YulLang>;
 //!
-//! let ident = YulIdent::new(Span::new(0, 3), "foo");
+//! let ident = YulKeyword::new(Span::new(0, 3), "foo");
 //! assert_eq!(ident.source_ref(), &"foo");
 //! ```
 //!
-//! ## Owned Identifiers
+//! ## Owned Keywordifiers
 //!
 //! ```rust,ignore
-//! // Store identifiers in AST nodes that outlive the source
-//! type OwnedIdent = Ident<String, MyLang>;
+//! // Store keywords in AST nodes that outlive the source
+//! type OwnedKeyword = Keyword<String, MyLang>;
 //!
-//! let ident = OwnedIdent::new(span, source_str.to_string());
+//! let ident = OwnedKeyword::new(span, source_str.to_string());
 //! ```
 //!
 //! ## String Interning
 //!
 //! ```rust,ignore
 //! // Use interned strings for memory efficiency
-//! type InternedIdent = Ident<Symbol, MyLang>;
+//! type InternedKeyword = Keyword<Symbol, MyLang>;
 //!
-//! let ident = InternedIdent::new(span, interner.intern("identifier"));
+//! let ident = InternedKeyword::new(span, interner.intern("identifier"));
 //! ```
 //!
 //! # Error Recovery
 //!
-//! `Ident` implements [`ErrorNode`] when the source type `S` also implements it,
-//! allowing creation of placeholder identifiers during error recovery:
+//! `Keyword` implements [`ErrorNode`] when the source type `S` also implements it,
+//! allowing creation of placeholder keywords during error recovery:
 //!
 //! ```rust,ignore
 //! use logosky::error::ErrorNode;
 //!
 //! // Create placeholder for malformed identifier
-//! let bad_ident = Ident::<String, YulLang>::error(span);
+//! let bad_ident = Keyword::<String, YulLang>::error(span);
 //!
 //! // Create placeholder for missing identifier
-//! let missing_ident = Ident::<String, YulLang>::missing(span);
+//! let missing_ident = Keyword::<String, YulLang>::missing(span);
 //! ```
 
 use core::marker::PhantomData;
@@ -71,18 +71,9 @@ use crate::{
   utils::{AsSpan, IntoComponents, Span},
 };
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[repr(u8)]
-#[non_exhaustive]
-enum Status {
-  Valid,
-  Error,
-  Missing,
-}
-
 /// A language identifier with span tracking.
 ///
-/// Identifiers are names used in source code to refer to variables, functions,
+/// Keywordifiers are names used in source code to refer to variables, functions,
 /// types, and other named entities. This type wraps a source string representation
 /// with position information and a language marker.
 ///
@@ -98,14 +89,14 @@ enum Status {
 /// Different use cases require different string representations:
 /// - **Parsing**: Use `&str` for zero-copy efficiency
 /// - **AST storage**: Use `String` when the AST outlives the source
-/// - **Large codebases**: Use interned strings to deduplicate common identifiers
+/// - **Large codebases**: Use interned strings to deduplicate common keywords
 ///
 /// ## Why Language Marker?
 ///
-/// The `Lang` parameter prevents mixing identifiers from different languages:
+/// The `Lang` parameter prevents mixing keywords from different languages:
 /// ```rust,ignore
-/// let yul_ident: Ident<&str, YulLang> = ...;
-/// let sol_ident: Ident<&str, SolidityLang> = ...;
+/// let yul_ident: Keyword<&str, YulLang> = ...;
+/// let sol_ident: Keyword<&str, SolidityLang> = ...;
 ///
 /// // Compile error: type mismatch
 /// // let mixed = vec![yul_ident, sol_ident];
@@ -113,16 +104,16 @@ enum Status {
 ///
 /// # Examples
 ///
-/// ## Creating Identifiers
+/// ## Creating Keywordifiers
 ///
 /// ```rust
-/// use logosky::types::Ident;
+/// use logosky::types::Keyword;
 /// use logosky::utils::Span;
 /// # struct MyLang;
 ///
 /// // Zero-copy identifier
 /// let span = Span::new(5, 11);
-/// let ident = Ident::<&str, MyLang>::new(span, "my_var");
+/// let ident = Keyword::<&str, MyLang>::new(span, "my_var");
 ///
 /// assert_eq!(ident.span(), span);
 /// assert_eq!(ident.source_ref(), &"my_var");
@@ -131,11 +122,11 @@ enum Status {
 /// ## Extracting Components
 ///
 /// ```rust
-/// # use logosky::types::Ident;
+/// # use logosky::types::Keyword;
 /// # use logosky::utils::{Span, IntoComponents};
 /// # struct MyLang;
 /// # let span = Span::new(0, 3);
-/// let ident = Ident::<&str, MyLang>::new(span, "foo");
+/// let ident = Keyword::<&str, MyLang>::new(span, "foo");
 ///
 /// // Destructure into span and source
 /// let (span, source) = ident.into_components();
@@ -145,11 +136,11 @@ enum Status {
 /// ## Mutable Access
 ///
 /// ```rust
-/// # use logosky::types::Ident;
+/// # use logosky::types::Keyword;
 /// # use logosky::utils::Span;
 /// # struct MyLang;
 /// # let span = Span::new(0, 3);
-/// let mut ident = Ident::<String, MyLang>::new(span, "original".to_string());
+/// let mut ident = Keyword::<String, MyLang>::new(span, "original".to_string());
 ///
 /// // Update the source string
 /// *ident.source_mut() = "modified".to_string();
@@ -160,21 +151,27 @@ enum Status {
 /// assert_eq!(ident.span(), Span::new(10, 18));
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct Ident<S, Lang> {
+pub struct Keyword<S, Lang> {
   span: Span,
   ident: S,
-  status: Status,
   _lang: PhantomData<Lang>,
 }
 
-impl<S, Lang> AsSpan<Span> for Ident<S, Lang> {
+impl<S, Lang> From<Keyword<S, Lang>> for super::Ident<S, Lang> {
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn from(keyword: Keyword<S, Lang>) -> Self {
+    Self::new(keyword.span, keyword.ident)
+  }
+}
+
+impl<S, Lang> AsSpan<Span> for Keyword<S, Lang> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_span(&self) -> &Span {
     self.span_ref()
   }
 }
 
-impl<S, Lang> IntoComponents for Ident<S, Lang> {
+impl<S, Lang> IntoComponents for Keyword<S, Lang> {
   type Components = (Span, S);
 
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -183,7 +180,7 @@ impl<S, Lang> IntoComponents for Ident<S, Lang> {
   }
 }
 
-impl<S, Lang> Ident<S, Lang> {
+impl<S, Lang> Keyword<S, Lang> {
   /// Creates a new identifier with the given span and source string.
   ///
   /// # Parameters
@@ -194,27 +191,21 @@ impl<S, Lang> Ident<S, Lang> {
   /// # Examples
   ///
   /// ```rust
-  /// use logosky::types::Ident;
+  /// use logosky::types::Keyword;
   /// use logosky::utils::Span;
   /// # struct YulLang;
   ///
   /// let span = Span::new(10, 15);
-  /// let ident = Ident::<&str, YulLang>::new(span, "count");
+  /// let ident = Keyword::<&str, YulLang>::new(span, "count");
   ///
   /// assert_eq!(ident.span(), span);
   /// assert_eq!(ident.source_ref(), &"count");
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new(span: Span, source: S) -> Self {
-    Self::with_status(span, source, Status::Valid)
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  const fn with_status(span: Span, source: S, status: Status) -> Self {
     Self {
       span,
       ident: source,
-      status,
       _lang: PhantomData,
     }
   }
@@ -224,10 +215,10 @@ impl<S, Lang> Ident<S, Lang> {
   /// # Examples
   ///
   /// ```rust
-  /// # use logosky::types::Ident;
+  /// # use logosky::types::Keyword;
   /// # use logosky::utils::Span;
   /// # struct MyLang;
-  /// let ident = Ident::<&str, MyLang>::new(Span::new(5, 10), "value");
+  /// let ident = Keyword::<&str, MyLang>::new(Span::new(5, 10), "value");
   ///
   /// assert_eq!(ident.span(), Span::new(5, 10));
   /// ```
@@ -243,10 +234,10 @@ impl<S, Lang> Ident<S, Lang> {
   /// # Examples
   ///
   /// ```rust
-  /// # use logosky::types::Ident;
+  /// # use logosky::types::Keyword;
   /// # use logosky::utils::Span;
   /// # struct MyLang;
-  /// let ident = Ident::<&str, MyLang>::new(Span::new(0, 3), "foo");
+  /// let ident = Keyword::<&str, MyLang>::new(Span::new(0, 3), "foo");
   ///
   /// let span_ref = ident.span_ref();
   /// assert_eq!(*span_ref, Span::new(0, 3));
@@ -264,10 +255,10 @@ impl<S, Lang> Ident<S, Lang> {
   /// # Examples
   ///
   /// ```rust
-  /// # use logosky::types::Ident;
+  /// # use logosky::types::Keyword;
   /// # use logosky::utils::Span;
   /// # struct MyLang;
-  /// let mut ident = Ident::<&str, MyLang>::new(Span::new(0, 3), "foo");
+  /// let mut ident = Keyword::<&str, MyLang>::new(Span::new(0, 3), "foo");
   ///
   /// *ident.span_mut() = Span::new(10, 13);
   /// assert_eq!(ident.span(), Span::new(10, 13));
@@ -285,10 +276,10 @@ impl<S, Lang> Ident<S, Lang> {
   /// # Examples
   ///
   /// ```rust
-  /// # use logosky::types::Ident;
+  /// # use logosky::types::Keyword;
   /// # use logosky::utils::Span;
   /// # struct MyLang;
-  /// let mut ident = Ident::<String, MyLang>::new(Span::new(0, 3), "foo".to_string());
+  /// let mut ident = Keyword::<String, MyLang>::new(Span::new(0, 3), "foo".to_string());
   ///
   /// *ident.source_mut() = "bar".to_string();
   /// assert_eq!(ident.source_ref(), "bar");
@@ -306,10 +297,10 @@ impl<S, Lang> Ident<S, Lang> {
   /// # Examples
   ///
   /// ```rust
-  /// # use logosky::types::Ident;
+  /// # use logosky::types::Keyword;
   /// # use logosky::utils::Span;
   /// # struct MyLang;
-  /// let ident = Ident::<&str, MyLang>::new(Span::new(0, 8), "variable");
+  /// let ident = Keyword::<&str, MyLang>::new(Span::new(0, 8), "variable");
   ///
   /// assert_eq!(ident.source_ref(), &"variable");
   /// assert_eq!(ident.source_ref().len(), 8);
@@ -331,10 +322,10 @@ impl<S, Lang> Ident<S, Lang> {
   /// # Examples
   ///
   /// ```rust
-  /// # use logosky::types::Ident;
+  /// # use logosky::types::Keyword;
   /// # use logosky::utils::Span;
   /// # struct MyLang;
-  /// let ident = Ident::<&str, MyLang>::new(Span::new(0, 2), "id");
+  /// let ident = Keyword::<&str, MyLang>::new(Span::new(0, 2), "id");
   ///
   /// let source: &str = ident.source(); // Copy
   /// assert_eq!(source, "id");
@@ -349,32 +340,20 @@ impl<S, Lang> Ident<S, Lang> {
     self.ident
   }
 
-  /// Returns `true` is this identifier represents an error identifier.
+  /// Consumes the identifier and returns the span and source string.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn is_error(&self) -> bool {
-    matches!(self.status, Status::Error)
-  }
-
-  /// Returns `true` is this identifier represents a missing identifier.
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn is_missing(&self) -> bool {
-    matches!(self.status, Status::Missing)
-  }
-
-  /// Returns `true` is this identifier is valid (not error or missing).
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn is_valid(&self) -> bool {
-    matches!(self.status, Status::Valid)
+  pub fn into_components(self) -> (Span, S) {
+    (self.span, self.ident)
   }
 
   /// Maps the source string to a new type, preserving the span and language.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn map<U>(self, f: impl FnOnce(S) -> U) -> Ident<U, Lang> {
-    Ident::new(self.span, f(self.ident))
+  pub fn map<U>(self, f: impl FnOnce(S) -> U) -> Keyword<U, Lang> {
+    Keyword::new(self.span, f(self.ident))
   }
 }
 
-impl<S, Lang> ErrorNode for Ident<S, Lang>
+impl<S, Lang> ErrorNode for Keyword<S, Lang>
 where
   S: ErrorNode,
 {
@@ -386,15 +365,15 @@ where
   /// # Examples
   ///
   /// ```rust,ignore
-  /// use logosky::types::Ident;
+  /// use logosky::types::Keyword;
   /// use logosky::error::ErrorNode;
   ///
   /// // Parser found "123abc" where an identifier was expected
-  /// let bad_ident = Ident::<String, YulLang>::error(span);
+  /// let bad_ident = Keyword::<String, YulLang>::error(span);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn error(span: Span) -> Self {
-    Self::with_status(span, S::error(span), Status::Error)
+    Self::new(span, S::error(span))
   }
 
   /// Creates a placeholder identifier for **missing required content**.
@@ -406,17 +385,17 @@ where
   /// # Examples
   ///
   /// ```rust,ignore
-  /// use logosky::types::Ident;
+  /// use logosky::types::Keyword;
   /// use logosky::error::ErrorNode;
   ///
   /// // Parser expected identifier after "let" but found "="
   /// // Correct: let name = 5;
   /// // Found:   let = 5;
-  /// let missing_ident = Ident::<String, YulLang>::missing(span);
+  /// let missing_ident = Keyword::<String, YulLang>::missing(span);
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn missing(span: Span) -> Self {
-    Self::with_status(span, S::missing(span), Status::Missing)
+    Self::new(span, S::missing(span))
   }
 }
 
@@ -427,20 +406,20 @@ const _: () = {
   use logos::{Logos, Source};
 
   use crate::{
-    IdentifierToken, Lexed, LogoStream, error::UnexpectedToken, syntax::Language, utils::Spanned,
+    KeywordToken, Lexed, LogoStream, error::UnexpectedToken, syntax::Language, utils::Spanned,
   };
 
-  impl<S, Lang> Ident<S, Lang> {
-    /// Creates a Chumsky parser that parses identifier tokens into `Ident`.
+  impl<S, Lang> Keyword<S, Lang> {
+    /// Creates a Chumsky parser that parses identifier tokens into `Keyword`.
     ///
     /// This parser validates that the token is an identifier (not a keyword or other
-    /// token type) and converts it to an `Ident` with proper span tracking.
+    /// token type) and converts it to an `Keyword` with proper span tracking.
     ///
     /// # Type Parameters
     ///
     /// - `'a`: Lifetime of the input source
     /// - `I`: Token stream implementing [`LogoStream`]
-    /// - `T`: Token type implementing [`IdentifierToken`]
+    /// - `T`: Token type implementing [`KeywordifierToken`]
     /// - `Error`: Error type that can be constructed from lexer and parser errors
     /// - `E`: Parser extra state carrying errors and metadata
     ///
@@ -451,7 +430,7 @@ const _: () = {
     ///
     /// # Returns
     ///
-    /// A Chumsky parser that produces `Ident<S, Lang>` on success or emits an
+    /// A Chumsky parser that produces `Keyword<S, Lang>` on success or emits an
     /// [`UnexpectedToken`] error when a non-identifier is found.
     ///
     /// # Error Behavior
@@ -465,13 +444,13 @@ const _: () = {
     /// ## Basic Usage
     ///
     /// ```rust,ignore
-    /// use logosky::types::Ident;
+    /// use logosky::types::Keyword;
     /// use logosky::chumsky::Parser;
     ///
-    /// // Parser for YUL identifiers
-    /// let ident_parser = Ident::<&str, YulLang>::parser(|| YulSyntaxKind::Ident);
+    /// // Parser for YUL keywords
+    /// let ident_parser = Keyword::<&str, YulLang>::parser(|| YulSyntaxKind::Keyword);
     ///
-    /// // Parse "count" into Ident
+    /// // Parse "count" into Keyword
     /// let result = ident_parser.parse(stream)?;
     /// assert_eq!(result.source_ref(), &"count");
     /// ```
@@ -479,15 +458,15 @@ const _: () = {
     /// ## With Error Recovery
     ///
     /// ```rust,ignore
-    /// use logosky::types::Ident;
+    /// use logosky::types::Keyword;
     /// use logosky::error::ErrorNode;
     /// use logosky::chumsky::{Parser, prelude::*};
     ///
-    /// // Parser with recovery for missing identifiers
-    /// let ident_parser = Ident::<String, YulLang>::parser(|| YulSyntaxKind::Ident)
+    /// // Parser with recovery for missing keywords
+    /// let ident_parser = Keyword::<String, YulLang>::parser(|| YulSyntaxKind::Keyword)
     ///     .recover_with(via_parser(
     ///         // Create placeholder on error
-    ///         empty().map_with(|_, exa| Ident::missing(exa.span()))
+    ///         empty().map_with(|_, exa| Keyword::missing(exa.span()))
     ///     ));
     ///
     /// // Even with missing identifier, parsing continues
@@ -497,26 +476,26 @@ const _: () = {
     /// ## Custom String Type
     ///
     /// ```rust,ignore
-    /// // Use owned String for identifiers
-    /// let parser = Ident::<String, MyLang>::parser(|| MyKind::Identifier);
+    /// // Use owned String for keywords
+    /// let parser = Keyword::<String, MyLang>::parser(|| MyKind::Keywordifier);
     ///
     /// // Use interned strings
-    /// let parser = Ident::<Symbol, MyLang>::parser(|| MyKind::Identifier);
+    /// let parser = Keyword::<Symbol, MyLang>::parser(|| MyKind::Keywordifier);
     /// ```
     ///
     /// # See Also
     ///
-    /// - [`IdentifierToken`]: Trait for tokens that can be identifiers
+    /// - [`KeywordToken`]: Trait for tokens that can be keywords
     /// - [`UnexpectedToken`]: Error emitted when wrong token type is found
-    /// - [`ErrorNode`]: For creating placeholder identifiers during recovery
+    /// - [`ErrorNode`]: For creating placeholder keywords during recovery
     #[cfg_attr(not(tarpaulin), inline(always))]
     pub fn parser<'a, I, T, E>(
-      ident_kind: impl Fn() -> Lang::SyntaxKind + Clone + 'a,
+      keyword_kind: impl Fn() -> Lang::SyntaxKind + Clone + 'a,
     ) -> impl Parser<'a, I, Self, E> + Clone + 'a
     where
       I: LogoStream<'a, T>,
-      T: IdentifierToken<'a>,
-      S: From<<<<T>::Logos as Logos<'a>>::Source as Source>::Slice<'a>> + 'a,
+      T: KeywordToken<'a>,
+      S: From<<<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>> + 'a,
       Lang: Language,
       Lang::SyntaxKind: 'a,
       E::Error: From<<T::Logos as Logos<'a>>::Error>
@@ -524,10 +503,10 @@ const _: () = {
         + From<UnexpectedToken<'a, T, Lang::SyntaxKind>>,
       E: ParserExtra<'a, I> + 'a,
     {
-      any().try_map(move |tok: Lexed<'_, T>, _| match tok {
-        Lexed::Token(Spanned { span, data: tok }) => match tok.try_into_identifier() {
-          Ok(ident) => Ok(Ident::new(span, ident.into())),
-          Err(tok) => Err(UnexpectedToken::expected_one_with_found(span, tok, ident_kind()).into()),
+      any().try_map_with(move |tok: Lexed<'_, T>, exa| match tok {
+        Lexed::Token(Spanned { span, data: tok }) => match tok.is_keyword() {
+          true => Ok(Self::new(span, S::from(exa.slice()))),
+          false => Err(UnexpectedToken::expected_one_with_found(span, tok, keyword_kind()).into()),
         },
         Lexed::Error(e) => Err(E::Error::from(e)),
       })

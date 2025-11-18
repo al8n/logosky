@@ -97,7 +97,7 @@
 //! `let z := 3` and the outer `}`, breaking the parent parser. By returning `Err(span)`,
 //! we keep errors localized and allow outer parsers to continue normally.
 
-use chumsky::input::Emitter;
+use chumsky::input::{Emitter, MapExtra};
 use logos::Logos;
 
 use crate::{
@@ -436,14 +436,14 @@ where
 ///
 /// Use this when you need to synchronise on the next "safe" token while reporting every skipped
 /// token along the way—e.g., skipping to the next statement keyword or delimiter.
-pub fn emit_until_token<'a, I, T, Error, E>(
-  matcher: impl Fn(&Spanned<T>) -> Result<(), Error> + Clone + 'a,
+pub fn emit_until_token<'a, I, T, E>(
+  matcher: impl Fn(&Spanned<T>) -> Result<(), E::Error> + Clone + 'a,
 ) -> impl Parser<'a, I, (usize, Option<Spanned<T>>), E> + Clone
 where
   I: LogoStream<'a, T>,
   T: Token<'a>,
-  E: ParserExtra<'a, I, Error = Error> + 'a,
-  Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
+  E: ParserExtra<'a, I> + 'a,
+  E::Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
 {
   custom(move |inp| {
     let mut skipped = 0;
@@ -460,7 +460,7 @@ where
               }
             },
             Lexed::Error(e) => {
-              emitter.emit(Error::from(e));
+              emitter.emit(E::Error::from(e));
               None
             }
           })
@@ -644,14 +644,16 @@ where
 /// - [`emit_until_token`]: Simpler version with `Result`-based matcher
 /// - [`emit_error_until_token_inclusive`]: Inclusive version that consumes the matching token
 /// - [`skip_until_token`](crate::chumsky::skip::skip_until_token): Skip without emitting errors
-pub fn emit_error_until_token<'a, I, T, O, Error, E>(
-  matcher: impl Fn(Spanned<T>, &mut Emitter<Error>) -> Option<O> + Clone + 'a,
+pub fn emit_error_until_token<'a, I, T, O, E>(
+  matcher: impl Fn(Spanned<T>, &mut MapExtra<'a, '_, I, E>, &mut Emitter<E::Error>) -> Option<O>
+  + Clone
+  + 'a,
 ) -> impl Parser<'a, I, (usize, Option<O>), E> + Clone
 where
   I: LogoStream<'a, T>,
   T: Token<'a>,
-  E: ParserExtra<'a, I, Error = Error> + 'a,
-  Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
+  E: ParserExtra<'a, I> + 'a,
+  E::Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
 {
   custom(move |inp| {
     let mut skipped = 0;
@@ -659,10 +661,10 @@ where
       let cur = inp.save();
       let result = inp.parse(
         any()
-          .validate(|t: Lexed<'_, T>, _, emitter| match t {
-            Lexed::Token(tok) => matcher(tok, emitter),
+          .validate(|t: Lexed<'_, T>, exa, emitter| match t {
+            Lexed::Token(tok) => matcher(tok, exa, emitter),
             Lexed::Error(e) => {
-              emitter.emit(Error::from(e));
+              emitter.emit(E::Error::from(e));
               None
             }
           })
@@ -839,14 +841,14 @@ where
 /// - [`skip_until_token_inclusive`](crate::chumsky::skip::skip_until_token_inclusive): Skip without emitting errors for each token
 /// - [`emit`]: Emit an error without consuming input
 /// - [`emit_with`]: Emit an error created from a function without consuming input
-pub fn emit_until_token_inclusive<'a, I, T, Error, E>(
-  matcher: impl Fn(&Spanned<T>) -> Result<(), Error> + Clone + 'a,
+pub fn emit_until_token_inclusive<'a, I, T, E>(
+  matcher: impl Fn(&Spanned<T>) -> Result<(), E::Error> + Clone + 'a,
 ) -> impl Parser<'a, I, (usize, Option<Spanned<T>>), E> + Clone
 where
   I: LogoStream<'a, T>,
   T: Token<'a>,
-  E: ParserExtra<'a, I, Error = Error> + 'a,
-  Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
+  E: ParserExtra<'a, I> + 'a,
+  E::Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
 {
   custom(move |inp| {
     let mut skipped = 0;
@@ -862,7 +864,7 @@ where
               }
             },
             Lexed::Error(e) => {
-              emitter.emit(Error::from(e));
+              emitter.emit(E::Error::from(e));
               None
             }
           })
@@ -1052,14 +1054,14 @@ where
 /// - [`emit_error_until_token`]: Non-inclusive version that preserves the matching token
 /// - [`emit_until_token_inclusive`]: Simpler version with `Result`-based matcher
 /// - [`skip_until_token_inclusive`](crate::chumsky::skip::skip_until_token_inclusive): Skip without emitting errors
-pub fn emit_error_until_token_inclusive<'a, I, T, O, Error, E>(
-  matcher: impl Fn(Spanned<T>, &mut Emitter<Error>) -> Option<O> + Clone + 'a,
+pub fn emit_error_until_token_inclusive<'a, I, T, O, E>(
+  matcher: impl Fn(Spanned<T>, &mut Emitter<E::Error>) -> Option<O> + Clone + 'a,
 ) -> impl Parser<'a, I, (usize, Option<O>), E> + Clone
 where
   I: LogoStream<'a, T>,
   T: Token<'a>,
-  E: ParserExtra<'a, I, Error = Error> + 'a,
-  Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
+  E: ParserExtra<'a, I> + 'a,
+  E::Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
 {
   custom(move |inp| {
     let mut skipped = 0;
@@ -1069,7 +1071,7 @@ where
           .validate(|t: Lexed<'_, T>, _, emitter| match t {
             Lexed::Token(tok) => matcher(tok, emitter),
             Lexed::Error(e) => {
-              emitter.emit(Error::from(e));
+              emitter.emit(E::Error::from(e));
               None
             }
           })
@@ -1198,14 +1200,14 @@ where
 ///
 /// - [`skip_to_closing_delimiter`]: Consumes tokens up to (but not including) the delimiter
 /// - [`skip_through_closing_delimiter`]: Consumes tokens through (and including) the delimiter
-pub fn scan_closing_delimiter<'a, I, T, Error, E>(
+pub fn scan_closing_delimiter<'a, I, T, E>(
   delimiter: Delimiter,
 ) -> impl Parser<'a, I, (Span, Option<Spanned<T>>), E> + Clone
 where
   I: LogoStream<'a, T>,
   T: DelimiterToken<'a>,
-  E: ParserExtra<'a, I, Error = Error> + 'a,
-  Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
+  E: ParserExtra<'a, I> + 'a,
+  E::Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
 {
   custom(move |inp| {
     let checkpoint = inp.save();
@@ -1369,14 +1371,14 @@ where
 /// - [`scan_closing_delimiter`]: Non-destructive check without consuming tokens
 /// - [`skip_through_closing_delimiter`]: Consumes the delimiter as well
 #[allow(clippy::type_complexity)]
-pub fn skip_to_closing_delimiter<'a, I, T, Error, E>(
+pub fn skip_to_closing_delimiter<'a, I, T, E>(
   delimiter: Delimiter,
 ) -> impl Parser<'a, I, Result<(usize, Span, Spanned<T>), (usize, Span)>, E> + Clone
 where
   I: LogoStream<'a, T>,
   T: DelimiterToken<'a>,
-  E: ParserExtra<'a, I, Error = Error> + 'a,
-  Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
+  E: ParserExtra<'a, I> + 'a,
+  E::Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
 {
   custom(move |inp| {
     let mut depth = 0;
@@ -1411,7 +1413,7 @@ where
           let _ = inp.parse(any().validate(|tok, _, emitter| {
             // we know this is an error token
             if let Lexed::Error(e) = tok {
-              emitter.emit(<Error as From<_>>::from(e));
+              emitter.emit(E::Error::from(e));
             }
           }));
           skipped += 1;
@@ -1537,14 +1539,14 @@ where
 ///
 /// - [`scan_closing_delimiter`]: Check if delimiter exists (non-destructive)
 /// - [`skip_to_closing_delimiter`]: Skip to delimiter (leaves delimiter)
-pub fn skip_through_closing_delimiter<'a, I, T, Error, E>(
+pub fn skip_through_closing_delimiter<'a, I, T, E>(
   delimiter: Delimiter,
 ) -> impl Parser<'a, I, (Span, Option<Spanned<T>>), E> + Clone
 where
   I: LogoStream<'a, T>,
   T: DelimiterToken<'a>,
-  E: ParserExtra<'a, I, Error = Error> + 'a,
-  Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
+  E: ParserExtra<'a, I> + 'a,
+  E::Error: From<<T::Logos as Logos<'a>>::Error> + 'a,
 {
   custom(move |inp| {
     let mut depth = 0;
@@ -1576,7 +1578,7 @@ where
           let _ = inp.parse(any().validate(|tok, _, emitter| {
             // we know this is an error token
             if let Lexed::Error(e) = tok {
-              emitter.emit(<Error as From<_>>::from(e));
+              emitter.emit(E::Error::from(e));
             }
           }));
         }
