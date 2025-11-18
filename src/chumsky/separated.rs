@@ -194,6 +194,9 @@ where
         Some(Lexed::Token(tok)) if is_end_token(Some(&tok)) => {
           return Ok(Spanned::new(inp.span_since(&start_checkpoint), container));
         }
+        None if is_end_token(None) => {
+          return Ok(Spanned::new(inp.span_since(&start_checkpoint), container));
+        }
         Some(Lexed::Token(Spanned { span, data: tok })) => {
           // Consume the unexpected token while emitting diagnostics
           inp.parse(
@@ -227,10 +230,6 @@ where
           continue;
         }
         None => {
-          if is_end_token(None) {
-            return Ok(Spanned::new(inp.span_since(&start_checkpoint), container));
-          }
-
           return Err(UnexpectedEot::eot(inp.span_since(&start_checkpoint)).into());
         }
       }

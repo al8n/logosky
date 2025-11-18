@@ -328,13 +328,13 @@ macro_rules! delimited_by {
       /// This design choice embodies the principle: **"If you don't see what you expect,
       /// don't guess."** When delimiters are absent, we're not in a delimited context at all,
       /// so attempting to parse content would be making unfounded assumptions about structure.
-      pub fn recoverable_parser<'a, 'e: 'a, I, T, Error, SyntaxKind, E>(
+      pub fn recoverable_parser<'a, 'e: 'a, I, T, SyntaxKind, E>(
         content_parser: impl Parser<'a, I, Content, E> + Clone + 'a,
       ) -> impl Parser<'a, I, Result<Self, Span>, E> + Clone + 'a
       where
         T: PunctuatorToken<'a>,
         SyntaxKind: 'e,
-        Error: From<UnexpectedToken<'e, T, SyntaxKind>>
+        E::Error: From<UnexpectedToken<'e, T, SyntaxKind>>
           + From<$unclosed_error>
           + From<$undelimited_error>
           + From<$unopened_error>
@@ -344,7 +344,7 @@ macro_rules! delimited_by {
         Self: Sized + 'a,
         I: LogoStream<'a, T, Slice = <<<T>::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
         T: Token<'a>,
-        E: ParserExtra<'a, I, Error = Error> + 'a,
+        E: ParserExtra<'a, I> + 'a,
       {
         custom(move |inp| {
           let before = inp.cursor();
@@ -355,7 +355,7 @@ macro_rules! delimited_by {
           let tok: Option<Lexed<'_, T>> = inp.peek();
           let open_delimiter_token = match tok {
             // Empty input: cannot parse delimited content at all
-            None => return Err(Error::from(UnexpectedEot::eot(inp.span_since(&before)))),
+            None => return Err(E::Error::from(UnexpectedEot::eot(inp.span_since(&before)))),
             Some(Lexed::Token(t)) if t.$check_open_fn() => {
               inp.skip(); // Consume the opening delimiter
               true
@@ -382,7 +382,7 @@ macro_rules! delimited_by {
                 // Closing delimiter is missing - emit error
                 let span = inp.span_since(&before);
                 let _ = inp.parse(emit_with(move || {
-                  Error::from($unclosed_error::$delim_method(span))
+                  E::Error::from($unclosed_error::$delim_method(span))
                 }));
                 return Ok(Ok(Self::new(span, content)));
               }
@@ -405,7 +405,7 @@ macro_rules! delimited_by {
             inp.rewind(checkpoint); // Rewind to parse content properly
             // Emit unopened delimiter error (use scaned span from start to closing delimiter)
             let _ = inp.parse(emit_with(move || {
-              Error::from($unopened_error::$delim_method(scaned))
+              E::Error::from($unopened_error::$delim_method(scaned))
             }));
 
             // Parse content from start up to the closing delimiter
@@ -424,7 +424,7 @@ macro_rules! delimited_by {
           inp.rewind(checkpoint); // Rewind to parse all content
           // Emit undelimited error (use scaned span from start to EOF)
           let _ = inp.parse(emit_with(move || {
-            Error::from($undelimited_error::$delim_method(scaned))
+            E::Error::from($undelimited_error::$delim_method(scaned))
           }));
 
           Ok(Err(inp.span_since(&before)))

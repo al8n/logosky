@@ -51,6 +51,7 @@ use crate::{
 pub struct Missing<T, Lang> {
   before: Span,
   after: Option<Span>,
+  span: Span,
   _syntax: PhantomData<T>,
   _lang: PhantomData<Lang>,
 }
@@ -65,6 +66,7 @@ impl<T, Lang> Missing<T, Lang> {
     Self {
       before,
       after: None,
+      span: Span::new(before.end(), before.end()),
       _syntax: PhantomData,
       _lang: PhantomData,
     }
@@ -80,6 +82,7 @@ impl<T, Lang> Missing<T, Lang> {
     Self {
       before,
       after: Some(after),
+      span: Self::gap_span(before, Some(after)),
       _syntax: PhantomData,
       _lang: PhantomData,
     }
@@ -113,7 +116,24 @@ impl<T, Lang> Missing<T, Lang> {
   /// Returns the span representing the gap where the syntax should have existed.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn span(&self) -> Span {
-    Self::gap_span(self.before, self.after)
+    self.span
+  }
+
+  /// Returns the span representing the gap where the syntax should have existed.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn span_ref(&self) -> &Span {
+    &self.span
+  }
+
+  /// Bumps the spans of the missing node by the specified offset.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn bump(&mut self, offset: usize) -> &mut Self {
+    self.before.bump(offset);
+    if let Some(after) = &mut self.after {
+      after.bump(offset);
+    }
+    self.span = Self::gap_span(self.before, self.after);
+    self
   }
 
   /// Returns the syntax kind of the missing node.
