@@ -380,10 +380,10 @@ pub trait Token<'a>: Clone + core::fmt::Debug + From<Self::Logos> + 'a {
 ///
 /// # Working with Trivia
 ///
-/// The [`Tokenizer`](crate::Tokenizer) trait provides utilities for handling trivia:
+/// The [`LogoStream`](crate::LogoStream) trait provides utilities for handling trivia:
 ///
-/// - [`skip_trivias()`](crate::Tokenizer::skip_trivias) - Skip over trivia tokens during parsing
-/// - [`collect_trivias()`](crate::Tokenizer::collect_trivias) - Collect trivia into a container
+/// - [`skip_trivias()`](crate::LogoStream::skip_trivias) - Skip over trivia tokens during parsing
+/// - [`collect_trivias()`](crate::LogoStream::collect_trivias) - Collect trivia into a container
 ///
 /// ## Example
 ///
@@ -1739,8 +1739,6 @@ pub trait OperatorToken<'a>: Token<'a> {
 ///
 /// - Implementors override whichever predicates apply to their language (all default to `false`).
 /// - Aggregation helpers (`is_opening_delimiter`, `is_closing_delimiter`) combine the granular checks.
-/// - Consumers can use [`matching_delimiter`](DelimiterToken::matching_delimiter) to infer the
-///   counterpart of a delimiter for validation.
 ///
 /// ## Example
 ///

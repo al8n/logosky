@@ -1156,7 +1156,7 @@ impl IsAsciiChar for hipstr::HipStr<'_> {
 ///
 /// This trait is **sealed** and cannot be implemented outside of LogoSky. If you need
 /// to work with a custom character type, use [`Lexeme::span_with`] or
-/// [`UnknownLexeme::span_with`] and provide your own length function.
+/// [`UnknownLexeme::from_range`](crate::error::UnknownLexeme::from_range) and provide your own length function.
 ///
 /// # Use Cases
 ///

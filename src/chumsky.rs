@@ -4,6 +4,12 @@ pub use tokenier::LogoStream;
 /// Token parsers
 pub mod token;
 
+/// Generic purpose delimited by parsers
+pub mod delimited;
+
+/// Generic purpose separated by parsers
+pub mod separated;
+
 /// Skip recovery strategies
 pub mod skip;
 
@@ -31,32 +37,19 @@ use crate::{
 /// valid instances from tokens. This makes it easy to build complex parsers by composing
 /// smaller, self-contained parsers.
 ///
-/// # Fail-Fast vs. Error Recovery
+/// # Error Recovery
 ///
-/// `Parseable` uses **fail-fast** semantics: parsing stops at the first error and returns
-/// immediately. This is optimal for:
+/// `Parseable` uses **fail-fast** semantics by default: parsing stops at the first error
+/// and returns immediately. For error recovery scenarios (IDE tooling, schema validation,
+/// compiler-like diagnostics), use Chumsky's `.recover_with()` combinator along with
+/// LogoSky's recovery utilities:
 ///
-/// - **Runtime execution** (queries, mutations, subscriptions)
-/// - **Performance-critical paths** where invalid input should be rejected quickly
-/// - **Production systems** where partial results aren't useful
+/// - **Delimited parsers**: `DelimitedByBrace::recoverable_parser(content)`, etc.
+/// - **Skip utilities**: `skip_until_token()`, `skip_through_closing_delimiter()`, etc.
+/// - **Recovery strategies**: `via_parser()`, `nested_delimiters()`, etc.
 ///
-/// For **comprehensive error collection** (useful for IDE tooling, schema validation, and
-/// compiler-like diagnostics), use the [`Recoverable`] trait instead. It collects all
-/// errors while attempting to continue parsing, similar to how the Rust compiler reports
-/// multiple errors in one pass.
-///
-/// ## When to Use Each
-///
-/// | Use Case | Trait | Behavior |
-/// |----------|-------|----------|
-/// | GraphQL query execution | `Parseable` | Stop at first error |
-/// | GraphQL schema validation | `Recoverable` | Collect all errors |
-/// | IDE error checking | `Recoverable` | Show all problems |
-/// | Type definition parsing | `Recoverable` | Comprehensive diagnostics |
-///
-/// # See Also
-///
-/// - [`Recoverable`]: For comprehensive error collection with recovery
+/// These primitives allow you to build parsers that collect multiple errors while
+/// producing partial ASTs with placeholder nodes for malformed sections
 ///
 /// # Type Parameters
 ///
@@ -207,254 +200,6 @@ pub trait Parseable<'a, I, T, Error> {
     E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a;
 }
 
-/// A trait for types that can be parsed with comprehensive error recovery.
-///
-/// `Recoverable` enables parsing that continues after encountering errors, collecting
-/// multiple issues in a single pass. This is essential for tooling scenarios where
-/// showing all problems at once provides a better user experience, similar to how
-/// modern compilers (like Rust's `rustc`) report multiple errors instead of stopping
-/// at the first one.
-///
-/// # Design Philosophy
-///
-/// While [`Parseable`] follows "fail-fast" semantics for production use, `Recoverable`
-/// follows "fail-comprehensive" semantics for development tooling. The key differences:
-///
-/// - **Error Collection**: Accumulates all errors via Chumsky's error recovery
-/// - **Continuation**: Uses `.recover_with()` to skip malformed sections and continue
-/// - **Diagnostics**: Optimized for producing detailed error reports
-/// - **Performance**: Trades speed for completeness (parses entire input even with errors)
-///
-/// # Use Cases
-///
-/// ## Schema Validation
-///
-/// When validating GraphQL schemas or type definitions, developers want to see all
-/// issues at once rather than fixing errors one at a time:
-///
-/// ```graphql
-/// type User {
-///   name        # Error: Missing type annotation
-///   age: Int
-///   email       # Error: Missing type annotation
-///   posts: [Post  # Error: Missing closing bracket
-/// }
-/// ```
-///
-/// With `Recoverable`, all three errors are reported in one pass.
-///
-/// ## IDE Integration
-///
-/// IDEs need to show red squiggles for all syntax errors simultaneously. Using
-/// `Recoverable` allows the language server to:
-///
-/// - Parse the entire file even with errors
-/// - Report diagnostics for all problems
-/// - Provide accurate span information for each issue
-/// - Enable features like "fix all" for common patterns
-///
-/// ## Compiler-Like Diagnostics
-///
-/// Tools like schema compilers and linters benefit from comprehensive error reporting:
-///
-/// - Show related errors together (e.g., missing fields in multiple type definitions)
-/// - Provide context-aware suggestions for all issues
-/// - Enable batch fixes and automated refactoring
-///
-/// # Implementation Pattern
-///
-/// Implementations should use Chumsky's recovery combinators:
-///
-/// ```rust,ignore
-/// use logosky::chumsky::{Recoverable, Parser, prelude::*};
-///
-/// impl<'a, I, T, Error> Recoverable<'a, I, T, Error> for FieldDefinition {
-///     fn parser<E>() -> impl Parser<'a, I, Self, E> + Clone {
-///         // Parse components with optional recovery
-///         name_parser()
-///             .then(colon_parser().or_not())
-///             .then(type_parser().or_not())
-///             .try_map_with(|(name, colon, ty), exa| {
-///                 // Validate and collect errors
-///                 if colon.is_none() {
-///                     return Err(Error::missing_colon(exa.span()));
-///                 }
-///                 if ty.is_none() {
-///                     return Err(Error::missing_type(exa.span()));
-///                 }
-///                 Ok(FieldDefinition { name, ty: ty.unwrap() })
-///             })
-///             .recover_with(via_parser(
-///                 // On failure, skip to recovery point
-///                 skip_until([Token::Newline, Token::RBrace])
-///                     .to(FieldDefinition::placeholder())
-///             ))
-///     }
-/// }
-/// ```
-///
-/// # Recovery Strategies
-///
-/// Common recovery patterns:
-///
-/// - **`skip_until`**: Skip tokens until reaching a synchronization point (e.g., semicolons, braces)
-/// - **`skip_then_retry_until`**: Skip and retry parsing at different positions
-/// - **`nested_delimiters`**: Match delimiter pairs while respecting nesting
-/// - **`via_parser`**: Use a custom recovery parser for domain-specific logic
-///
-/// # Error Accumulation
-///
-/// Errors are collected through Chumsky's `ParserExtra` mechanism. When a parser
-/// fails and recovers:
-///
-/// 1. The error is recorded in the extra state
-/// 2. The recovery strategy produces a placeholder value
-/// 3. Parsing continues from the recovery point
-/// 4. All collected errors are available in the final parse result
-///
-/// # Comparison with Parseable
-///
-/// | Aspect | `Parseable` | `Recoverable` |
-/// |--------|-------------|---------------|
-/// | **Semantics** | Fail-fast | Fail-comprehensive |
-/// | **Error count** | First error only | All errors |
-/// | **Performance** | Fast (early exit) | Slower (full parse) |
-/// | **Recovery** | None | Via `.recover_with()` |
-/// | **Use case** | Runtime execution | Development tooling |
-/// | **Output** | Valid AST or error | AST (possibly with placeholders) + errors |
-///
-/// # When to Implement
-///
-/// Implement `Recoverable` for types that are:
-///
-/// - **Schema/SDL elements**: Type definitions, field definitions, directives
-/// - **Top-level constructs**: Documents, definitions, declarations
-/// - **IDE-visible**: Elements that users edit and want immediate feedback on
-/// - **Validatable**: Elements where comprehensive checking adds value
-///
-/// **Don't implement** for:
-///
-/// - **Runtime queries**: Use `Parseable` instead (fail-fast for invalid queries)
-/// - **Leaf tokens**: Simple terminals don't benefit from recovery
-/// - **Performance-critical**: Tight loops where recovery overhead matters
-///
-/// # Examples
-///
-/// ## Basic Implementation
-///
-/// ```rust,ignore
-/// use logosky::chumsky::{Recoverable, Parser, prelude::*};
-///
-/// struct TypeDefinition {
-///     name: String,
-///     fields: Vec<Field>,
-/// }
-///
-/// impl<'a, I, T, Error> Recoverable<'a, I, T, Error> for TypeDefinition {
-///     fn parser<E>() -> impl Parser<'a, I, Self, E> + Clone {
-///         // Parse with recovery
-///         type_keyword()
-///             .ignore_then(name_parser())
-///             .then(fields_parser())
-///             .map(|(name, fields)| TypeDefinition { name, fields })
-///             .recover_with(skip_until([Token::TypeKeyword, Token::Eof]))
-///     }
-/// }
-/// ```
-///
-/// ## Dual Implementation
-///
-/// Types can implement both traits for different contexts:
-///
-/// ```rust,ignore
-/// // Fail-fast for query execution
-/// impl<'a, I, T, Error> Parseable<'a, I, T, Error> for Directive {
-///     fn parser<E>() -> impl Parser<'a, I, Self, E> + Clone {
-///         // Strict parsing, no recovery
-///         at_token()
-///             .ignore_then(name_parser())
-///             .then(arguments_parser())
-///             .map(|(name, args)| Directive { name, args })
-///     }
-/// }
-///
-/// // Comprehensive for schema validation
-/// impl<'a, I, T, Error> Recoverable<'a, I, T, Error> for Directive {
-///     fn parser<E>() -> impl Parser<'a, I, Self, E> + Clone {
-///         // With recovery for better diagnostics
-///         at_token()
-///             .ignore_then(name_parser())
-///             .then(arguments_parser().or_not())
-///             .try_map(/* validate and report errors */)
-///             .recover_with(skip_until([Token::Newline]))
-///     }
-/// }
-/// ```
-///
-/// # See Also
-///
-/// - [`Parseable`]: For fail-fast parsing in production scenarios
-/// - [`IncompleteSyntax`](crate::error::IncompleteSyntax): For tracking missing syntax components
-/// - [Chumsky recovery module](https://docs.rs/chumsky/latest/chumsky/recovery/): Recovery strategies
-pub trait Recoverable<'a, I, T, Error> {
-  /// Returns a parser with comprehensive error recovery.
-  ///
-  /// This method constructs a Chumsky parser that uses error recovery strategies
-  /// to continue parsing after encountering errors. The parser collects all errors
-  /// via Chumsky's error accumulation system and returns the parsed result (which
-  /// may contain placeholder values for recovered sections).
-  ///
-  /// # Type Parameters
-  ///
-  /// - `E`: The parser extra type that carries error and state information
-  ///
-  /// # Returns
-  ///
-  /// A Chumsky parser that produces `Self` even in the presence of errors, with
-  /// all encountered errors accumulated in the parser extra state.
-  ///
-  /// # Error Recovery
-  ///
-  /// Unlike [`Parseable::parser`], this parser:
-  ///
-  /// - Continues parsing after errors using `.recover_with()`
-  /// - Accumulates multiple errors instead of stopping at the first
-  /// - May return partial/placeholder values for malformed sections
-  /// - Suitable for diagnostic tools and IDE integration
-  ///
-  /// # Example
-  ///
-  /// ```rust,ignore
-  /// // Get a recovering parser for schema validation
-  /// let parser = SchemaDefinition::recoverable_parser::<extra::Err<SchemaError>>();
-  ///
-  /// // Parse a schema with multiple errors
-  /// let result = parser.parse(tokenizer).into_output_errors();
-  /// match result {
-  ///     (Some(schema), errors) if errors.is_empty() => {
-  ///         println!("Valid schema: {:?}", schema);
-  ///     }
-  ///     (schema_opt, errors) => {
-  ///         // Show all errors to the user
-  ///         for error in errors {
-  ///             display_diagnostic(error);
-  ///         }
-  ///         // Can still use partial schema for some analysis
-  ///         if let Some(schema) = schema_opt {
-  ///             analyze_partial_schema(schema);
-  ///         }
-  ///     }
-  /// }
-  /// ```
-  fn recoverable_parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
-  where
-    Self: Sized + 'a,
-    I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
-    T: Token<'a>,
-    Error: 'a,
-    E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a;
-}
-
 impl<'a, D, I, T, Error> Parseable<'a, I, T, Error> for Spanned<D>
 where
   D: Parseable<'a, I, T, Error>,
@@ -494,25 +239,6 @@ where
   }
 }
 
-impl<'a, D, I, T, Error> Recoverable<'a, I, T, Error> for Option<D>
-where
-  D: Recoverable<'a, I, T, Error> + 'a,
-{
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn recoverable_parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
-  where
-    Self: Sized + 'a,
-    E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-    I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
-    T: Token<'a>,
-    Error: 'a,
-  {
-    use chumsky::Parser;
-
-    <D as Recoverable<'a, I, T, Error>>::recoverable_parser().or_not()
-  }
-}
-
 #[cfg(any(feature = "std", feature = "alloc"))]
 const _: () = {
   use crate::utils::Span;
@@ -536,25 +262,6 @@ const _: () = {
             use chumsky::Parser;
 
             <D as Parseable<'a, I, T, Error>>::parser().map(<$ty>::from)
-          }
-        }
-
-        impl<'a, D, I, T, Error> Recoverable<'a, I, T, Error> for $ty
-        where
-          D: Recoverable<'a, I, T, Error>,
-          I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
-          T: Token<'a>,
-          Error: 'a,
-        {
-          #[cfg_attr(not(tarpaulin), inline(always))]
-          fn recoverable_parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
-          where
-            Self: Sized + 'a,
-            E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-          {
-            use chumsky::Parser;
-
-            <D as Recoverable<'a, I, T, Error>>::recoverable_parser().map(<$ty>::from)
           }
         }
 
@@ -607,27 +314,6 @@ const _: () = {
         .collect()
     }
   }
-
-  impl<'a, D, I, T, Error> Recoverable<'a, I, T, Error> for std::vec::Vec<D>
-  where
-    D: Recoverable<'a, I, T, Error>,
-    I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
-    T: Token<'a>,
-    Error: 'a,
-  {
-    #[cfg_attr(not(tarpaulin), inline(always))]
-    fn recoverable_parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
-    where
-      Self: Sized + 'a,
-      E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-    {
-      use chumsky::{IterParser, Parser};
-
-      <D as Recoverable<'a, I, T, Error>>::recoverable_parser()
-        .repeated()
-        .collect()
-    }
-  }
 };
 
 #[cfg(feature = "either")]
@@ -655,29 +341,6 @@ const _: () = {
       L::parser()
         .map(Either::Left)
         .or(R::parser().map(Either::Right))
-    }
-  }
-
-  impl<'a, L, R, I, T, Error> Recoverable<'a, I, T, Error> for Either<L, R>
-  where
-    L: Recoverable<'a, I, T, Error>,
-    R: Recoverable<'a, I, T, Error>,
-  {
-    #[cfg_attr(test, inline)]
-    #[cfg_attr(not(test), inline(always))]
-    fn recoverable_parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
-    where
-      Self: Sized + 'a,
-      E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-      I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
-      T: Token<'a>,
-      Error: 'a,
-    {
-      use chumsky::Parser;
-
-      L::recoverable_parser()
-        .map(Either::Left)
-        .or(R::recoverable_parser().map(Either::Right))
     }
   }
 
@@ -740,32 +403,6 @@ const _: () = {
         L::parser().map(Self::Left),
         M::parser().map(Self::Middle),
         R::parser().map(Self::Right),
-      ))
-    }
-  }
-
-  impl<'a, L, M, R, I, T, Error> Recoverable<'a, I, T, Error> for Among<L, M, R>
-  where
-    L: Recoverable<'a, I, T, Error>,
-    M: Recoverable<'a, I, T, Error>,
-    R: Recoverable<'a, I, T, Error>,
-  {
-    #[cfg_attr(test, inline)]
-    #[cfg_attr(not(test), inline(always))]
-    fn recoverable_parser<E>() -> impl chumsky::Parser<'a, I, Self, E> + Clone
-    where
-      Self: Sized + 'a,
-      E: chumsky::extra::ParserExtra<'a, I, Error = Error> + 'a,
-      I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
-      T: Token<'a>,
-      Error: 'a,
-    {
-      use chumsky::prelude::*;
-
-      choice((
-        L::recoverable_parser().map(Self::Left),
-        M::recoverable_parser().map(Self::Middle),
-        R::recoverable_parser().map(Self::Right),
       ))
     }
   }

@@ -1,9 +1,8 @@
 //! Token skipping utilities for error recovery.
 //!
-//! This module provides generic utilities for implementing error recovery in parsers
-//! via the [`Recoverable`](super::Recoverable) trait. These functions enable parsers
-//! to skip over malformed input until reaching a "synchronization point" where parsing
-//! can safely resume.
+//! This module provides generic utilities for implementing error recovery in parsers.
+//! These functions enable parsers to skip over malformed input until reaching a
+//! "synchronization point" where parsing can safely resume.
 //!
 //! # Design Philosophy
 //!
@@ -67,52 +66,50 @@
 //! ## GraphQL Field Definition Recovery
 //!
 //! ```rust,ignore
-//! use logosky::chumsky::{Recoverable, skip_until_token};
+//! use logosky::chumsky::skip_until_token;
 //!
-//! impl<...> Recoverable<...> for FieldDefinition {
-//!     fn parser<E>() -> impl Parser<...> {
-//!         name_parser()
-//!             .then(colon_parser().or_not())
-//!             .then(type_parser().or_not())
-//!             .try_map_with(|(name, colon, ty), exa| {
-//!                 // Validate and collect errors
-//!                 let mut errors = IncompleteSyntax::new(...);
-//!                 if colon.is_none() { errors.add(Component::Colon); }
-//!                 if ty.is_none() { errors.add(Component::Type); }
+//! fn field_definition_parser<E>() -> impl Parser<...> {
+//!     name_parser()
+//!         .then(colon_parser().or_not())
+//!         .then(type_parser().or_not())
+//!         .try_map_with(|(name, colon, ty), exa| {
+//!             // Validate and collect errors
+//!             let mut errors = IncompleteSyntax::new(...);
+//!             if colon.is_none() { errors.add(Component::Colon); }
+//!             if ty.is_none() { errors.add(Component::Type); }
 //!
-//!                 if errors.is_empty() {
-//!                     Ok(FieldDefinition { name, ty: ty.unwrap() })
-//!                 } else {
-//!                     Err(Error::from(errors))
-//!                 }
-//!             })
-//!             .recover_with(via_parser(
-//!                 skip_until_token(|tok| matches!(tok,
-//!                     SyntacticToken::Punctuator(Punctuator::Comma) |
-//!                     SyntacticToken::Punctuator(Punctuator::Newline) |
-//!                     SyntacticToken::Punctuator(Punctuator::RBrace)
-//!                 ))
-//!                 .map_with(|_, exa| FieldDefinition::placeholder(exa.span()))
+//!             if errors.is_empty() {
+//!                 Ok(FieldDefinition { name, ty: ty.unwrap() })
+//!             } else {
+//!                 Err(Error::from(errors))
+//!             }
+//!         })
+//!         .recover_with(via_parser(
+//!             skip_until_token(|tok| matches!(tok,
+//!                 SyntacticToken::Punctuator(Punctuator::Comma) |
+//!                 SyntacticToken::Punctuator(Punctuator::Newline) |
+//!                 SyntacticToken::Punctuator(Punctuator::RBrace)
 //!             ))
-//!     }
+//!             .ignored() // Discard (count, token) tuple
+//!             .map_with(|_, exa| FieldDefinition::placeholder(exa.span()))
+//!         ))
 //! }
 //! ```
 //!
 //! ## JSON Object Recovery
 //!
 //! ```rust,ignore
-//! impl<...> Recoverable<...> for JsonObject {
-//!     fn parser<E>() -> impl Parser<...> {
-//!         key_value_pairs()
-//!             .recover_with(via_parser(
-//!                 skip_until_token(|tok| matches!(tok,
-//!                     JsonToken::Comma |   // Next key-value
-//!                     JsonToken::RBrace |  // End of object
-//!                     JsonToken::Eof       // End of input
-//!                 ))
-//!                 .map_with(|_, exa| JsonObject::empty(exa.span()))
+//! fn json_object_parser<E>() -> impl Parser<...> {
+//!     key_value_pairs()
+//!         .recover_with(via_parser(
+//!             skip_until_token(|tok| matches!(tok,
+//!                 JsonToken::Comma |   // Next key-value
+//!                 JsonToken::RBrace |  // End of object
+//!                 JsonToken::Eof       // End of input
 //!             ))
-//!     }
+//!             .ignored() // Discard (count, token) tuple
+//!             .map_with(|_, exa| JsonObject::empty(exa.span()))
+//!         ))
 //! }
 //! ```
 //!
@@ -129,7 +126,7 @@
 //! })
 //! ```
 
-use crate::{Lexed, Token};
+use crate::{Lexed, Token, utils::Spanned};
 use chumsky::{Parser, prelude::*, recovery::Strategy};
 use logos::{Logos, Source};
 
@@ -189,14 +186,12 @@ use super::LogoStream;
 /// ```rust,ignore
 /// use logosky::chumsky::skip_until_token_strategy;
 ///
-/// impl Recoverable<...> for FieldDefinition {
-///     fn parser<E>() -> impl Parser<...> {
-///         field_parser()
-///             // Use strategy directly with recover_with
-///             .recover_with(skip_until_token_strategy(|tok| matches!(tok,
-///                 Token::Comma | Token::Newline | Token::RBrace
-///             )))
-///     }
+/// fn field_definition_parser<E>() -> impl Parser<...> {
+///     field_parser()
+///         // Use strategy directly with recover_with
+///         .recover_with(skip_until_token_strategy(|tok| matches!(tok,
+///             Token::Comma | Token::Newline | Token::RBrace
+///         )))
 /// }
 /// ```
 ///
@@ -400,7 +395,57 @@ where
 /// This is useful when you want to fast-forward the token stream past a known delimiter
 /// (e.g., skip until the next `)` and discard it). If you need to keep the matching token
 /// for the next parser, use [`skip_until_token`] instead.
-pub fn skip_until_token_inclusive<'a, I, T, E, F>(predicate: F) -> impl Parser<'a, I, (), E> + Clone
+///
+/// # Returns
+///
+/// Returns `(usize, Option<Spanned<T>>)` where:
+/// - `usize`: Number of tokens skipped before finding the match (not including the matching token)
+/// - `Option<Spanned<T>>`:
+///   - `Some(token)`: Found and consumed a matching token
+///   - `None`: Reached EOF without finding a match
+///
+/// # Examples
+///
+/// ## Using the Count for Diagnostics
+///
+/// ```rust,ignore
+/// let (skipped, found) = skip_until_token_inclusive(|tok| tok.is_semicolon())
+///     .parse(stream)?;
+///
+/// if skipped > 0 {
+///     println!("Skipped {} invalid tokens", skipped);
+/// }
+/// ```
+///
+/// ## Discarding the Result
+///
+/// ```rust,ignore
+/// // When you don't need the count or token information
+/// skip_until_token_inclusive(|tok| tok.is_semicolon())
+///     .ignored() // Discard (count, token) tuple
+///     .then(next_parser())
+/// ```
+///
+/// ## Pattern Matching the Result
+///
+/// ```rust,ignore
+/// match skip_until_token_inclusive(|tok| tok.is_rbrace()).parse(stream)? {
+///     (0, Some(_)) => {
+///         // Found immediately, no tokens skipped
+///     }
+///     (count, Some(token)) => {
+///         // Found after skipping tokens
+///         println!("Recovered by skipping {} tokens", count);
+///     }
+///     (count, None) => {
+///         // Hit EOF
+///         return Err(Error::Unclosed { tokens_parsed: count });
+///     }
+/// }
+/// ```
+pub fn skip_until_token_inclusive<'a, I, T, E, F>(
+  predicate: F,
+) -> impl Parser<'a, I, (usize, Option<Spanned<T>>), E> + Clone
 where
   I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
   T: Token<'a>,
@@ -409,26 +454,38 @@ where
   F: Fn(&T) -> bool + Clone + 'a,
 {
   custom(move |inp| {
-    while let Some(lexed) = inp.peek() {
-      match lexed {
-        Lexed::Token(spanned_tok) => {
-          if predicate(&spanned_tok) {
-            inp.skip(); // Consume the matching token
-            return Ok(());
-          }
-          inp.skip();
-        }
-        Lexed::Error(_) => {
-          // inp does not have an emit method, so we use a validate parser to emit the error
-          inp.parse(any().validate(|tok, _, emitter| {
-            if let Lexed::Error(err) = tok {
-              emitter.emit(E::Error::from(err));
+    let mut skipped = 0;
+    loop {
+      let result = inp.parse(
+        any()
+          .validate(|t: Lexed<'_, T>, _, emitter| match t {
+            Lexed::Token(tok) => {
+              if predicate(&*tok) {
+                Some(tok)
+              } else {
+                None
+              }
             }
-          }))?;
+            Lexed::Error(e) => {
+              emitter.emit(E::Error::from(e));
+              None
+            }
+          })
+          .or_not(),
+      )?;
+
+      match result {
+        Some(Some(tok)) => return Ok((skipped, Some(tok))),
+        Some(None) => {
+          skipped += 1;
+          // Validation failed, continue to next token
+          // If we've reached EOF, the any() parser will return an error
+          // and we'll exit the loop
+          continue;
         }
+        None => return Ok((skipped, None)), // End of input reached
       }
     }
-    Ok(())
   })
 }
 
@@ -626,48 +683,77 @@ where
 /// - Skips tokens until the predicate returns `true`
 /// - The matching token is **NOT** consumed (use [`skip_until_token_inclusive`] to consume it)
 /// - Lexer errors encountered during skipping are emitted
-/// - Returns `Ok(())` when a match is found or end-of-input is reached
 ///
 /// # Returns
 ///
-/// A parser that consumes tokens until the predicate matches, producing `()`.
-/// The matching token remains in the stream for the next parser.
+/// Returns `(usize, Option<Spanned<T>>)` where:
+/// - `usize`: Number of tokens skipped before finding the match
+/// - `Option<Spanned<T>>`:
+///   - `Some(token)`: Found a matching token (NOT consumed, still in stream)
+///   - `None`: Reached EOF without finding a match
 ///
 /// # Examples
 ///
-/// ## Field-Level Recovery
+/// ## Field-Level Recovery with Diagnostics
 ///
 /// ```rust,ignore
 /// use logosky::chumsky::skip_until_token;
 ///
 /// // Skip until finding a comma, newline, or closing brace
-/// // The matching token is preserved for the next parser
 /// field_parser()
 ///     .recover_with(via_parser(
 ///         skip_until_token(|tok| matches!(tok,
 ///             Token::Comma | Token::Newline | Token::RBrace
 ///         ))
-///         .map_with(|_, exa| Field::placeholder(exa.span()))
+///         .map_with(|(skipped, _), exa| {
+///             if skipped > 0 {
+///                 eprintln!("Skipped {} invalid tokens", skipped);
+///             }
+///             Field::placeholder(exa.span())
+///         })
 ///     ))
 /// ```
 ///
-/// ## Statement Recovery
+/// ## Discarding the Tuple
 ///
 /// ```rust,ignore
-/// // Skip until semicolon or statement keyword
-/// // The keyword is preserved so it can start the next statement
+/// // When you don't need the count or token information
 /// skip_until_token(|tok| matches!(tok,
 ///     Token::Semicolon | Token::Let | Token::Fn | Token::Return
 /// ))
+/// .ignored() // Discard (count, token) tuple
 /// ```
 ///
-/// ## Top-Level Recovery
+/// ## Using Count for Error Reporting
 ///
 /// ```rust,ignore
-/// // Skip until definition keyword or EOF
-/// skip_until_token(|tok| matches!(tok,
-///     Token::Type | Token::Interface | Token::Enum | Token::Eof
-/// ))
+/// let (skipped, found) = skip_until_token(|tok| tok.is_rbrace())
+///     .parse(stream)?;
+///
+/// match (skipped, found) {
+///     (0, Some(_)) => {
+///         // Found immediately, no recovery needed
+///     }
+///     (count, Some(token)) => {
+///         println!("Recovered at {:?} after skipping {} tokens", token.span, count);
+///     }
+///     (count, None) => {
+///         return Err(Error::UnclosedBlock { tokens_parsed: count });
+///     }
+/// }
+/// ```
+///
+/// ## Preserving the Matching Token
+///
+/// ```rust,ignore
+/// // The token is NOT consumed, so the next parser can use it
+/// let (_, found) = skip_until_token(|tok| tok.is_keyword()).parse(stream)?;
+///
+/// if let Some(keyword_token) = found {
+///     // keyword_token is still in the stream
+///     // The next parser can consume it
+///     let keyword = keyword_parser().parse(stream)?;
+/// }
 /// ```
 ///
 /// # See Also
@@ -676,7 +762,9 @@ where
 /// - [`skip_until_token_strategy`]: Strategy version for use with `recover_with`
 /// - [`skip_while_token`]: Skip while predicate matches (inverse behavior)
 #[inline]
-pub fn skip_until_token<'a, I, T, E, F>(predicate: F) -> impl Parser<'a, I, (), E> + Clone
+pub fn skip_until_token<'a, I, T, E, F>(
+  predicate: F,
+) -> impl Parser<'a, I, (usize, Option<Spanned<T>>), E> + Clone
 where
   I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
   T: Token<'a>,
@@ -685,25 +773,42 @@ where
   F: Fn(&T) -> bool + Clone + 'a,
 {
   custom(move |inp| {
-    while let Some(lexed) = inp.peek() {
-      match lexed {
-        Lexed::Token(spanned_tok) => {
-          if predicate(&spanned_tok) {
-            return Ok(());
-          }
-          inp.skip();
-        }
-        Lexed::Error(_) => {
-          // inp does not have an emit method, so we use a validate parser to emit the error
-          inp.parse(any().validate(|tok, _, emitter| {
-            if let Lexed::Error(err) = tok {
-              emitter.emit(E::Error::from(err));
+    let mut skipped = 0;
+    loop {
+      let ck = inp.save();
+      let result = inp.parse(
+        any()
+          .validate(|t: Lexed<'_, T>, _, emitter| match t {
+            Lexed::Token(tok) => {
+              if predicate(&*tok) {
+                Some(tok)
+              } else {
+                None
+              }
             }
-          }))?;
+            Lexed::Error(e) => {
+              emitter.emit(E::Error::from(e));
+              None
+            }
+          })
+          .or_not(),
+      )?;
+
+      match result {
+        Some(Some(tok)) => {
+          inp.rewind(ck); // Rewind to before the matching token
+          return Ok((skipped, Some(tok)));
         }
+        Some(None) => {
+          skipped += 1;
+          // Validation failed, continue to next token
+          // If we've reached EOF, the any() parser will return an error
+          // and we'll exit the loop
+          continue;
+        }
+        None => return Ok((skipped, None)), // End of input reached
       }
     }
-    Ok(())
   })
 }
 
@@ -733,8 +838,11 @@ where
 ///
 /// # Returns
 ///
-/// A parser that consumes matching tokens, stopping at the first non-match,
-/// producing `()`. The non-matching token is left for the next parser.
+/// Returns `(usize, Option<Spanned<T>>)` where:
+/// - `usize`: Number of tokens skipped
+/// - `Option<Spanned<T>>`:
+///   - `Some(token)`: Found a non-matching token (NOT consumed, still in stream)
+///   - `None`: Reached EOF while all tokens matched
 ///
 /// # Examples
 ///
@@ -743,32 +851,58 @@ where
 /// ```rust,ignore
 /// use logosky::chumsky::skip_while_token;
 ///
-/// // Skip all whitespace before attempting recovery
-/// skip_while_token(|tok| matches!(tok, Token::Whitespace | Token::Newline))
-///     .ignore_then(recovery_parser())
+/// // Skip all whitespace, get count for diagnostics
+/// let (skipped, _) = skip_while_token(|tok| matches!(tok, Token::Whitespace | Token::Newline))
+///     .parse(stream)?;
+///
+/// if skipped > 0 {
+///     println!("Skipped {} whitespace tokens", skipped);
+/// }
 /// ```
 ///
-/// ## Skip Comments
+/// ## Discarding the Result
 ///
 /// ```rust,ignore
-/// // Skip comment tokens until finding actual code
+/// // When you don't need the count or token information
 /// skip_while_token(|tok| tok.is_comment())
+///     .ignored() // Discard (count, token) tuple
 ///     .ignore_then(statement_parser())
 /// ```
 ///
-/// ## Skip Invalid Tokens
+/// ## Using the Non-Matching Token
 ///
 /// ```rust,ignore
-/// // Skip tokens marked as errors by the lexer
-/// skip_while_token(|tok| tok.is_error())
-///     .ignore_then(resume_parsing())
+/// let (count, found) = skip_while_token(|tok| tok.is_error())
+///     .parse(stream)?;
+///
+/// match found {
+///     Some(token) => {
+///         // Non-matching token is still in stream
+///         println!("Skipped {} error tokens, found valid token at {:?}", count, token.span);
+///         // Next parser can consume this token
+///     }
+///     None => {
+///         println!("Skipped {} tokens until EOF", count);
+///     }
+/// }
 /// ```
 ///
-/// ## Skip Specific Token Types
+/// ## Pattern Matching for Control Flow
 ///
 /// ```rust,ignore
-/// // Skip all number tokens until finding something else
-/// skip_while_token(|tok| matches!(tok, Token::Number(_)))
+/// match skip_while_token(|tok| matches!(tok, Token::Number(_))).parse(stream)? {
+///     (0, _) => {
+///         // No numbers skipped, immediately found non-number
+///     }
+///     (count, Some(tok)) => {
+///         // Skipped some numbers, found different token
+///         println!("Skipped {} numbers, found {:?}", count, tok);
+///     }
+///     (count, None) => {
+///         // All remaining tokens were numbers
+///         println!("Consumed {} numbers until EOF", count);
+///     }
+/// }
 /// ```
 ///
 /// # Comparison with skip_until_token
@@ -788,7 +922,9 @@ where
 /// - [`skip_while_token_strategy`]: Strategy version for use with `recover_with`
 /// - [`skip_n_tokens`]: Skip a fixed number of tokens
 #[inline]
-pub fn skip_while_token<'a, I, T, E, F>(predicate: F) -> impl Parser<'a, I, (), E> + Clone
+pub fn skip_while_token<'a, I, T, E, F>(
+  predicate: F,
+) -> impl Parser<'a, I, (usize, Option<Spanned<T>>), E> + Clone
 where
   I: LogoStream<'a, T, Slice = <<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
   T: Token<'a>,
@@ -923,9 +1059,9 @@ mod tests {
         Lexed::Error(e) => Err(e.into()),
       })
       .ignored()
-      .recover_with(via_parser(skip_until_token(|tok: &TestToken| {
-        matches!(tok.kind(), TestKind::Ident)
-      })))
+      .recover_with(via_parser(
+        skip_until_token(|tok: &TestToken| matches!(tok.kind(), TestKind::Ident)).ignored(),
+      ))
       .ignore_then(next_kind_parser());
 
     let result = parser.parse(stream);
@@ -983,9 +1119,10 @@ mod tests {
         Lexed::Error(e) => Err(e.into()),
       })
       .ignored()
-      .recover_with(via_parser(skip_until_token_inclusive(|tok: &TestToken| {
-        matches!(tok.kind(), TestKind::Ident)
-      })))
+      .recover_with(via_parser(
+        skip_until_token_inclusive(|tok: &TestToken| matches!(tok.kind(), TestKind::Ident))
+          .ignored(),
+      ))
       .ignore_then(next_kind_parser());
 
     let result = parser.parse(stream);
@@ -1051,9 +1188,9 @@ mod tests {
         Lexed::Error(e) => Err(e.into()),
       })
       .ignored()
-      .recover_with(via_parser(skip_while_token(|tok: &TestToken| {
-        matches!(tok.kind(), TestKind::Ident)
-      })))
+      .recover_with(via_parser(
+        skip_while_token(|tok: &TestToken| matches!(tok.kind(), TestKind::Ident)).ignored(),
+      ))
       .ignore_then(next_kind_parser());
 
     let result = parser.parse(stream);
