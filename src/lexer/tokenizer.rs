@@ -191,16 +191,17 @@ impl<'a, T: Token<'a>> Tokenizer<'a, T> {
     iter::IntoIter::new(self)
   }
 
-  pub(crate) fn next_maybe(this: &mut Self, cursor: &mut usize) -> Option<Lexed<'a, T>>
+  pub(crate) fn next_maybe(&mut self, cursor: &mut usize) -> Option<Lexed<'a, T>>
   where
     <T::Logos as Logos<'a>>::Extras: Clone,
   {
-    let mut lexer = logos::Lexer::<T::Logos>::with_extras(this.input, this.state.clone());
+    let state = self.state.clone();
+    let mut lexer = logos::Lexer::<T::Logos>::with_extras(self.input, state);
     lexer.bump(*cursor);
     Lexed::lex(&mut lexer).inspect(|_| {
       *cursor = lexer.span().end;
-      this.state = lexer.extras.clone();
-      this.cursor = *cursor;
+      self.state = lexer.extras.clone();
+      self.cursor = *cursor;
     })
   }
 }
