@@ -61,7 +61,7 @@ logos = { version = "0.15", default-features = false, features = [
 paste = "1"
 thiserror = { version = "2", default-features = false }
 
-chumsky = { version = "^0.11.2", default-features = false, optional = true }
+chumsky = { git = "https://github.com/zesterer/chumsky", default-features = false, optional = true }
 
 rowan = { version = "0.16", optional = true }
 

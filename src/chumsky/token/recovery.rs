@@ -7,11 +7,6 @@
 //!
 //! # Core Recovery Functions
 //!
-//! ## Error Emission
-//!
-//! - [`emit`](crate::chumsky::token::recovery::emit): Emits an error without consuming input (eager)
-//! - [`emit_with`](crate::chumsky::token::recovery::emit_with): Emits an error without consuming input (lazy, on-demand)
-//!
 //! ## Delimiter Scanning
 //!
 //! - [`scan_closing_delimiter`](crate::chumsky::token::recovery::scan_closing_delimiter): Non-destructive lookahead for closing delimiter
@@ -33,7 +28,7 @@
 //! # Example: Building a Delimited Parser with Recovery
 //!
 //! ```rust,ignore
-//! use logosky::chumsky::token::recovery::{emit_with, skip_through_closing_delimiter};
+//! use logosky::chumsky::token::recovery::skip_through_closing_delimiter;
 //! use logosky::utils::delimiter::Delimiter;
 //!
 //! // Parse content delimited by braces with recovery
@@ -55,7 +50,7 @@
 //!                 _ => {
 //!                     // Emit UnclosedBrace error
 //!                     let span = inp.span_since(&before);
-//!                     inp.parse(emit_with(|| UnclosedBrace::brace(span)))?;
+//!                     inp.emit(UnclosedBrace::brace(span));
 //!                     return Ok(Ok(Delimited { span, content }));
 //!                 }
 //!             }
@@ -68,14 +63,14 @@
 //!
 //!     if closing.is_some() {
 //!         inp.rewind(checkpoint);
-//!         inp.parse(emit_with(|| UnopenedBrace::brace(scanned)))?;
+//!         inp.emit(UnopenedBrace::brace(scanned));
 //!         let content = inp.parse(content_parser.then_ignore(skip_until_brace_close))?;
 //!         return Ok(Ok(Delimited { span: inp.span_since(&before), content }));
 //!     }
 //!
 //!     // SCENARIO 3: No delimiters at all
 //!     inp.rewind(checkpoint);
-//!     inp.parse(emit_with(|| UndelimitedBrace::brace(scanned)))?;
+//!     inp.emit(UndelimitedBrace::brace(scanned));
 //!     Ok(Err(inp.span_since(&before))) // Don't parse content!
 //! })
 //! ```
@@ -105,181 +100,6 @@ use crate::{
   chumsky::{Parser, extra::ParserExtra, prelude::*},
   utils::{Span, Spanned, delimiter::Delimiter},
 };
-
-/// Emits a parser error without consuming input.
-///
-/// This parser combinator records an error by calling the error emitter, then rewinds
-/// the input position so no tokens are consumed. This is essential for error recovery
-/// strategies where you need to report diagnostics while allowing subsequent parsers
-/// to inspect the same tokens.
-///
-/// # Parameters
-///
-/// - `err`: The error to emit. Must implement `Clone` since the parser may be called multiple times.
-///
-/// # Returns
-///
-/// A parser that:
-/// - Always succeeds with `()`
-/// - Emits the provided error via the parser's error emitter
-/// - Leaves the input stream at its original position (non-destructive)
-///
-/// # Use Cases
-///
-/// - **Recovery contexts**: Report why recovery was triggered without consuming tokens
-/// - **Error accumulation**: Emit diagnostic errors while continuing to parse
-/// - **Lookahead validation**: Report issues found during lookahead without advancing
-/// - **Custom error reporting**: Add context-specific errors at any parse point
-///
-/// # Examples
-///
-/// ## Basic Error Emission
-///
-/// ```rust,ignore
-/// use logosky::chumsky::token::recovery::emit;
-///
-/// // Emit an error when recovery is triggered
-/// my_parser
-///   .recover_with(via_parser(
-///     emit(MyError::MissingCloseBrace)
-///       .ignore_then(fallback_parser)
-///   ))
-/// ```
-///
-/// ## Conditional Error Emission
-///
-/// ```rust,ignore
-/// // Emit error only if condition is met
-/// scan_closing_delimiter(Delimiter::Brace)
-///   .try_map(|(span, found), _| {
-///     if found.is_none() {
-///       emit(UnclosedBrace::new(span)).parse(stream);
-///     }
-///     Ok(found)
-///   })
-/// ```
-///
-/// ## Multiple Error Emissions
-///
-/// ```rust,ignore
-/// // Report multiple issues without consuming input
-/// emit(Warning::DeprecatedSyntax)
-///   .ignore_then(emit(Warning::ConsiderRefactoring))
-///   .ignore_then(actual_parser)
-/// ```
-///
-/// # See Also
-///
-/// - [`emit_with`]: Lazy version that generates the error on-demand
-pub fn emit<'a, I, T, Error, E>(err: Error) -> impl Parser<'a, I, (), E> + Clone
-where
-  I: LogoStream<'a, T>,
-  T: Token<'a>,
-  E: ParserExtra<'a, I, Error = Error> + 'a,
-  Error: Clone + 'a,
-{
-  any()
-    .validate(move |_, _, emitter| {
-      emitter.emit(err.clone());
-    })
-    .rewind()
-}
-
-/// Emits a parser error without consuming input (lazy version).
-///
-/// This is the lazy variant of [`emit`] that generates the error on-demand each time
-/// the parser is invoked. Use this when error construction is expensive or when the
-/// error needs to capture dynamic state at parse-time rather than parser-construction-time.
-///
-/// # Parameters
-///
-/// - `err`: A closure that produces the error. Called each time the parser executes.
-///
-/// # Returns
-///
-/// A parser that:
-/// - Always succeeds with `()`
-/// - Calls `err()` and emits the resulting error via the parser's error emitter
-/// - Leaves the input stream at its original position (non-destructive)
-///
-/// # When to Use emit_with vs emit
-///
-/// Use `emit_with` when:
-/// - Error construction captures parser state (spans, tokens, etc.)
-/// - Error creation is computationally expensive
-/// - You need different error instances for each invocation
-///
-/// Use [`emit`] when:
-/// - The error is a simple constant or pre-constructed value
-/// - Error construction has no side effects or captured state
-///
-/// # Examples
-///
-/// ## Capturing Parse State
-///
-/// ```rust,ignore
-/// use logosky::chumsky::token::recovery::emit_with;
-///
-/// // Error message includes dynamic span information
-/// my_parser
-///   .recover_with(via_parser(
-///     emit_with(|| MyError::UnclosedDelimiter {
-///       expected: "}",
-///       span: current_span(), // Captured at parse-time
-///     })
-///     .ignore_then(fallback_parser)
-///   ))
-/// ```
-///
-/// ## Expensive Error Construction
-///
-/// ```rust,ignore
-/// // Build detailed error with context only when needed
-/// emit_with(|| {
-///   let context = expensive_context_builder();
-///   MyError::WithContext {
-///     message: "Invalid syntax",
-///     context,
-///   }
-/// })
-/// ```
-///
-/// ## Dynamic Error Selection
-///
-/// ```rust,ignore
-/// // Choose error type based on current parse state
-/// emit_with(|| {
-///   if in_strict_mode() {
-///     MyError::StrictModeViolation
-///   } else {
-///     MyError::Warning
-///   }
-/// })
-/// ```
-///
-/// # Performance Note
-///
-/// The closure is called every time the parser runs. If the error is a constant,
-/// prefer [`emit`] which clones a pre-constructed error instead of calling a closure.
-///
-/// # See Also
-///
-/// - [`emit`]: Eager version that clones a pre-constructed error
-pub fn emit_with<'a, I, T, Error, E>(
-  err: impl Fn() -> Error + Clone + 'a,
-) -> impl Parser<'a, I, (), E> + Clone
-where
-  I: LogoStream<'a, T>,
-  T: Token<'a>,
-  E: ParserExtra<'a, I, Error = Error> + 'a,
-  Error: 'a,
-{
-  any()
-    .validate(move |_, _, emitter| {
-      emitter.emit(err());
-    })
-    .rewind()
-}
 
 /// Repeatedly parses tokens until finding one that passes validation, emitting errors for invalid tokens.
 ///
@@ -421,9 +241,6 @@ where
 /// - Use `.filter()` if you just want to filter without error reporting
 ///
 /// # See Also
-///
-/// - [`emit`]: Emit an error without consuming input
-/// - [`emit_with`]: Emit an error created from a function without consuming input
 /// - [`skip_until_token`](super::skip::skip_until_token): Skip tokens without emitting errors
 ///
 /// Emits errors for each token until the matcher succeeds, optionally returning the matching token.
@@ -839,8 +656,6 @@ where
 ///
 /// - [`emit_until_token`]: Non-inclusive version that preserves the matching token
 /// - [`skip_until_token_inclusive`](crate::chumsky::skip::skip_until_token_inclusive): Skip without emitting errors for each token
-/// - [`emit`]: Emit an error without consuming input
-/// - [`emit_with`]: Emit an error created from a function without consuming input
 pub fn emit_until_token_inclusive<'a, I, T, E>(
   matcher: impl Fn(&Spanned<T>) -> Result<(), E::Error> + Clone + 'a,
 ) -> impl Parser<'a, I, (usize, Option<Spanned<T>>), E> + Clone
@@ -1729,9 +1544,8 @@ mod tests {
     fn test_simple_matching_brace() {
       let input = "word }";
       let stream = TestTokenizer::new(input);
-      let parser =
-        scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
-          .then_ignore(any().repeated());
+      let parser = scan_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace)
+        .then_ignore(any().repeated());
       let result = parser.parse(stream);
       assert!(matches!(result.into_result(), Ok((_, Some(_)))));
     }
@@ -1740,9 +1554,8 @@ mod tests {
     fn test_simple_matching_paren() {
       let input = "42 )";
       let stream = TestTokenizer::new(input);
-      let parser =
-        scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Paren)
-          .then_ignore(any().repeated());
+      let parser = scan_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Paren)
+        .then_ignore(any().repeated());
       let result = parser.parse(stream);
       assert!(matches!(result.into_result(), Ok((_, Some(_)))));
     }
@@ -1751,9 +1564,8 @@ mod tests {
     fn test_simple_matching_bracket() {
       let input = "foo ]";
       let stream = TestTokenizer::new(input);
-      let parser =
-        scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Bracket)
-          .then_ignore(any().repeated());
+      let parser = scan_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Bracket)
+        .then_ignore(any().repeated());
       let result = parser.parse(stream);
       assert!(matches!(result.into_result(), Ok((_, Some(_)))));
     }
@@ -1762,9 +1574,8 @@ mod tests {
     fn test_nested_braces() {
       let input = "{ { } } }";
       let stream = TestTokenizer::new(input);
-      let parser =
-        scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
-          .then_ignore(any().repeated());
+      let parser = scan_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace)
+        .then_ignore(any().repeated());
       let result = parser.parse(stream);
       assert!(matches!(result.into_result(), Ok((_, Some(_)))));
     }
@@ -1773,9 +1584,8 @@ mod tests {
     fn test_nested_parens() {
       let input = "( ( ) ( ) ) )";
       let stream = TestTokenizer::new(input);
-      let parser =
-        scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Paren)
-          .then_ignore(any().repeated());
+      let parser = scan_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Paren)
+        .then_ignore(any().repeated());
       let result = parser.parse(stream);
       assert!(matches!(result.into_result(), Ok((_, Some(_)))));
     }
@@ -1784,9 +1594,8 @@ mod tests {
     fn test_eof_without_closing() {
       let input = "word { word";
       let stream = TestTokenizer::new(input);
-      let parser =
-        scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
-          .then_ignore(any().repeated());
+      let parser = scan_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace)
+        .then_ignore(any().repeated());
       let result = parser.parse(stream);
       assert_eq!(result.into_result(), Ok(((0..input.len()).into(), None)));
     }
@@ -1795,8 +1604,7 @@ mod tests {
     fn test_eof_immediately() {
       let input = "";
       let stream = TestTokenizer::new(input);
-      let parser =
-        scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
+      let parser = scan_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
       assert_eq!(result.into_result(), Ok(((0..input.len()).into(), None)));
     }
@@ -1805,9 +1613,8 @@ mod tests {
     fn test_wrong_delimiter_type() {
       let input = "word )";
       let stream = TestTokenizer::new(input);
-      let parser =
-        scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
-          .then_ignore(any().repeated());
+      let parser = scan_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace)
+        .then_ignore(any().repeated());
       let result = parser.parse(stream);
       // Should not find brace, only paren exists
       assert_eq!(result.into_result(), Ok(((0..input.len()).into(), None)));
@@ -1819,16 +1626,14 @@ mod tests {
       let stream = TestTokenizer::new(input);
 
       // First scan
-      let parser =
-        scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
-          .then_ignore(any().repeated());
+      let parser = scan_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace)
+        .then_ignore(any().repeated());
       let result = parser.parse(stream.clone());
       assert!(matches!(result.into_result(), Ok((_, Some(_)))));
 
       // Second scan should still work (non-destructive)
-      let parser =
-        scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
-          .then_ignore(any().repeated());
+      let parser = scan_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace)
+        .then_ignore(any().repeated());
       let result = parser.parse(stream);
       assert!(matches!(result.into_result(), Ok((_, Some(_)))));
     }
@@ -1841,13 +1646,12 @@ mod tests {
     fn test_simple_skip() {
       let input = "word }";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_to_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace).then(
-          any().try_map(|tok: Lexed<'_, TestToken>, span: Span| match tok {
-            Lexed::Token(Spanned { data: tok, .. }) => Ok(tok.kind),
-            Lexed::Error(_) => Err(TestError(Cheap::new(span))),
-          }),
-        );
+      let parser = skip_to_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace).then(
+        any().try_map(|tok: Lexed<'_, TestToken>, span: Span| match tok {
+          Lexed::Token(Spanned { data: tok, .. }) => Ok(tok.kind),
+          Lexed::Error(_) => Err(TestError(Cheap::new(span))),
+        }),
+      );
       let (res, tok) = parser.parse(stream).into_result().unwrap();
       let (skipped, span, spanned) = res.unwrap();
       assert_eq!(span, (0..input.len() - 2).into());
@@ -1860,13 +1664,12 @@ mod tests {
     fn test_skip_multiple_tokens() {
       let input = "foo bar 42 }";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_to_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace).then(
-          any().try_map(|tok: Lexed<'_, TestToken>, span: Span| match tok {
-            Lexed::Token(Spanned { data: tok, .. }) => Ok(tok.kind),
-            Lexed::Error(_) => Err(TestError(Cheap::new(span))),
-          }),
-        );
+      let parser = skip_to_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace).then(
+        any().try_map(|tok: Lexed<'_, TestToken>, span: Span| match tok {
+          Lexed::Token(Spanned { data: tok, .. }) => Ok(tok.kind),
+          Lexed::Error(_) => Err(TestError(Cheap::new(span))),
+        }),
+      );
       let (res, tok) = parser.parse(stream).into_result().unwrap();
       let (skipped, span, spanned) = res.unwrap();
       assert_eq!(span, (0..input.len() - 2).into());
@@ -1879,13 +1682,12 @@ mod tests {
     fn test_skip_nested() {
       let input = "foo { bar } baz }";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_to_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace).then(
-          any().try_map(|tok: Lexed<'_, TestToken>, span: Span| match tok {
-            Lexed::Token(Spanned { data: tok, .. }) => Ok(tok.kind),
-            Lexed::Error(_) => Err(TestError(Cheap::new(span))),
-          }),
-        );
+      let parser = skip_to_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace).then(
+        any().try_map(|tok: Lexed<'_, TestToken>, span: Span| match tok {
+          Lexed::Token(Spanned { data: tok, .. }) => Ok(tok.kind),
+          Lexed::Error(_) => Err(TestError(Cheap::new(span))),
+        }),
+      );
       // Should skip: foo, {, bar, }, baz = 5 tokens
       let (res, tok) = parser.parse(stream).into_result().unwrap();
       let (skipped, span, spanned) = res.unwrap();
@@ -1899,13 +1701,12 @@ mod tests {
     fn test_skip_deeply_nested() {
       let input = "{ { { } } } }";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_to_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace).then(
-          any().try_map(|tok: Lexed<'_, TestToken>, span: Span| match tok {
-            Lexed::Token(Spanned { data: tok, .. }) => Ok(tok.kind),
-            Lexed::Error(_) => Err(TestError(Cheap::new(span))),
-          }),
-        );
+      let parser = skip_to_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace).then(
+        any().try_map(|tok: Lexed<'_, TestToken>, span: Span| match tok {
+          Lexed::Token(Spanned { data: tok, .. }) => Ok(tok.kind),
+          Lexed::Error(_) => Err(TestError(Cheap::new(span))),
+        }),
+      );
       let (res, tok) = parser.parse(stream).into_result().unwrap();
       let (skipped, span, spanned) = res.unwrap();
       // Should skip: {, {, {, }, }, } = 6 tokens
@@ -1919,8 +1720,7 @@ mod tests {
     fn test_skip_eof() {
       let input = "foo bar";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_to_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
+      let parser = skip_to_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
       assert_eq!(result.into_result(), Ok(Err((2, (0..7).into()))));
     }
@@ -1929,13 +1729,12 @@ mod tests {
     fn test_skip_immediate_match() {
       let input = "}";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_to_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace).then(
-          any().try_map(|tok: Lexed<'_, TestToken>, span: Span| match tok {
-            Lexed::Token(Spanned { data: tok, .. }) => Ok(tok.kind),
-            Lexed::Error(_) => Err(TestError(Cheap::new(span))),
-          }),
-        );
+      let parser = skip_to_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace).then(
+        any().try_map(|tok: Lexed<'_, TestToken>, span: Span| match tok {
+          Lexed::Token(Spanned { data: tok, .. }) => Ok(tok.kind),
+          Lexed::Error(_) => Err(TestError(Cheap::new(span))),
+        }),
+      );
       let (res, tok) = parser.parse(stream).into_result().unwrap();
       let (skipped, span, spanned) = res.unwrap();
       assert_eq!(span, (0..0).into());
@@ -1948,8 +1747,7 @@ mod tests {
     fn test_skip_empty_input() {
       let input = "";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_to_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
+      let parser = skip_to_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
       assert_eq!(result.into_result(), Ok(Err((0, (0..0).into()))));
     }
@@ -1960,7 +1758,7 @@ mod tests {
       let stream = TestTokenizer::new(input);
 
       // Skip to closing brace
-      let parser = skip_to_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
+      let parser = skip_to_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace)
         .then(any()) // Should consume the }
         .then(any()); // Should consume bar
 
@@ -1976,8 +1774,7 @@ mod tests {
     fn test_simple_skip_through() {
       let input = "word }";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
+      let parser = skip_through_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
       assert!(matches!(result.into_result(), Ok((_, Some(_)))));
     }
@@ -1986,8 +1783,7 @@ mod tests {
     fn test_skip_through_nested() {
       let input = "foo { bar } baz }";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
+      let parser = skip_through_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
       assert!(matches!(result.into_result(), Ok((_, Some(_)))));
     }
@@ -1996,8 +1792,7 @@ mod tests {
     fn test_skip_through_deeply_nested() {
       let input = "{ { { } } } }";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
+      let parser = skip_through_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
       assert!(matches!(result.into_result(), Ok((_, Some(_)))));
     }
@@ -2006,8 +1801,7 @@ mod tests {
     fn test_skip_through_eof() {
       let input = "foo bar";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
+      let parser = skip_through_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
       assert_eq!(result.into_result(), Ok(((0..7).into(), None)));
     }
@@ -2016,8 +1810,7 @@ mod tests {
     fn test_skip_through_immediate_match() {
       let input = "}";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
+      let parser = skip_through_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
       assert!(matches!(result.into_result(), Ok((_, Some(_)))));
     }
@@ -2026,8 +1819,7 @@ mod tests {
     fn test_skip_through_empty_input() {
       let input = "";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
+      let parser = skip_through_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
       assert_eq!(result.into_result(), Ok(((0..0).into(), None)));
     }
@@ -2039,8 +1831,7 @@ mod tests {
 
       // Skip through closing brace
       let parser =
-        skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
-          .then(any()); // Should consume bar (positioned after })
+        skip_through_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace).then(any()); // Should consume bar (positioned after })
 
       let result = parser.parse(stream);
       assert!(result.into_result().is_ok());
@@ -2054,21 +1845,19 @@ mod tests {
       // skip_to: should leave } unconsumed
       let input1 = "word }";
       let stream1 = TestTokenizer::new(input1);
-      let parser1 = skip_to_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(
-        Delimiter::Brace,
-      )
-      .then(any().filter(|tok: &Lexed<'_, TestToken>| {
-        matches!(
-          tok,
-          Lexed::Token(Spanned {
-            data: TestToken {
-              kind: TestTokenKind::RBrace,
+      let parser1 = skip_to_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace)
+        .then(any().filter(|tok: &Lexed<'_, TestToken>| {
+          matches!(
+            tok,
+            Lexed::Token(Spanned {
+              data: TestToken {
+                kind: TestTokenKind::RBrace,
+                ..
+              },
               ..
-            },
-            ..
-          })
-        )
-      }));
+            })
+          )
+        }));
       let result1 = parser1.parse(stream1);
       assert!(
         result1.into_result().is_ok(),
@@ -2078,20 +1867,19 @@ mod tests {
       // skip_through: should consume }, next token should be something else
       let input2 = "word } bar";
       let stream2 = TestTokenizer::new(input2);
-      let parser2 =
-        skip_through_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
-          .then(any().filter(|tok: &Lexed<'_, TestToken>| {
-            matches!(
-              tok,
-              Lexed::Token(Spanned {
-                data: TestToken {
-                  kind: TestTokenKind::Word,
-                  ..
-                },
+      let parser2 = skip_through_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace)
+        .then(any().filter(|tok: &Lexed<'_, TestToken>| {
+          matches!(
+            tok,
+            Lexed::Token(Spanned {
+              data: TestToken {
+                kind: TestTokenKind::Word,
                 ..
-              })
-            )
-          }));
+              },
+              ..
+            })
+          )
+        }));
       let result2 = parser2.parse(stream2);
       assert!(
         result2.into_result().is_ok(),
@@ -2107,13 +1895,12 @@ mod tests {
     fn test_mixed_delimiters_brace_in_paren() {
       let input = "{ } )";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_to_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Paren).then(
-          any().try_map(|tok: Lexed<'_, TestToken>, span: Span| match tok {
-            Lexed::Token(Spanned { data: tok, .. }) => Ok(tok.kind),
-            Lexed::Error(_) => Err(TestError(Cheap::new(span))),
-          }),
-        );
+      let parser = skip_to_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Paren).then(
+        any().try_map(|tok: Lexed<'_, TestToken>, span: Span| match tok {
+          Lexed::Token(Spanned { data: tok, .. }) => Ok(tok.kind),
+          Lexed::Error(_) => Err(TestError(Cheap::new(span))),
+        }),
+      );
 
       // Should skip: (, {, } = 3 tokens, stop before )
       let (res, tok) = parser.parse(stream).into_result().unwrap();
@@ -2128,8 +1915,7 @@ mod tests {
     fn test_mixed_delimiters_paren_in_brace() {
       let input = "{ ( ) }";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_to_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace);
+      let parser = skip_to_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace);
       let result = parser.parse(stream);
       // Should skip: {, (, ) = 3 tokens, stop before }
       assert_eq!(result.into_result(), Ok(Err((4, (0..7).into()))));
@@ -2139,8 +1925,7 @@ mod tests {
     fn test_complex_nesting() {
       let input = "[ { ( ) } ( { } ) ]";
       let stream = TestTokenizer::new(input);
-      let parser =
-        skip_to_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Bracket);
+      let parser = skip_to_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Bracket);
       let result = parser.parse(stream);
       // Should skip: [, {, (, ), }, (, {, }, ) = 9 tokens
       assert_eq!(result.into_result(), Ok(Err((10, (0..19).into()))));
@@ -2150,9 +1935,8 @@ mod tests {
     fn test_scan_ignores_wrong_delimiter_type() {
       let input = "( ) }";
       let stream = TestTokenizer::new(input);
-      let parser =
-        scan_closing_delimiter::<_, _, TestError, extra::Err<TestError>>(Delimiter::Brace)
-          .then_ignore(any().repeated());
+      let parser = scan_closing_delimiter::<_, _, extra::Err<TestError>>(Delimiter::Brace)
+        .then_ignore(any().repeated());
       let result = parser.parse(stream);
       // Should find the } after skipping ()
       assert!(matches!(result.into_result(), Ok((_, Some(_)))));

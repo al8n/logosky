@@ -52,7 +52,7 @@ use crate::{
         angle_close, angle_open, brace_close, brace_open, bracket_close, bracket_open, paren_close,
         paren_open,
       },
-      recovery::{emit_with, skip_through_closing_delimiter},
+      recovery::skip_through_closing_delimiter,
     },
   },
   error::{
@@ -381,9 +381,7 @@ macro_rules! delimited_by {
               _ => {
                 // Closing delimiter is missing - emit error
                 let span = inp.span_since(&before);
-                let _ = inp.parse(emit_with(move || {
-                  E::Error::from($unclosed_error::$delim_method(span))
-                }));
+                inp.emit(E::Error::from($unclosed_error::$delim_method(span)));
                 return Ok(Ok(Self::new(span, content)));
               }
             }
@@ -404,9 +402,7 @@ macro_rules! delimited_by {
           if closing_delim.is_some() {
             inp.rewind(checkpoint); // Rewind to parse content properly
             // Emit unopened delimiter error (use scaned span from start to closing delimiter)
-            let _ = inp.parse(emit_with(move || {
-              E::Error::from($unopened_error::$delim_method(scaned))
-            }));
+            inp.emit(E::Error::from($unopened_error::$delim_method(scaned)));
 
             // Parse content from start up to the closing delimiter
             let content = inp.parse(
@@ -423,9 +419,7 @@ macro_rules! delimited_by {
           // ============================================================
           inp.rewind(checkpoint); // Rewind to parse all content
           // Emit undelimited error (use scaned span from start to EOF)
-          let _ = inp.parse(emit_with(move || {
-            E::Error::from($undelimited_error::$delim_method(scaned))
-          }));
+          inp.emit(E::Error::from($undelimited_error::$delim_method(scaned)));
 
           Ok(Err(inp.span_since(&before)))
         })
