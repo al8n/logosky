@@ -1,12 +1,36 @@
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use logos::{Lexer, Source};
 
-use crate::utils::{Span, Spanned, cmp::Equivalent};
+use crate::utils::{Spanned, cmp::Equivalent};
 
 #[cfg(feature = "chumsky")]
 use crate::Tokenizer;
 
 pub use logos::Logos;
+
+/// A reference to a lexed token or error.
+#[derive(Debug, PartialEq, IsVariant, Unwrap, TryUnwrap)]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
+pub enum RefLexed<'a, 't, T: Token<'a>> {
+  /// A successfully recognized token with its span information.
+  Token(&'t T),
+
+  /// A lexing error that occurred during tokenization.
+  ///
+  /// The error type is determined by the Logos lexer's error type. It typically
+  /// contains information about what went wrong and where in the input it occurred.
+  Error(&'t <T::Logos as Logos<'a>>::Error),
+}
+
+impl<'a, T: Token<'a>> Clone for RefLexed<'a, '_, T> {
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn clone(&self) -> Self {
+    *self
+  }
+}
+
+impl<'a, T: Token<'a>> Copy for RefLexed<'a, '_, T> {}
 
 /// The result of lexing a single token: either a successful token or an error.
 ///
@@ -91,10 +115,7 @@ pub use logos::Logos;
 #[try_unwrap(ref, ref_mut)]
 pub enum Lexed<'a, T: Token<'a>> {
   /// A successfully recognized token with its span information.
-  ///
-  /// The token is wrapped in a [`Spanned`] that contains both the token data
-  /// and its location in the source input.
-  Token(Spanned<T>),
+  Token(T),
 
   /// A lexing error that occurred during tokenization.
   ///
@@ -127,12 +148,24 @@ impl<'a, T: Token<'a>> Lexed<'a, T> {
   /// Lexes the next token from the given lexer, returning `None` if the input is exhausted.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn lex(lexer: &mut Lexer<'a, T::Logos>) -> Option<Self> {
-    lexer.next().map(|res| {
-      let span = lexer.span();
-      res
-        .map(|tok| (crate::utils::Span::from(span), T::from(tok)))
-        .into()
-    })
+    lexer.next().map(|res| res.map(|tok| T::from(tok)).into())
+  }
+
+  /// Lexes the next token from the given lexer, returning `None` if the input is exhausted.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn lex_spanned(lexer: &mut Lexer<'a, T::Logos>) -> Option<Spanned<Self>> {
+    lexer
+      .next()
+      .map(|res| Spanned::new(lexer.span().into(), res.map(|tok| T::from(tok)).into()))
+  }
+
+  /// Returns a reference to the lexed token or error.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn as_ref(&self) -> RefLexed<'a, '_, T> {
+    match self {
+      Self::Token(tok) => RefLexed::Token(tok),
+      Self::Error(err) => RefLexed::Error(err),
+    }
   }
 }
 
@@ -150,11 +183,11 @@ where
   }
 }
 
-impl<'a, T: Token<'a>> From<Result<(Span, T), <T::Logos as Logos<'a>>::Error>> for Lexed<'a, T> {
+impl<'a, T: Token<'a>> From<Result<T, <T::Logos as Logos<'a>>::Error>> for Lexed<'a, T> {
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn from(value: Result<(Span, T), <T::Logos as Logos<'a>>::Error>) -> Self {
+  fn from(value: Result<T, <T::Logos as Logos<'a>>::Error>) -> Self {
     match value {
-      Ok((span, tok)) => Self::Token(Spanned::new(span, tok)),
+      Ok(tok) => Self::Token(tok),
       Err(err) => Self::Error(err),
     }
   }
@@ -164,7 +197,7 @@ impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, <T::Logos as Logos<'a>>:
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn from(value: Lexed<'a, T>) -> Self {
     match value {
-      Lexed::Token(tok) => Ok(tok.into_data()),
+      Lexed::Token(tok) => Ok(tok),
       Lexed::Error(err) => Err(err),
     }
   }

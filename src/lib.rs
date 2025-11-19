@@ -15,6 +15,7 @@ pub use logos;
 
 pub use lexer::*;
 mod lexer;
+mod parser;
 
 /// Concrete Syntax Tree (CST) representations and utilities.
 #[cfg(feature = "rowan")]
@@ -33,14 +34,14 @@ pub mod utils;
 /// Common error types for lexers and parsers.
 pub mod error;
 
-/// Re-exports for chumsky integration.
-#[cfg(feature = "chumsky")]
-#[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
-pub mod chumsky;
+// /// Re-exports for chumsky integration.
+// #[cfg(feature = "chumsky")]
+// #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
+// pub mod chumsky;
 
-#[cfg(feature = "chumsky")]
-#[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
-pub use chumsky::LogoStream;
+// #[cfg(feature = "chumsky")]
+// #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
+// pub use chumsky::LogoStream;
 
 mod keyword;
 mod punct;
@@ -50,12 +51,12 @@ pub mod __private {
   pub use super::{error, lexer::*, syntax, utils};
   pub use paste;
 
-  #[cfg(feature = "chumsky")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
-  pub use super::LogoStream;
-  #[cfg(feature = "chumsky")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
-  pub use super::chumsky;
+  // #[cfg(feature = "chumsky")]
+  // #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
+  // pub use super::LogoStream;
+  // #[cfg(feature = "chumsky")]
+  // #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
+  // pub use super::chumsky;
 
   pub use logos;
 

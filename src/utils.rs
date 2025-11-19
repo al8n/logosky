@@ -664,7 +664,7 @@ pub struct Spanned<D> {
 impl<D> AsRef<Span> for Spanned<D> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn as_ref(&self) -> &Span {
-    self.span()
+    self.span_ref()
   }
 }
 
@@ -732,10 +732,25 @@ impl<D> Spanned<D> {
   /// use logosky::utils::{Span, Spanned};
   ///
   /// let spanned = Spanned::new(Span::new(5, 10), "data");
-  /// assert_eq!(spanned.span(), &Span::new(5, 10));
+  /// assert_eq!(spanned.span(), Span::new(5, 10));
   /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn span(&self) -> &Span {
+  pub const fn span(&self) -> Span {
+    self.span
+  }
+
+  /// Get a reference to the span.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use logosky::utils::{Span, Spanned};
+  ///
+  /// let spanned = Spanned::new(Span::new(5, 10), "data");
+  /// assert_eq!(spanned.span_ref(), &Span::new(5, 10));
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn span_ref(&self) -> &Span {
     &self.span
   }
 
@@ -805,6 +820,26 @@ impl<D> Spanned<D> {
     }
   }
 
+  /// Returns a mutable reference to the span and data.
+  /// 
+  /// ## Example
+  /// 
+  /// ```rust
+  /// use logosky::utils::{Span, Spanned};
+  /// 
+  /// let mut spanned = Spanned::new(Span::new(5, 10), String::from("hello"));
+  /// let borrowed: Spanned<&mut String> = spanned.as_mut();
+  /// borrowed.data.push_str(" world");
+  /// assert_eq!(spanned.data(), &"hello world");
+  /// ```
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn as_mut(&mut self) -> Spanned<&mut D> {
+    Spanned {
+      span: self.span,
+      data: &mut self.data,
+    }
+  }
+
   /// Consume the spanned value and return the data.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_data(self) -> D {
@@ -815,6 +850,18 @@ impl<D> Spanned<D> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_components(self) -> (Span, D) {
     (self.span, self.data)
+  }
+
+  /// Map the data to a new value, preserving the span.
+  #[inline]
+  pub fn map_data<F, U>(self, f: F) -> Spanned<U>
+  where
+    F: FnOnce(D) -> U,
+  {
+    Spanned {
+      span: self.span,
+      data: f(self.data),
+    }
   }
 }
 

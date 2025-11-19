@@ -422,171 +422,171 @@ define_literal!(
   "Malformed null literal"
 );
 
-// Chumsky parser implementations
-#[cfg(feature = "chumsky")]
-#[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
-const _: () = {
-  use chumsky::{Parser, extra::ParserExtra, prelude::*};
-  use logos::{Logos, Source};
+// // Chumsky parser implementations
+// #[cfg(feature = "chumsky")]
+// #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
+// const _: () = {
+//   use chumsky::{Parser, extra::ParserExtra, prelude::*};
+//   use logos::{Logos, Source};
 
-  use crate::{
-    Lexed, LitToken, LogoStream, error::UnexpectedToken, syntax::Language, utils::Spanned,
-  };
+//   use crate::{
+//     Lexed, LitToken, LogoStream, error::UnexpectedToken, syntax::Language, utils::Spanned,
+//   };
 
-  /// A macro to generate parser implementations for literal types.
-  ///
-  /// This generates a consistent parser method for each literal type that validates
-  /// the token is the correct literal kind.
-  macro_rules! impl_literal_parser {
-    ($name:ident, $check_method:ident, $doc_kind:expr, $example_token:expr) => {
-      paste::paste! {
-        impl<S, Lang> $name<S, Lang> {
-          #[doc = concat!("Creates a Chumsky parser that parses ", $doc_kind, " tokens into `", stringify!($name), "`.")]
-          ///
-          /// This parser validates that the token is the expected literal type
-          /// and converts it with proper span tracking.
-          ///
-          /// # Type Parameters
-          ///
-          /// - `'a`: Lifetime of the input source
-          /// - `I`: Token stream implementing [`LogoStream`]
-          /// - `T`: Token type implementing [`LitToken`]
-          /// - `Error`: Error type that can be constructed from lexer and parser errors
-          /// - `E`: Parser extra state carrying errors and metadata
-          ///
-          /// # Parameters
-          ///
-          /// - `lit_kind`: Function that returns the expected syntax kind for error
-          ///   reporting. Called when wrong literal type is found.
-          /// - `extract`: Function that extracts the literal source from a token.
-          ///   Should return `Some(source)` for matching tokens, `None` otherwise.
-          ///
-          /// # Returns
-          ///
-          /// A Chumsky parser that produces
-          #[doc = "`" $name "<S, Lang>`"]
-          /// on success or emits an
-          /// [`UnexpectedToken`] error when wrong token type is found.
-          ///
-          /// # Examples
-          ///
-          /// ## Basic Usage
-          ///
-          /// ```rust,ignore
-          #[doc = "use logosky::types::" $name ";"]
-          /// use logosky::chumsky::Parser;
-          ///
-          #[doc = "// Parser for " $doc_kind]
-          #[doc = "let lit_parser = " $name "::<&str, YulLang>::parser("]
-          ///     || YulSyntaxKind::DecimalLit,
-          ///     |tok| if let YulToken::DecimalLit(s) = tok { Some(s) } else { None }
-          /// );
-          ///
-          #[doc = "// Parse " $example_token " into " $name]
-          /// let result = lit_parser.parse(stream)?;
-          /// ```
-          ///
-          /// ## With Error Recovery
-          ///
-          /// ```rust,ignore
-          #[doc = "use logosky::types::" $name ";"]
-          /// use logosky::error::ErrorNode;
-          /// use logosky::chumsky::{Parser, prelude::*};
-          ///
-          /// // Parser with recovery for missing literals
-          #[doc = "let lit_parser = " $name "::<String, YulLang>::parser("]
-          ///     || YulSyntaxKind::DecimalLit,
-          ///     |tok| if let YulToken::DecimalLit(s) = tok { Some(s) } else { None }
-          /// ).recover_with(via_parser(
-          ///     // Create placeholder on error
-          #[doc = "    empty().map_with(|_, exa| " $name "::missing(exa.span()))"]
-          /// ));
-          /// ```
-          #[cfg_attr(not(tarpaulin), inline(always))]
-          pub fn parser<'a, I, T, Error, E, F>(
-            lit_kind: impl Fn() -> Lang::SyntaxKind + Clone + 'a,
-            extract: F,
-          ) -> impl Parser<'a, I, Self, E> + Clone + 'a
-          where
-            I: LogoStream<'a, T>,
-            T: LitToken<'a>,
-            S: From<<<<T>::Logos as Logos<'a>>::Source as Source>::Slice<'a>> + 'a,
-            Lang: Language,
-            Lang::SyntaxKind: 'a,
-            F: Fn(&T) -> Option<<<<T>::Logos as Logos<'a>>::Source as Source>::Slice<'a>> + Clone + 'a,
-            Error: From<<T::Logos as Logos<'a>>::Error>
-              + From<<T::Logos as Logos<'a>>::Error>
-              + From<UnexpectedToken<'a, T, Lang::SyntaxKind>>,
-            E: ParserExtra<'a, I, Error = Error> + 'a,
-          {
-            any().try_map(move |tok: Lexed<'_, T>, _| match tok {
-              Lexed::Token(Spanned { span, data: tok }) => {
-                if let Some(source) = extract(&tok) {
-                  Ok($name::new(span, source.into()))
-                } else {
-                  Err(UnexpectedToken::expected_one_with_found(span, tok, lit_kind()).into())
-                }
-              }
-              Lexed::Error(e) => Err(Error::from(e)),
-            })
-          }
-        }
-      }
-    };
-  }
+//   /// A macro to generate parser implementations for literal types.
+//   ///
+//   /// This generates a consistent parser method for each literal type that validates
+//   /// the token is the correct literal kind.
+//   macro_rules! impl_literal_parser {
+//     ($name:ident, $check_method:ident, $doc_kind:expr, $example_token:expr) => {
+//       paste::paste! {
+//         impl<S, Lang> $name<S, Lang> {
+//           #[doc = concat!("Creates a Chumsky parser that parses ", $doc_kind, " tokens into `", stringify!($name), "`.")]
+//           ///
+//           /// This parser validates that the token is the expected literal type
+//           /// and converts it with proper span tracking.
+//           ///
+//           /// # Type Parameters
+//           ///
+//           /// - `'a`: Lifetime of the input source
+//           /// - `I`: Token stream implementing [`LogoStream`]
+//           /// - `T`: Token type implementing [`LitToken`]
+//           /// - `Error`: Error type that can be constructed from lexer and parser errors
+//           /// - `E`: Parser extra state carrying errors and metadata
+//           ///
+//           /// # Parameters
+//           ///
+//           /// - `lit_kind`: Function that returns the expected syntax kind for error
+//           ///   reporting. Called when wrong literal type is found.
+//           /// - `extract`: Function that extracts the literal source from a token.
+//           ///   Should return `Some(source)` for matching tokens, `None` otherwise.
+//           ///
+//           /// # Returns
+//           ///
+//           /// A Chumsky parser that produces
+//           #[doc = "`" $name "<S, Lang>`"]
+//           /// on success or emits an
+//           /// [`UnexpectedToken`] error when wrong token type is found.
+//           ///
+//           /// # Examples
+//           ///
+//           /// ## Basic Usage
+//           ///
+//           /// ```rust,ignore
+//           #[doc = "use logosky::types::" $name ";"]
+//           /// use logosky::chumsky::Parser;
+//           ///
+//           #[doc = "// Parser for " $doc_kind]
+//           #[doc = "let lit_parser = " $name "::<&str, YulLang>::parser("]
+//           ///     || YulSyntaxKind::DecimalLit,
+//           ///     |tok| if let YulToken::DecimalLit(s) = tok { Some(s) } else { None }
+//           /// );
+//           ///
+//           #[doc = "// Parse " $example_token " into " $name]
+//           /// let result = lit_parser.parse(stream)?;
+//           /// ```
+//           ///
+//           /// ## With Error Recovery
+//           ///
+//           /// ```rust,ignore
+//           #[doc = "use logosky::types::" $name ";"]
+//           /// use logosky::error::ErrorNode;
+//           /// use logosky::chumsky::{Parser, prelude::*};
+//           ///
+//           /// // Parser with recovery for missing literals
+//           #[doc = "let lit_parser = " $name "::<String, YulLang>::parser("]
+//           ///     || YulSyntaxKind::DecimalLit,
+//           ///     |tok| if let YulToken::DecimalLit(s) = tok { Some(s) } else { None }
+//           /// ).recover_with(via_parser(
+//           ///     // Create placeholder on error
+//           #[doc = "    empty().map_with(|_, exa| " $name "::missing(exa.span()))"]
+//           /// ));
+//           /// ```
+//           #[cfg_attr(not(tarpaulin), inline(always))]
+//           pub fn parser<'a, I, T, Error, E, F>(
+//             lit_kind: impl Fn() -> Lang::SyntaxKind + Clone + 'a,
+//             extract: F,
+//           ) -> impl Parser<'a, I, Self, E> + Clone + 'a
+//           where
+//             I: LogoStream<'a, T>,
+//             T: LitToken<'a>,
+//             S: From<<<<T>::Logos as Logos<'a>>::Source as Source>::Slice<'a>> + 'a,
+//             Lang: Language,
+//             Lang::SyntaxKind: 'a,
+//             F: Fn(&T) -> Option<<<<T>::Logos as Logos<'a>>::Source as Source>::Slice<'a>> + Clone + 'a,
+//             Error: From<<T::Logos as Logos<'a>>::Error>
+//               + From<<T::Logos as Logos<'a>>::Error>
+//               + From<UnexpectedToken<'a, T, Lang::SyntaxKind>>,
+//             E: ParserExtra<'a, I, Error = Error> + 'a,
+//           {
+//             any().try_map(move |tok: Lexed<'_, T>, _| match tok {
+//               Lexed::Token(Spanned { span, data: tok }) => {
+//                 if let Some(source) = extract(&tok) {
+//                   Ok($name::new(span, source.into()))
+//                 } else {
+//                   Err(UnexpectedToken::expected_one_with_found(span, tok, lit_kind()).into())
+//                 }
+//               }
+//               Lexed::Error(e) => Err(Error::from(e)),
+//             })
+//           }
+//         }
+//       }
+//     };
+//   }
 
-  // Implement parser for generic literal
-  impl_literal_parser!(Lit, is_literal, "any literal", "\"value\"");
+//   // Implement parser for generic literal
+//   impl_literal_parser!(Lit, is_literal, "any literal", "\"value\"");
 
-  // Implement parsers for all numeric literal types
-  impl_literal_parser!(LitDecimal, is_decimal_literal, "decimal integer", "\"42\"");
-  impl_literal_parser!(
-    LitHex,
-    is_hexadecimal_literal,
-    "hexadecimal integer",
-    "\"0xFF\""
-  );
-  impl_literal_parser!(LitOctal, is_octal_literal, "octal integer", "\"0o77\"");
-  impl_literal_parser!(LitBinary, is_binary_literal, "binary integer", "\"0b1010\"");
-  impl_literal_parser!(LitFloat, is_float_literal, "floating-point", "\"3.14\"");
-  impl_literal_parser!(
-    LitHexFloat,
-    is_hex_float_literal,
-    "hexadecimal floating-point",
-    "\"0x1.8p3\""
-  );
+//   // Implement parsers for all numeric literal types
+//   impl_literal_parser!(LitDecimal, is_decimal_literal, "decimal integer", "\"42\"");
+//   impl_literal_parser!(
+//     LitHex,
+//     is_hexadecimal_literal,
+//     "hexadecimal integer",
+//     "\"0xFF\""
+//   );
+//   impl_literal_parser!(LitOctal, is_octal_literal, "octal integer", "\"0o77\"");
+//   impl_literal_parser!(LitBinary, is_binary_literal, "binary integer", "\"0b1010\"");
+//   impl_literal_parser!(LitFloat, is_float_literal, "floating-point", "\"3.14\"");
+//   impl_literal_parser!(
+//     LitHexFloat,
+//     is_hex_float_literal,
+//     "hexadecimal floating-point",
+//     "\"0x1.8p3\""
+//   );
 
-  // Implement parsers for string literal types
-  impl_literal_parser!(
-    LitString,
-    is_inline_string_literal,
-    "single-line string",
-    "\"\\\"hello\\\"\""
-  );
-  impl_literal_parser!(
-    LitMultilineString,
-    is_multiline_string_literal,
-    "multi-line string",
-    "\"\\\"\\\"\\\"text\\\"\\\"\\\"\""
-  );
-  impl_literal_parser!(
-    LitRawString,
-    is_raw_string_literal,
-    "raw string",
-    "\"r\\\"path\\\"\""
-  );
+//   // Implement parsers for string literal types
+//   impl_literal_parser!(
+//     LitString,
+//     is_inline_string_literal,
+//     "single-line string",
+//     "\"\\\"hello\\\"\""
+//   );
+//   impl_literal_parser!(
+//     LitMultilineString,
+//     is_multiline_string_literal,
+//     "multi-line string",
+//     "\"\\\"\\\"\\\"text\\\"\\\"\\\"\""
+//   );
+//   impl_literal_parser!(
+//     LitRawString,
+//     is_raw_string_literal,
+//     "raw string",
+//     "\"r\\\"path\\\"\""
+//   );
 
-  // Implement parsers for character/byte literal types
-  impl_literal_parser!(LitChar, is_char_literal, "character", "\"'a'\"");
-  impl_literal_parser!(LitByte, is_byte_literal, "byte", "\"b'a'\"");
-  impl_literal_parser!(
-    LitByteString,
-    is_byte_string_literal,
-    "byte string",
-    "\"b\\\"bytes\\\"\""
-  );
+//   // Implement parsers for character/byte literal types
+//   impl_literal_parser!(LitChar, is_char_literal, "character", "\"'a'\"");
+//   impl_literal_parser!(LitByte, is_byte_literal, "byte", "\"b'a'\"");
+//   impl_literal_parser!(
+//     LitByteString,
+//     is_byte_string_literal,
+//     "byte string",
+//     "\"b\\\"bytes\\\"\""
+//   );
 
-  // Implement parsers for boolean and null
-  impl_literal_parser!(LitBool, is_boolean_literal, "boolean", "\"true\"");
-  impl_literal_parser!(LitNull, is_null_literal, "null", "\"null\"");
-};
+//   // Implement parsers for boolean and null
+//   impl_literal_parser!(LitBool, is_boolean_literal, "boolean", "\"true\"");
+//   impl_literal_parser!(LitNull, is_null_literal, "null", "\"null\"");
+// };

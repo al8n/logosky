@@ -34,7 +34,6 @@ unstable = ["chumsky/unstable", "generic-arraydeque/unstable"]
 
 rowan = ["dep:rowan", "std"]
 
-either = ["dep:either", "chumsky/either"]
 among = ["dep:among"]
 hipstr = ["dep:hipstr"]
 bytes = ["dep:bytes", "chumsky/bytes"]
@@ -43,6 +42,7 @@ smallvec = ["dep:smallvec", "alloc"]
 
 [dependencies]
 ascii = { version = "1", default-features = false }
+either = { version = "1", default-features = false }
 derive_more = { version = "2", default-features = false, features = [
   "display",
   "deref",
@@ -61,7 +61,7 @@ logos = { version = "0.15", default-features = false, features = [
 paste = "1"
 thiserror = { version = "2", default-features = false }
 
-chumsky = { git = "https://github.com/zesterer/chumsky", default-features = false, optional = true }
+chumsky = { git = "https://github.com/zesterer/chumsky", default-features = false, optional = true, features = ["either"] }
 
 rowan = { version = "0.16", optional = true }
 
@@ -70,7 +70,7 @@ among = { version = "0.1", default-features = false, optional = true }
 bstr = { version = "1", default-features = false, optional = true }
 bytes = { version = "1", default-features = false, optional = true }
 hipstr = { version = "0.8", default-features = false, optional = true }
-either = { version = "1", default-features = false, optional = true }
+
 smallvec = { version = "1", default-features = false, optional = true, features = [
   "const_new",
 ] }

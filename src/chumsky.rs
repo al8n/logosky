@@ -316,7 +316,6 @@ const _: () = {
   }
 };
 
-#[cfg(feature = "either")]
 const _: () = {
   use crate::utils::{AsSpan, IntoSpan, Span};
   use either::Either;

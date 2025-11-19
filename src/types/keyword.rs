@@ -399,117 +399,117 @@ where
   }
 }
 
-#[cfg(feature = "chumsky")]
-#[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
-const _: () = {
-  use chumsky::{Parser, extra::ParserExtra, prelude::*};
-  use logos::{Logos, Source};
+// #[cfg(feature = "chumsky")]
+// #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
+// const _: () = {
+//   use chumsky::{Parser, extra::ParserExtra, prelude::*};
+//   use logos::{Logos, Source};
 
-  use crate::{
-    KeywordToken, Lexed, LogoStream, error::UnexpectedToken, syntax::Language, utils::Spanned,
-  };
+//   use crate::{
+//     KeywordToken, Lexed, LogoStream, error::UnexpectedToken, syntax::Language, utils::Spanned,
+//   };
 
-  impl<S, Lang> Keyword<S, Lang> {
-    /// Creates a Chumsky parser that parses identifier tokens into `Keyword`.
-    ///
-    /// This parser validates that the token is an identifier (not a keyword or other
-    /// token type) and converts it to an `Keyword` with proper span tracking.
-    ///
-    /// # Type Parameters
-    ///
-    /// - `'a`: Lifetime of the input source
-    /// - `I`: Token stream implementing [`LogoStream`]
-    /// - `T`: Token type implementing [`KeywordifierToken`]
-    /// - `Error`: Error type that can be constructed from lexer and parser errors
-    /// - `E`: Parser extra state carrying errors and metadata
-    ///
-    /// # Parameters
-    ///
-    /// - `ident_kind`: Function that returns the expected syntax kind for error
-    ///   reporting. Called when a non-identifier token is found.
-    ///
-    /// # Returns
-    ///
-    /// A Chumsky parser that produces `Keyword<S, Lang>` on success or emits an
-    /// [`UnexpectedToken`] error when a non-identifier is found.
-    ///
-    /// # Error Behavior
-    ///
-    /// The parser fails with an error in these cases:
-    /// - Token is not an identifier (e.g., keyword, operator, literal)
-    /// - Lexer error occurred while scanning the token
-    ///
-    /// # Examples
-    ///
-    /// ## Basic Usage
-    ///
-    /// ```rust,ignore
-    /// use logosky::types::Keyword;
-    /// use logosky::chumsky::Parser;
-    ///
-    /// // Parser for YUL keywords
-    /// let ident_parser = Keyword::<&str, YulLang>::parser(|| YulSyntaxKind::Keyword);
-    ///
-    /// // Parse "count" into Keyword
-    /// let result = ident_parser.parse(stream)?;
-    /// assert_eq!(result.source_ref(), &"count");
-    /// ```
-    ///
-    /// ## With Error Recovery
-    ///
-    /// ```rust,ignore
-    /// use logosky::types::Keyword;
-    /// use logosky::error::ErrorNode;
-    /// use logosky::chumsky::{Parser, prelude::*};
-    ///
-    /// // Parser with recovery for missing keywords
-    /// let ident_parser = Keyword::<String, YulLang>::parser(|| YulSyntaxKind::Keyword)
-    ///     .recover_with(via_parser(
-    ///         // Create placeholder on error
-    ///         empty().map_with(|_, exa| Keyword::missing(exa.span()))
-    ///     ));
-    ///
-    /// // Even with missing identifier, parsing continues
-    /// let result = ident_parser.parse(stream)?;
-    /// ```
-    ///
-    /// ## Custom String Type
-    ///
-    /// ```rust,ignore
-    /// // Use owned String for keywords
-    /// let parser = Keyword::<String, MyLang>::parser(|| MyKind::Keywordifier);
-    ///
-    /// // Use interned strings
-    /// let parser = Keyword::<Symbol, MyLang>::parser(|| MyKind::Keywordifier);
-    /// ```
-    ///
-    /// # See Also
-    ///
-    /// - [`KeywordToken`]: Trait for tokens that can be keywords
-    /// - [`UnexpectedToken`]: Error emitted when wrong token type is found
-    /// - [`ErrorNode`]: For creating placeholder keywords during recovery
-    #[cfg_attr(not(tarpaulin), inline(always))]
-    pub fn parser<'a, I, T, E>(
-      keyword_kind: impl Fn() -> Lang::SyntaxKind + Clone + 'a,
-    ) -> impl Parser<'a, I, Self, E> + Clone + 'a
-    where
-      I: LogoStream<'a, T>,
-      T: KeywordToken<'a>,
-      S: From<<<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>> + 'a,
-      Lang: Language,
-      Lang::SyntaxKind: 'a,
-      E::Error: From<<T::Logos as Logos<'a>>::Error>
-        + From<<T::Logos as Logos<'a>>::Error>
-        + From<UnexpectedToken<'a, T, Lang::SyntaxKind>>,
-      E: ParserExtra<'a, I> + 'a,
-    {
-      any().try_map_with(move |tok: Lexed<'_, T>, exa| match tok {
-        Lexed::Token(Spanned { span, data: tok }) => match tok.is_keyword() {
-          true => Ok(Self::new(span, S::from(exa.slice()))),
-          false => Err(UnexpectedToken::expected_one_with_found(span, tok, keyword_kind()).into()),
-        },
-        Lexed::Error(e) => Err(E::Error::from(e)),
-      })
-    }
-  }
-};
+//   impl<S, Lang> Keyword<S, Lang> {
+//     /// Creates a Chumsky parser that parses identifier tokens into `Keyword`.
+//     ///
+//     /// This parser validates that the token is an identifier (not a keyword or other
+//     /// token type) and converts it to an `Keyword` with proper span tracking.
+//     ///
+//     /// # Type Parameters
+//     ///
+//     /// - `'a`: Lifetime of the input source
+//     /// - `I`: Token stream implementing [`LogoStream`]
+//     /// - `T`: Token type implementing [`KeywordifierToken`]
+//     /// - `Error`: Error type that can be constructed from lexer and parser errors
+//     /// - `E`: Parser extra state carrying errors and metadata
+//     ///
+//     /// # Parameters
+//     ///
+//     /// - `ident_kind`: Function that returns the expected syntax kind for error
+//     ///   reporting. Called when a non-identifier token is found.
+//     ///
+//     /// # Returns
+//     ///
+//     /// A Chumsky parser that produces `Keyword<S, Lang>` on success or emits an
+//     /// [`UnexpectedToken`] error when a non-identifier is found.
+//     ///
+//     /// # Error Behavior
+//     ///
+//     /// The parser fails with an error in these cases:
+//     /// - Token is not an identifier (e.g., keyword, operator, literal)
+//     /// - Lexer error occurred while scanning the token
+//     ///
+//     /// # Examples
+//     ///
+//     /// ## Basic Usage
+//     ///
+//     /// ```rust,ignore
+//     /// use logosky::types::Keyword;
+//     /// use logosky::chumsky::Parser;
+//     ///
+//     /// // Parser for YUL keywords
+//     /// let ident_parser = Keyword::<&str, YulLang>::parser(|| YulSyntaxKind::Keyword);
+//     ///
+//     /// // Parse "count" into Keyword
+//     /// let result = ident_parser.parse(stream)?;
+//     /// assert_eq!(result.source_ref(), &"count");
+//     /// ```
+//     ///
+//     /// ## With Error Recovery
+//     ///
+//     /// ```rust,ignore
+//     /// use logosky::types::Keyword;
+//     /// use logosky::error::ErrorNode;
+//     /// use logosky::chumsky::{Parser, prelude::*};
+//     ///
+//     /// // Parser with recovery for missing keywords
+//     /// let ident_parser = Keyword::<String, YulLang>::parser(|| YulSyntaxKind::Keyword)
+//     ///     .recover_with(via_parser(
+//     ///         // Create placeholder on error
+//     ///         empty().map_with(|_, exa| Keyword::missing(exa.span()))
+//     ///     ));
+//     ///
+//     /// // Even with missing identifier, parsing continues
+//     /// let result = ident_parser.parse(stream)?;
+//     /// ```
+//     ///
+//     /// ## Custom String Type
+//     ///
+//     /// ```rust,ignore
+//     /// // Use owned String for keywords
+//     /// let parser = Keyword::<String, MyLang>::parser(|| MyKind::Keywordifier);
+//     ///
+//     /// // Use interned strings
+//     /// let parser = Keyword::<Symbol, MyLang>::parser(|| MyKind::Keywordifier);
+//     /// ```
+//     ///
+//     /// # See Also
+//     ///
+//     /// - [`KeywordToken`]: Trait for tokens that can be keywords
+//     /// - [`UnexpectedToken`]: Error emitted when wrong token type is found
+//     /// - [`ErrorNode`]: For creating placeholder keywords during recovery
+//     #[cfg_attr(not(tarpaulin), inline(always))]
+//     pub fn parser<'a, I, T, E>(
+//       keyword_kind: impl Fn() -> Lang::SyntaxKind + Clone + 'a,
+//     ) -> impl Parser<'a, I, Self, E> + Clone + 'a
+//     where
+//       I: LogoStream<'a, T>,
+//       T: KeywordToken<'a>,
+//       S: From<<<T::Logos as Logos<'a>>::Source as Source>::Slice<'a>> + 'a,
+//       Lang: Language,
+//       Lang::SyntaxKind: 'a,
+//       E::Error: From<<T::Logos as Logos<'a>>::Error>
+//         + From<<T::Logos as Logos<'a>>::Error>
+//         + From<UnexpectedToken<'a, T, Lang::SyntaxKind>>,
+//       E: ParserExtra<'a, I> + 'a,
+//     {
+//       any().try_map_with(move |tok: Lexed<'_, T>, exa| match tok {
+//         Lexed::Token(Spanned { span, data: tok }) => match tok.is_keyword() {
+//           true => Ok(Self::new(span, S::from(exa.slice()))),
+//           false => Err(UnexpectedToken::expected_one_with_found(span, tok, keyword_kind()).into()),
+//         },
+//         Lexed::Error(e) => Err(E::Error::from(e)),
+//       })
+//     }
+//   }
+// };
