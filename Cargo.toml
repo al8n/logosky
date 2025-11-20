@@ -43,6 +43,7 @@ smallvec = ["dep:smallvec", "alloc"]
 [dependencies]
 ascii = { version = "1", default-features = false }
 either = { version = "1", default-features = false }
+mayber = { version = "0.1", path = "../mayber", default-features = false }
 derive_more = { version = "2", default-features = false, features = [
   "display",
   "deref",

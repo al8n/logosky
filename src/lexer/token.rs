@@ -8,30 +8,6 @@ use crate::Tokenizer;
 
 pub use logos::Logos;
 
-/// A reference to a lexed token or error.
-#[derive(Debug, PartialEq, IsVariant, Unwrap, TryUnwrap)]
-#[unwrap(ref, ref_mut)]
-#[try_unwrap(ref, ref_mut)]
-pub enum RefLexed<'a, 't, T: Token<'a>> {
-  /// A successfully recognized token with its span information.
-  Token(&'t T),
-
-  /// A lexing error that occurred during tokenization.
-  ///
-  /// The error type is determined by the Logos lexer's error type. It typically
-  /// contains information about what went wrong and where in the input it occurred.
-  Error(&'t <T::Logos as Logos<'a>>::Error),
-}
-
-impl<'a, T: Token<'a>> Clone for RefLexed<'a, '_, T> {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn clone(&self) -> Self {
-    *self
-  }
-}
-
-impl<'a, T: Token<'a>> Copy for RefLexed<'a, '_, T> {}
-
 /// The result of lexing a single token: either a successful token or an error.
 ///
 /// `Lexed` represents the output of the lexing process for a single position in the input.
@@ -157,15 +133,6 @@ impl<'a, T: Token<'a>> Lexed<'a, T> {
     lexer
       .next()
       .map(|res| Spanned::new(lexer.span().into(), res.map(|tok| T::from(tok)).into()))
-  }
-
-  /// Returns a reference to the lexed token or error.
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn as_ref(&self) -> RefLexed<'a, '_, T> {
-    match self {
-      Self::Token(tok) => RefLexed::Token(tok),
-      Self::Error(err) => RefLexed::Error(err),
-    }
   }
 }
 

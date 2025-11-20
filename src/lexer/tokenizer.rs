@@ -1,11 +1,8 @@
 use core::{marker::PhantomData, mem::MaybeUninit};
 
-use crate::{
-  token::RefLexed,
-  utils::{Span, Spanned},
-};
+use mayber::MaybeRef;
 
-use either::Either;
+use crate::utils::{Span, Spanned};
 
 use super::*;
 
@@ -236,25 +233,56 @@ where
   <T::Logos as Logos<'a>>::Extras: Clone,
   C: Cache<'a, T>,
 {
-  // /// Peeks the tokens until find
-  // pub fn peek_until(&mut self, pred: impl Fn(&Lexed<'a, T>) -> bool) -> Option<Lexed<'a, T>> {
-  //   if let Some(cached_token) = self.cache.peek() {
-  //     return Some(cached_token.data.clone());
-  //   }
-
-  //   let state = self.state.clone();
-  //   let mut lexer = logos::Lexer::<T::Logos>::with_extras(self.input, state);
-  //   lexer.bump(self.cursor);
-  //   Lexed::lex(&mut lexer).map(|tok| {
-  //     self.cache_token(lexer.span().into(), lexer.extras.clone(), tok)
-  //   })
-  // }
-
-  /// Consumes one token from the peeked tokens and returns it.
+  /// Consumes one token from the peeked tokens and returns the consumed token if any, the cursor is advanced.
   #[cfg_attr(not(tarpaulin), inline(always))]
+  #[allow(clippy::type_complexity)]
   pub fn consume_one(&mut self) -> Option<Spanned<Lexed<'a, T>>> {
     let tok = self.cache.pop_front()?;
-    let (tok, extras) = tok.into_components();
+    let (tok, extras): (Spanned<Lexed<'a, T>>, _) = tok.into_components();
+    self.set_cursor(tok.span().end());
+    self.state = extras;
+    Some(tok)
+  }
+
+  /// Consumes tokens from cache until the predicate returns `true`, the cursor is advanced to the end of the last consumed token.
+  /// 
+  /// Returns the last consumed token.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn consume_until<F>(&mut self, mut f: F) -> Option<Spanned<Lexed<'a, T>>>
+  where
+    F: FnMut(&CachedToken<'a, T>) -> bool,
+  {
+    let mut last = None;
+    // pop from cache if not matching
+    while let Some(tok) = self.cache.pop_front_if(|t| !f(t))  { 
+      self.set_cursor(tok.token().span().end());
+      let (tok, state) = tok.into_components();
+      self.state = state;
+      last = Some(tok);
+    }
+
+    last
+  }
+
+  /// Consumes tokens from cache while the predicate returns `true`, the cursor is advanced to the end of the last consumed token.
+  /// 
+  /// Returns the last consumed token.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn consume_while<F>(&mut self, mut f: F) -> Option<Spanned<Lexed<'a, T>>>
+  where
+    F: FnMut(&CachedToken<'a, T>) -> bool,
+  {
+    self.consume_until(|t| !f(t))
+  }
+
+  /// Consumes all cached tokens, the cursor is advanced to the end of the last cached token.
+  /// 
+  /// Returns the last consumed token.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn consume_all(&mut self) -> Option<Spanned<Lexed<'a, T>>> {
+    let last = self.cache.pop_back()?;
+    self.cache.clear();
+    let (tok, extras): (Spanned<Lexed<'a, T>>, _) = last.into_components();
     self.set_cursor(tok.span().end());
     self.state = extras;
     Some(tok)
@@ -274,113 +302,136 @@ where
     }
   }
 
+  /// Skips tokens until a valid token is found or the end of input is reached.
+  /// 
+  /// Returns the first valid token found, but without consuming it.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn skip_until<F>(&mut self, mut pred: F) -> Option<MaybeRef<'_, CachedToken<'a, T>>>
+  where
+    F: FnMut(&Spanned<Lexed<'a, T>>) -> bool,
+  {
+    // pop from cache if not matching
+    while let Some(tok) = self.cache.pop_front_if(|t| !pred(t.token()))  { 
+      self.set_cursor(tok.token().span().end());
+      self.state = tok.state;
+    }
+
+    // as the matched token will not be consumed, we just peek it
+    match !self.cache.is_empty() {
+      // If the matched token is in cache, return it
+      true => self.cache.peek_one(),
+      // Otherwise, let's skip the input
+      false => {
+        let mut lexer = self.lexer();
+
+        while let Some(lexed) = Lexed::<T>::lex_spanned(&mut lexer) {
+          // if the token matches, we cache it and return it
+          if pred(&lexed) {
+            let ct = CachedToken::new(
+              lexed,
+              lexer.extras.clone(),
+            );
+            return match self.cache.push_back(ct) {
+              Ok(tok) => Some(MaybeRef::Ref(tok)),
+              Err(ct) => Some(MaybeRef::Owned(ct)),
+            }
+          }
+        }
+
+        // No matched token found, we just update the cursor and state
+        self.set_cursor(lexer.span().end);
+        self.state = lexer.extras;
+
+        None
+      },
+    }
+  }
+
+  /// Skips tokens while the predicate returns `true`.
+  /// 
+  /// Returns the first token that does not match the predicate, but without consuming it.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn skip_while<F>(&mut self, mut pred: F) -> Option<MaybeRef<'_, CachedToken<'a, T>>>
+  where
+    F: FnMut(&Spanned<Lexed<'a, T>>) -> bool,
+  {
+    self.skip_until(|t| !pred(t))
+  }
+
   /// Skips error tokens until a valid token is found or the end of input is reached.
   ///
   /// Returns the number of skipped error tokens.
-  pub fn skip_errors(&mut self) -> usize {
-    let mut num = 0;
-    while let Some(tok) = self.cache.pop_front_if(|t| t.is_error()) {
-      self.set_cursor(tok.token().span().end());
-      self.state = tok.extras;
-      num += 1;
-    }
-
-    if num > 0 {
-      return num;
-    }
-
-    let mut lexer = self.lexer();
-    while let Some(lexed) = Lexed::<T>::lex_spanned(&mut lexer) {
-      let (span, lexed) = lexed.into_components();
-
-      match lexed {
-        Lexed::Token(tok) => {
-          // If the cache is full, we just drop the token
-          let _ = self.cache.push_back(CachedToken::new(
-            Spanned::new(span, Lexed::Token(tok)),
-            lexer.extras.clone(),
-          ));
-          break;
-        }
-        Lexed::Error(_) => {
-          self.set_cursor(lexer.span().end);
-          num += 1
-        }
-      }
-    }
-
-    if num > 0 {
-      self.state = lexer.extras.clone();
-    }
-
-    num
+  pub fn skip_until_valid(&mut self) -> Option<MaybeRef<'_, CachedToken<'a, T>>> {
+    self.skip_until(|t| matches!(t.data, Lexed::Token(_)))
   }
 
   /// Peeks the next token without advancing the cursor.
   #[inline]
-  pub fn peek_one(&mut self) -> Option<Spanned<Either<RefLexed<'a, '_, T>, Lexed<'a, T>>>> {
-    let maybe_lexed = if self.cache.is_empty() {
-      let mut lexer = self.lexer();
-      Lexed::lex_spanned(&mut lexer).map(|tok| {
-        let (span, tok) = tok.into_components();
-        let cached = CachedToken::new(Spanned::new(span, tok), lexer.extras.clone());
-        (span, cached)
-      })
-    } else {
-      None
-    };
-
-    if let Some((span, cached)) = maybe_lexed {
-      Some(Spanned::new(
-        span,
-        match self.cache.push_back(cached) {
-          Ok(tok) => Either::Left(tok),
-          Err(tok) => Either::Right(tok.token.data),
-        },
-      ))
-    } else {
-      self.cache.peek_one().map(|t| t.token().as_ref().map_data(|t| Either::Left(t.as_ref())))
+  pub fn peek_one(&mut self) -> Option<MaybeRef<'_, CachedToken<'a, T>>> {
+    let mut buf: [MaybeUninit<MaybeRef<'_, CachedToken<'a, T>>>; 1] = [MaybeUninit::uninit()];
+    let feed = self.peek(&mut buf);
+    if feed.is_empty() {
+      return None;
     }
+
+    // SAFETY: We just checked that the buffer is not empty, so the first element is initialized.
+    buf.into_iter().next().map(|m| unsafe { m.assume_init() })
   }
 
-  /// Peeks the next token without advancing the cursor.
-  #[inline]
-  pub fn peek(&mut self, buf: &mut [MaybeUninit<Spanned<Either<RefLexed<'a, '_, T>, Lexed<'a, T>>>>]) -> &mut [Spanned<Either<RefLexed<'a, '_, T>, Lexed<'a, T>>>] {
-    let mut filled = 0;
+  // /// Peeks the tokens until find
+  // pub fn peek_until(&mut self, pred: impl Fn(&Lexed<'a, T>) -> bool) -> Option<Lexed<'a, T>> {
+  //   if let Some(cached_token) = self.cache.peek() {
+  //     return Some(cached_token.data.clone());
+  //   }
 
-    // First, fill from cache
-    while filled < buf.len() {
-      if let Some(cached) = self.cache.peek_one() {
-        buf[filled].write(cached.map_data(Either::Left));
-        filled += 1;
-      } else {
-        break;
-      }
+  //   let state = self.state.clone();
+  //   let mut lexer = logos::Lexer::<T::Logos>::with_extras(self.input, state);
+  //   lexer.bump(self.cursor);
+  //   Lexed::lex(&mut lexer).map(|tok| {
+  //     self.cache_token(lexer.span().into(), lexer.extras.clone(), tok)
+  //   })
+  // }
+
+  /// Try to peeks tokens to fill the provided buffer, if not enough tokens are cached, lex more tokens to fill the buffer.
+  /// 
+  /// The returned slice will contain only the initialized tokens.
+  #[inline]
+  pub fn peek(&mut self, buf: &mut [MaybeUninit<MaybeRef<'_, CachedToken<'a, T>>>]) -> &mut [MaybeRef<'_, CachedToken<'a, T>>] {
+    let buf_len = buf.len();
+    let mut in_cache = self.cache.len();
+    let mut want = buf_len.saturating_sub(in_cache);
+
+    // If we don't want any tokens, just peek from cache
+    if want == 0 {
+      return unsafe { self.cache.peek(buf) };
     }
 
     // Then, lex more tokens if needed
     let mut lexer = self.lexer();
-    while filled < buf.len() {
+    while want > 0 {
       if let Some(lexed) = Lexed::lex_spanned(&mut lexer) {
         let (span, lexed) = lexed.into_components();
         let cached = CachedToken::new(Spanned::new(span, lexed), lexer.extras.clone());
+
+        // If it can be cached, cache it, the do not write to buffer
+        // as the outer peek will write to buffer from cache
         match self.cache.push_back(cached) {
-          Ok(tok) => {
-            buf[filled].write(tok.map_data(Either::Left));
+          Ok(_) => {
+            in_cache += 1;
           }
-          Err(tok) => {
-            buf[filled].write(tok.token.data.map_data(Either::Right));
-          }
+          Err(ct) => {
+            buf[buf_len - want].write(MaybeRef::Owned(ct));
+          },
         }
-        filled += 1;
+        want -= 1;
       } else {
         break;
       }
     }
 
-    // Safety: We have initialized `filled` elements in `buf`
-    unsafe { core::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut Spanned<Either<RefLexed<'a, '_, T>, Lexed<'a, T>>>, filled) }
-  
+    let output = unsafe { self.cache.peek(&mut buf[..in_cache]) };
+    debug_assert!(output.len() == in_cache, "Cache peek returned unexpected number of tokens");
+    output
   }
 
   /// Saves the current state of the tokenizer as a checkpoint.
@@ -395,9 +446,10 @@ where
     Cursor::new(self.cursor)
   }
 
-  /// Rewinds the tokenizer to the given checkpoint.
+  /// Jumps to the given checkpoint.
+  #[doc(alias = "rewinds")]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn rewind(&mut self, checkpoint: Checkpoint<'a, '_, T>) {
+  pub fn go(&mut self, checkpoint: Checkpoint<'a, '_, T>) {
     self.cache.rewind(&checkpoint);
     self.set_cursor(checkpoint.cursor().cursor);
     self.state = checkpoint.state;
@@ -585,7 +637,7 @@ where
 /// A cached token with its associated extras.
 pub struct CachedToken<'a, T: Token<'a>> {
   token: Spanned<Lexed<'a, T>>,
-  extras: <T::Logos as Logos<'a>>::Extras,
+  state: <T::Logos as Logos<'a>>::Extras,
 }
 
 impl<'a, T: Token<'a>> Clone for CachedToken<'a, T>
@@ -596,7 +648,7 @@ where
   fn clone(&self) -> Self {
     Self {
       token: self.token.clone(),
-      extras: self.extras.clone(),
+      state: self.state.clone(),
     }
   }
 }
@@ -604,8 +656,8 @@ where
 impl<'a, T: Token<'a>> CachedToken<'a, T> {
   /// Creates a new cached token.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn new(token: Spanned<Lexed<'a, T>>, extras: <T::Logos as Logos<'a>>::Extras) -> Self {
-    Self { token, extras }
+  const fn new(token: Spanned<Lexed<'a, T>>, state: <T::Logos as Logos<'a>>::Extras) -> Self {
+    Self { token, state, }
   }
 
   /// Returns a reference to the token.
@@ -620,16 +672,16 @@ impl<'a, T: Token<'a>> CachedToken<'a, T> {
     self.token
   }
 
-  /// Returns a reference to the extras.
+  /// Returns a reference to the state.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn extras(&self) -> &<T::Logos as Logos<'a>>::Extras {
-    &self.extras
+  pub const fn state(&self) -> &<T::Logos as Logos<'a>>::Extras {
+    &self.state
   }
 
   /// Consumes the cached token and returns the extras.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn into_components(self) -> (Spanned<Lexed<'a, T>>, <T::Logos as Logos<'a>>::Extras) {
-    (self.token, self.extras)
+    (self.token, self.state)
   }
 }
 
@@ -644,6 +696,9 @@ pub trait Cache<'a, T: Token<'a>> {
   /// Returns the number of cached tokens.
   fn len(&self) -> usize;
 
+  /// Returns the remaining capacity of the cache.
+  fn remaining(&self) -> usize;
+
   /// Rewinds to the given checkpoint.
   fn rewind(&mut self, checkpoint: &Checkpoint<'a, '_, T>);
 
@@ -653,20 +708,27 @@ pub trait Cache<'a, T: Token<'a>> {
   fn push_back(
     &mut self,
     tok: CachedToken<'a, T>,
-  ) -> Result<RefLexed<'a, '_, T>, CachedToken<'a, T>>;
+  ) -> Result<&CachedToken<'a, T>, CachedToken<'a, T>>;
 
   /// Pops one cached token.
   #[allow(clippy::type_complexity)]
   fn pop_front(&mut self) -> Option<CachedToken<'a, T>>;
 
+  /// Pops one cached token from back.
+  #[allow(clippy::type_complexity)]
+  fn pop_back(&mut self) -> Option<CachedToken<'a, T>>;
+
+  /// Clears the cache.
+  fn clear(&mut self);
+
   /// Pops one cached token.
   #[allow(clippy::type_complexity)]
-  fn pop_front_if<F>(&mut self, predicate: F) -> Option<CachedToken<'a, T>>
+  fn pop_front_if<F>(&mut self, mut predicate: F) -> Option<CachedToken<'a, T>>
   where
-    F: Fn(&Spanned<RefLexed<'a, '_, T>>) -> bool,
+    F: FnMut(&CachedToken<'a, T>) -> bool,
   {
     if let Some(peeked) = self.first() {
-      if predicate(&peeked) {
+      if predicate(peeked) {
         return self.pop_front();
       }
     }
@@ -675,22 +737,32 @@ pub trait Cache<'a, T: Token<'a>> {
 
   /// Peeks one cached token without removing it.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn peek_one<'c>(&'c self) -> Option<&CachedToken<'a, T>>
+  fn peek_one<'c>(&self) -> Option<MaybeRef<'_, CachedToken<'a, T>>>
   where
     'a: 'c,
   {
-    let mut buf: [MaybeUninit<&CachedToken<'a, T>>; 1] = [MaybeUninit::uninit()];
-    self.peek(&mut buf).first().copied()
+    let mut buf: [MaybeUninit<MaybeRef<'_, CachedToken<'a, T>>>; 1] = [MaybeUninit::uninit()];
+    let feed = unsafe { self.peek(&mut buf) };
+    if feed.is_empty() {
+      return None;
+    }
+
+    // SAFETY: We just checked that the buffer is not empty, so the first element is initialized.
+    buf.into_iter().next().map(|m| unsafe { m.assume_init() })
   }
 
-  /// Try to peeks exactly cached tokens without removing them.
+  /// Try to peeks cached tokens without removing them.
   ///
   /// The provided buffer will be filled with the peeked tokens, and the returned slice will contain only the initialized tokens.
+  /// 
+  /// # Safety
+  /// - The implementor must ensure that the returned slice only contains initialized tokens.
+  /// - The implementor must ensure all cached tokens should be filled into the provided buffer if the buffer is large enough.
   #[allow(clippy::mut_from_ref)]
-  fn peek(
+  unsafe fn peek(
     &self,
-    buf: &mut [MaybeUninit<&CachedToken<'a, T>>],
-  ) -> &mut [&CachedToken<'a, T>];
+    buf: &mut [MaybeUninit<MaybeRef<'_, CachedToken<'a, T>>>],
+  ) -> &mut [MaybeRef<'_, CachedToken<'a, T>>];
 
   /// Pushes a batch of tokens into the cache.
   ///
@@ -698,54 +770,25 @@ pub trait Cache<'a, T: Token<'a>> {
   ///
   /// If the cache is full, returns an iterator over the tokens that not be cached.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn push_many<'c>(
-    &'c mut self,
-    toks: impl Iterator<Item = CachedToken<'a, T>> + 'c,
-  ) -> impl Iterator<Item = CachedToken<'a, T>> + 'c {
+  fn push_many<'p>(
+    &'p mut self,
+    toks: impl Iterator<Item = CachedToken<'a, T>> + 'p,
+  ) -> impl Iterator<Item = CachedToken<'a, T>> + 'p
+  {
     toks.filter_map(move |tok| self.push_back(tok).err())
   }
 
   /// Returns the first cached token.
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn first<'c>(&'c self) -> Option<Spanned<RefLexed<'a, 'c, T>>>
-  where
-    'a: 'c,
-  {
-    self.first_with_extras().map(|(t, _)| t)
-  }
-
-  /// Returns the first cached token and its extras.
-  #[allow(clippy::type_complexity)]
-  fn first_with_extras<'c>(
-    &'c self,
-  ) -> Option<(
-    Spanned<RefLexed<'a, 'c, T>>,
-    &'c <T::Logos as Logos<'a>>::Extras,
-  )>;
+  fn first(&self) -> Option<&CachedToken<'a, T>>;
 
   /// Returns the last cached token.
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn last<'c>(&'c self) -> Option<Spanned<RefLexed<'a, 'c, T>>>
-  where
-    'a: 'c,
-  {
-    self.last_with_extras().map(|(t, _)| t)
-  }
-
-  /// Returns the last cached token and its extras.
-  #[allow(clippy::type_complexity)]
-  fn last_with_extras<'c>(
-    &'c self,
-  ) -> Option<(
-    Spanned<RefLexed<'a, 'c, T>>,
-    &'c <T::Logos as Logos<'a>>::Extras,
-  )>;
+  fn last(&self) -> Option<&CachedToken<'a, T>>;
 
   /// Returns the span of the cached tokens, from the start of the first to the end of the last.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn span(&self) -> Option<Span> {
     match (self.first(), self.last()) {
-      (Some(first), Some(last)) => Some(Span::new(first.span().start(), last.span().end())),
+      (Some(first), Some(last)) => Some(Span::new(first.token().span().start(), last.token().span().end())),
       _ => None,
     }
   }
@@ -753,13 +796,13 @@ pub trait Cache<'a, T: Token<'a>> {
   /// Returns the span of the first cached token.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn span_first(&self) -> Option<Span> {
-    self.first().map(|t| t.span())
+    self.first().map(|t| t.token().span())
   }
 
   /// Returns the span of the last cached token.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn span_last(&self) -> Option<Span> {
-    self.last().map(|t| t.span())
+    self.last().map(|t| t.token().span())
   }
 }
 
@@ -773,11 +816,8 @@ where
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn peek(
-    &self,
-    _: &mut [MaybeUninit<Spanned<RefLexed<'a, '_, T>>>],
-  ) -> &mut [Spanned<RefLexed<'a, '_, T>>] {
-    &mut []
+  fn remaining(&self) -> usize {
+    0
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -787,7 +827,7 @@ where
   fn push_back(
     &mut self,
     tok: CachedToken<'a, T>,
-  ) -> Result<RefLexed<'a, '_, T>, CachedToken<'a, T>> {
+  ) -> Result<&CachedToken<'a, T>, CachedToken<'a, T>> {
     Err(tok)
   }
 
@@ -797,22 +837,31 @@ where
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn first_with_extras<'c>(
-    &'c self,
-  ) -> Option<(
-    Spanned<RefLexed<'a, 'c, T>>,
-    &'c <T::Logos as Logos<'a>>::Extras,
-  )> {
+  fn pop_back(&mut self) -> Option<CachedToken<'a, T>> {
     None
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn last_with_extras<'c>(
-    &'c self,
-  ) -> Option<(
-    Spanned<RefLexed<'a, 'c, T>>,
-    &'c <T::Logos as Logos<'a>>::Extras,
-  )> {
+  fn clear(&mut self) {}
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  unsafe fn peek(
+    &self,
+    buf: &mut [MaybeUninit<MaybeRef<'_, CachedToken<'a, T>>>],
+  ) -> &mut [MaybeRef<'_, CachedToken<'a, T>>] {
+    // SAFETY: We never initialize any element in the buffer, so the returned slice is always empty.
+    unsafe {
+      core::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut MaybeRef<'_, CachedToken<'a, T>>, 0)
+    }
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn first(&self) -> Option<&CachedToken<'a, T>> {
+    None
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn last(&self) -> Option<&CachedToken<'a, T>> {
     None
   }
 }
