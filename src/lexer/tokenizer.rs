@@ -187,13 +187,20 @@ impl<'a, T: Token<'a>> Tokenizer<'a, T> {
 }
 
 impl<'a, T: Token<'a>, C> Tokenizer<'a, T, C> {
-  /// Returns the cache of the tokenizer.
+  /// Returns a reference to the tokenizer's cache.
+  ///
+  /// The cache stores peeked tokens that have been lexed but not yet consumed.
+  /// This can be useful for inspecting the cache state or implementing custom
+  /// lookahead logic.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn cache(&self) -> &C {
     &self.cache
   }
 
-  /// Returns a reference to the input.
+  /// Returns a reference to the underlying input source.
+  ///
+  /// This allows access to the raw source being tokenized, which is typically
+  /// a `&str` or `&[u8]` depending on your Logos token definition.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn input(&self) -> &<T::Logos as Logos<'a>>::Source {
     self.input
@@ -211,6 +218,11 @@ impl<'a, T: Token<'a>, C> Tokenizer<'a, T, C> {
     iter::IntoIter::new(self)
   }
 
+  /// Creates a Logos lexer positioned at the end of the cache or current cursor.
+  ///
+  /// This internal method constructs a fresh Logos lexer with the current state and
+  /// positions it to continue lexing from where the cache ends (or from the cursor
+  /// if the cache is empty).
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn lexer(&self) -> logos::Lexer<'a, T::Logos>
   where
@@ -228,19 +240,28 @@ impl<'a, T: Token<'a>, C> Tokenizer<'a, T, C> {
     lexer
   }
 
+  /// Sets the cursor to the specified position, clamped to the input length.
+  ///
+  /// This ensures the cursor never exceeds the bounds of the input source.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn set_cursor(&mut self, new: usize) {
     self.cursor = new.min(self.input.len());
   }
 
+  /// Sets the cursor to the latest position between the new value and the cache start.
+  ///
+  /// This method ensures the cursor is positioned at or after the first cached token
+  /// (if any), preventing the cursor from moving backwards past cached tokens.
+  /// The cursor is also clamped to the input length.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn set_cursor_to_latest(&mut self, new: usize)
+  fn set_cursor_after_consume(&mut self, new: usize)
   where
     C: Cache<'a, T>,
   {
     self.cursor = new
       .max(self.cache.span_first().map(|s| s.start()).unwrap_or(new))
       .min(self.input.len());
+    debug_assert!(self.cursor <= self.input.len(), "Cursor exceeded input bounds");
   }
 }
 
@@ -256,7 +277,7 @@ where
   pub fn consume_one(&mut self) -> Option<Spanned<Lexed<'a, T>>> {
     let tok = self.cache.pop_front()?;
     let (tok, extras): (Spanned<Lexed<'a, T>>, _) = tok.into_components();
-    self.set_cursor_to_latest(tok.span().end());
+    self.set_cursor_after_consume(tok.span().end());
     self.state = extras;
     Some(tok)
   }
@@ -272,7 +293,7 @@ where
     let mut last = None;
     // pop from cache if not matching
     while let Some(tok) = self.cache.pop_front_if(|t| !f(t)) {
-      self.set_cursor_to_latest(tok.token().span().end());
+      self.set_cursor_after_consume(tok.token().span().end());
       let (tok, state) = tok.into_components();
       self.state = state;
       last = Some(tok);
@@ -296,22 +317,27 @@ where
   ///
   /// Returns the last consumed token.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn consume_all(&mut self) -> Option<Spanned<Lexed<'a, T>>> {
+  pub fn consume_cached(&mut self) -> Option<Spanned<Lexed<'a, T>>> {
     let last = self.cache.pop_back()?;
     self.cache.clear();
     let (tok, extras): (Spanned<Lexed<'a, T>>, _) = last.into_components();
-    self.set_cursor_to_latest(tok.span().end());
+    self.set_cursor_after_consume(tok.span().end());
     self.state = extras;
     Some(tok)
   }
 
-  /// Skips one token.
+  /// Skips one token, advancing the cursor.
+  ///
+  /// If there's a token in the cache, it pops and discards it. Otherwise,
+  /// it lexes the next token and discards it.
+  ///
+  /// Returns `true` if a token was skipped, `false` if the end of input was reached.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn skip_one(&mut self) -> bool {
     if let Some(cached_token) = self.cache.pop_front() {
       let (spanned_lexed, extras) = cached_token.into_components();
       let (span, _lexed) = spanned_lexed.into_components();
-      self.set_cursor_to_latest(span.end());
+      self.set_cursor_after_consume(span.end());
       self.state = extras;
       true
     } else {
@@ -329,7 +355,7 @@ where
   {
     // pop from cache if not matching
     while let Some(tok) = self.cache.pop_front_if(|t| !pred(t.token())) {
-      self.set_cursor_to_latest(tok.token().span().end());
+      self.set_cursor_after_consume(tok.token().span().end());
       self.state = tok.state;
     }
 
@@ -347,7 +373,7 @@ where
           // if the token matches, we cache it and return it
           if pred(&lexed) {
             let ct = CachedToken::new(lexed, lexer.extras.clone());
-            self.set_cursor_to_latest(end);
+            self.set_cursor_after_consume(end);
             self.state = state;
 
             return match self.cache.push_back(ct) {
@@ -361,7 +387,7 @@ where
         }
 
         // No matched token found, we just update the cursor and state
-        self.set_cursor_to_latest(lexer.span().end);
+        self.set_cursor_after_consume(lexer.span().end);
         self.state = lexer.extras;
 
         None
@@ -387,7 +413,14 @@ where
     self.skip_until(|t| matches!(t.data, Lexed::Token(_)))
   }
 
-  /// a
+  /// Skips tokens until the predicate returns `true`, emitting errors using the provided emitter.
+  ///
+  /// This method advances through the token stream, skipping tokens until it finds one that
+  /// matches the predicate. Any lexer errors encountered are emitted via the provided emitter.
+  /// If a fatal error occurs during emission, the method returns immediately with that error.
+  ///
+  /// Returns the first token that matches the predicate, but without consuming it.
+  /// If no matching token is found, returns `None`.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn skip_until_with_emitter<F, E>(
     &mut self,
@@ -407,8 +440,11 @@ where
       }
     }) {
       let span = tok.token().span();
-      self.set_cursor_to_latest(span.end());
+      self.set_cursor_after_consume(span.end());
       self.state = tok.state;
+
+      // Note: cursor/state are updated before emission. If emission fails,
+      // the error token has still been consumed (no backtracking here).
       if let Lexed::Error(e) = tok.token.into_data() {
         emitter.emit_token_error(Spanned::new(span, e))?;
       }
@@ -433,7 +469,7 @@ where
                 state = lexer.extras.clone();
               }
               Err(e) => {
-                self.set_cursor_to_latest(lexer.span().end);
+                self.set_cursor_after_consume(lexer.span().end);
                 self.state = lexer.extras;
                 return Err(e);
               }
@@ -443,7 +479,7 @@ where
               // if the token matches, we cache it and return it
               if pred(tok.as_ref(), &mut emitter) {
                 let ct = CachedToken::new(tok.map_data(Lexed::Token), lexer.extras);
-                self.set_cursor_to_latest(end);
+                self.set_cursor_after_consume(end);
                 self.state = state;
                 return Ok(match self.cache.push_back(ct) {
                   Ok(tok) => Some(MaybeRef::Ref(tok)),
@@ -458,7 +494,7 @@ where
         }
 
         // No matched token found, we just update the cursor and state
-        self.set_cursor_to_latest(lexer.span().end);
+        self.set_cursor_after_consume(lexer.span().end);
         self.state = lexer.extras;
 
         Ok(None)
@@ -505,25 +541,27 @@ where
     let mut in_cache = self.cache.len();
     let mut want = buf_len.saturating_sub(in_cache);
 
-    // If we don't want any tokens, just peek from cache
+    // If we already have enough tokens cached, just peek from cache
     if want == 0 {
+      // SAFETY: Cache guarantees peek() returns only initialized tokens up to cache.len()
       return unsafe { self.cache.peek(buf) };
     }
 
-    // Then, lex more tokens if needed
+    // Otherwise, lex additional tokens to fill the request
     let mut lexer = self.lexer();
     while want > 0 {
       if let Some(lexed) = Lexed::lex_spanned(&mut lexer) {
         let (span, lexed) = lexed.into_components();
         let cached = CachedToken::new(Spanned::new(span, lexed), lexer.extras.clone());
 
-        // If it can be cached, cache it, the do not write to buffer
-        // as the outer peek will write to buffer from cache
+        // Try to cache the token; if cache is full, write directly to output buffer
         match self.cache.push_back(cached) {
           Ok(_) => {
             in_cache += 1;
           }
           Err(ct) => {
+            // Cache full: write overflow tokens directly to buffer
+            // Position: buf[buf_len - want] is the next unfilled slot
             buf[buf_len - want].write(MaybeRef::Owned(ct));
           }
         }
@@ -533,6 +571,8 @@ where
       }
     }
 
+    // Fill buffer from cache (this covers both cached tokens and any we just added)
+    // SAFETY: Cache.peek() returns slice of initialized tokens, guaranteed by trait contract
     let output = unsafe { self.cache.peek(&mut buf[..in_cache]) };
     debug_assert!(
       output.len() == in_cache,
@@ -542,12 +582,30 @@ where
   }
 
   /// Saves the current state of the tokenizer as a checkpoint.
+  ///
+  /// This creates a snapshot of the current position and lexer state, which can
+  /// later be restored using [`go`](Self::go). Checkpoints are essential for
+  /// implementing backtracking in parsers.
+  ///
+  /// # Example
+  ///
+  /// ```ignore
+  /// let checkpoint = tokenizer.save();
+  /// // Try parsing something...
+  /// if parsing_failed {
+  ///     tokenizer.go(checkpoint); // Restore state
+  /// }
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn save(&self) -> Checkpoint<'a, '_, T> {
     Checkpoint::new(self.cursor(), self.state.clone())
   }
 
-  /// Returns the current cursor of the tokenizer.
+  /// Returns the current cursor position of the tokenizer.
+  ///
+  /// The cursor represents the byte offset in the input where the tokenizer will
+  /// continue lexing. If there are cached tokens, the cursor points to the start
+  /// of the first cached token; otherwise, it points to the current position.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn cursor(&self) -> Cursor<'a, '_, T> {
     Cursor::new(
@@ -559,7 +617,11 @@ where
     )
   }
 
-  /// Jumps to the given checkpoint.
+  /// Restores the tokenizer state to a previously saved checkpoint.
+  ///
+  /// This rewinds the cache, resets the cursor position, and restores the lexer
+  /// state, effectively undoing all operations since the checkpoint was created.
+  /// This is commonly used for parser backtracking.
   #[doc(alias = "rewinds")]
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn go(&mut self, checkpoint: Checkpoint<'a, '_, T>) {
@@ -568,7 +630,14 @@ where
     self.state = checkpoint.state;
   }
 
-  /// Advances the cursor and returns the next valid token, emit non-fatal errors, fatal errors are returned and stop the process.
+  /// Advances the cursor and returns the next valid token, emitting errors via the provided emitter.
+  ///
+  /// This method skips over lexer errors, emitting them through the provided emitter.
+  /// Non-fatal errors are emitted and the method continues to the next token. If a
+  /// fatal error occurs during emission, it's returned and processing stops.
+  ///
+  /// Returns `Ok(Some(token))` for valid tokens, `Ok(None)` at end of input, or
+  /// `Err(error)` if a fatal error occurred.
   pub fn next_valid_with<E>(&mut self, mut emitter: E) -> Result<Option<Spanned<T>>, E::Error>
   where
     E: Emitter<'a, T>,
@@ -577,7 +646,7 @@ where
     while let Some(cached_token) = self.cache.pop_front() {
       let (spanned_lexed, extras) = cached_token.into_components();
       let (span, lexed) = spanned_lexed.into_components();
-      self.set_cursor_to_latest(span.end());
+      self.set_cursor_after_consume(span.end());
       self.state = extras;
       match lexed {
         Lexed::Token(t) => return Ok(Some(Spanned::new(span, t))),
@@ -593,7 +662,7 @@ where
 
     while let Some(lexed) = Lexed::lex_spanned(&mut lexer) {
       let (span, lexed) = lexed.into_components();
-      self.set_cursor_to_latest(lexer.span().end);
+      self.set_cursor_after_consume(lexer.span().end);
       self.state = lexer.extras.clone();
 
       match lexed {
@@ -617,20 +686,27 @@ where
   //   self.next_valid_with(emitter)
   // }
 
-  /// Advances the cursor and returns the next token.
+  /// Advances the cursor and returns the next token (valid or error).
+  ///
+  /// Unlike [`next_valid_with`](Self::next_valid_with), this method returns both
+  /// valid tokens and lexer errors wrapped in [`Lexed`]. The cursor advances
+  /// regardless of whether a valid token or error is returned.
+  ///
+  /// Returns `Some(Spanned<Lexed>)` with either a token or error, or `None` at
+  /// end of input.
   #[allow(clippy::should_implement_trait)]
   pub fn next(&mut self) -> Option<Spanned<Lexed<'a, T>>> {
     if let Some(cached_token) = self.cache.pop_front() {
       let (spanned_lexed, extras) = cached_token.into_components();
       let (span, lexed) = spanned_lexed.into_components();
-      self.set_cursor_to_latest(span.end());
+      self.set_cursor_after_consume(span.end());
       self.state = extras;
       return Some(Spanned::new(span, lexed));
     }
 
     let mut lexer = self.lexer();
     Lexed::lex_spanned(&mut lexer).inspect(|_| {
-      self.set_cursor_to_latest(lexer.span().end);
+      self.set_cursor_after_consume(lexer.span().end);
       self.state = lexer.extras.clone();
     })
   }
@@ -647,7 +723,27 @@ where
   // }
 }
 
-/// A checkpoint for the tokenizer.
+/// A checkpoint that captures the tokenizer's state for backtracking.
+///
+/// A `Checkpoint` stores a snapshot of the tokenizer's position and lexer state
+/// at a specific point in time. This allows you to save the current state using
+/// [`Tokenizer::save`] and later restore it using [`Tokenizer::go`], enabling
+/// efficient backtracking in parsers.
+///
+/// Checkpoints include:
+/// - The cursor position (byte offset in the input)
+/// - The lexer's extras state (for stateful lexers)
+/// - Cache state (implicitly through the cursor)
+///
+/// # Example
+///
+/// ```ignore
+/// let checkpoint = tokenizer.save();
+/// // Try parsing something that might fail...
+/// if should_backtrack {
+///     tokenizer.go(checkpoint); // Restore to saved state
+/// }
+/// ```
 pub struct Checkpoint<'a, 's, T: Token<'a>> {
   cursor: Cursor<'a, 's, T>,
   state: <T::Logos as Logos<'a>>::Extras,
@@ -678,7 +774,16 @@ impl<'a, 's, T: Token<'a>> Checkpoint<'a, 's, T> {
   }
 }
 
-/// A cursor for the tokenizer.
+/// A cursor representing a position in the input source.
+///
+/// `Cursor` is a lightweight type that wraps a byte offset into the tokenizer's
+/// input source. It's used by [`Checkpoint`] to track positions and is returned
+/// by [`Tokenizer::cursor`] to query the current position.
+///
+/// The cursor position represents:
+/// - The byte offset in the input where the tokenizer will continue lexing
+/// - If there are cached tokens, it points to the start of the first cached token
+/// - Otherwise, it points to the position where the next token will be lexed from
 pub struct Cursor<'a, 's, T: Token<'a>> {
   cursor: usize,
   _m: PhantomData<fn(&'s ()) -> &'s ()>,
@@ -712,25 +817,106 @@ impl<'a, T: Token<'a>> Cursor<'a, '_, T> {
     }
   }
 
-  /// Returns the cursor position.
+  /// Returns the byte offset position in the input source.
+  ///
+  /// This is the absolute position (in bytes) where the tokenizer is currently
+  /// positioned or where it will resume lexing.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn position(&self) -> usize {
     self.cursor
   }
 }
 
-/// An emitter for errors.
+/// A trait for handling and emitting errors during tokenization and parsing.
+///
+/// `Emitter` provides a unified interface for error handling in the tokenization pipeline.
+/// Implementations can decide whether errors are fatal (stop processing) or non-fatal
+/// (logged and processing continues). This is particularly useful when you want to collect
+/// multiple errors before stopping, or when implementing error recovery.
+///
+/// # Error Handling Strategy
+///
+/// The emitter uses a `Result`-based approach where:
+/// - `Ok(())` means the error was handled as non-fatal and processing should continue
+/// - `Err(error)` means the error is fatal and processing should stop immediately
+///
+/// # Use Cases
+///
+/// - **Error Collection**: Accumulate multiple errors before reporting them all at once
+/// - **Error Recovery**: Log errors but continue parsing to find more issues
+/// - **Fail-Fast**: Stop on the first error by always returning `Err`
+/// - **Filtering**: Only treat certain error types as fatal
+///
+/// # Example
+///
+/// ```ignore
+/// struct MyEmitter {
+///     errors: Vec<String>,
+///     max_errors: usize,
+/// }
+///
+/// impl<'a, T: Token<'a>> Emitter<'a, T> for MyEmitter {
+///     type Error = String;
+///
+///     fn emit_token_error(&mut self, err: Spanned<...>) -> Result<(), Self::Error> {
+///         self.errors.push(format!("Lexer error at {:?}", err.span));
+///         if self.errors.len() >= self.max_errors {
+///             Err("Too many errors".to_string())
+///         } else {
+///             Ok(())
+///         }
+///     }
+///
+///     fn emit_error(&mut self, err: Spanned<Self::Error>) -> Result<(), Self::Error> {
+///         self.errors.push(err.data);
+///         if self.errors.len() >= self.max_errors {
+///             Err("Too many errors".to_string())
+///         } else {
+///             Ok(())
+///         }
+///     }
+/// }
+/// ```
 pub trait Emitter<'a, T: Token<'a>> {
-  /// The error type emitted.
+  /// The error type that this emitter produces.
+  ///
+  /// This is the type returned when a fatal error occurs (via `Err(Self::Error)`).
+  /// It can be any type that represents your application's error model.
   type Error;
 
-  /// Emits a non-fatal token error, if this error is a fatal error, then returns the error back.
+  /// Emits a lexer error from the underlying Logos tokenizer.
+  ///
+  /// This method is called when Logos encounters an error during lexing (e.g.,
+  /// invalid input that doesn't match any token pattern). The implementation
+  /// decides whether to treat it as fatal or non-fatal.
+  ///
+  /// # Parameters
+  ///
+  /// - `err`: The lexer error wrapped with its source span
+  ///
+  /// # Returns
+  ///
+  /// - `Ok(())` if the error should be treated as non-fatal (processing continues)
+  /// - `Err(Self::Error)` if the error is fatal (processing stops immediately)
   fn emit_token_error(
     &mut self,
     err: Spanned<<T::Logos as Logos<'a>>::Error>,
   ) -> Result<(), Self::Error>;
 
-  /// Emits a non-fatal error, if this error is a fatal error, then returns the error back.
+  /// Emits a custom error from the application or parser.
+  ///
+  /// This method is called for application-level errors (not lexer errors).
+  /// Like `emit_token_error`, the implementation decides whether the error
+  /// is fatal or should be logged and processing continued.
+  ///
+  /// # Parameters
+  ///
+  /// - `err`: The application error wrapped with its source span
+  ///
+  /// # Returns
+  ///
+  /// - `Ok(())` if the error should be treated as non-fatal (processing continues)
+  /// - `Err(Self::Error)` if the error is fatal (processing stops immediately)
   fn emit_error(&mut self, err: Spanned<Self::Error>) -> Result<(), Self::Error>;
 }
 
@@ -806,43 +992,158 @@ impl<'a, T: Token<'a>> CachedToken<'a, T> {
   }
 }
 
-/// A cache for peeked tokens.
+/// A trait for caching lookahead tokens in the tokenizer.
+///
+/// `Cache` provides a buffer for tokens that have been lexed but not yet consumed,
+/// enabling efficient lookahead and backtracking operations. The cache acts as a
+/// queue (FIFO - First In, First Out) between the lexer and the parser.
+///
+/// # Purpose
+///
+/// The cache serves several critical functions:
+/// - **Lookahead**: Allows peeking at future tokens without consuming them
+/// - **Backtracking**: Supports parser backtracking via checkpoint/rewind operations
+/// - **Efficiency**: Avoids re-lexing tokens that have already been processed
+/// - **State Management**: Preserves lexer state (extras) alongside each token
+///
+/// # Design Patterns
+///
+/// Different implementations support different use cases:
+/// - **Fixed-size arrays**: Bounded lookahead with known maximum (e.g., `[CachedToken; 4]`)
+/// - **Dynamic buffers**: Unlimited lookahead using `Vec` or `VecDeque`
+/// - **BlackHole**: No caching at all, for streaming-only scenarios without backtracking
+///
+/// Note: Tokens cannot be overwritten until explicitly consumed, as they must remain
+/// available for backtracking operations. This means the cache can become full and
+/// refuse new tokens if capacity is reached.
+///
+/// # Cache Operations
+///
+/// The cache supports standard queue operations:
+/// - `push_back`: Add newly lexed tokens to the end (fails if cache is full)
+/// - `pop_front`: Remove and return the oldest token
+/// - `peek`: View tokens without removing them
+/// - `rewind`: Restore to a previous state (for backtracking)
+///
+/// # Safety
+///
+/// The `peek` method is marked unsafe because it requires implementations to guarantee
+/// that returned slices only contain properly initialized tokens. This is enforced by
+/// the trait's contract.
+///
+/// # Example
+///
+/// ```ignore
+/// // A simple fixed-size cache using a VecDeque-like structure
+/// struct BoundedCache<'a, T: Token<'a>> {
+///     tokens: VecDeque<CachedToken<'a, T>>,
+///     capacity: usize,
+/// }
+///
+/// impl<'a, T: Token<'a>> Cache<'a, T> for BoundedCache<'a, T> {
+///     fn len(&self) -> usize {
+///         self.tokens.len()
+///     }
+///
+///     fn remaining(&self) -> usize {
+///         self.capacity - self.tokens.len()
+///     }
+///
+///     fn push_back(&mut self, tok: CachedToken<'a, T>) -> Result<&CachedToken<'a, T>, CachedToken<'a, T>> {
+///         if self.tokens.len() < self.capacity {
+///             self.tokens.push_back(tok);
+///             Ok(self.tokens.back().unwrap())
+///         } else {
+///             Err(tok) // Cache full, cannot overwrite!
+///         }
+///     }
+///     // ... other methods
+/// }
+/// ```
 pub trait Cache<'a, T: Token<'a>> {
-  /// Returns `true` if the cache is empty.
+  /// Returns `true` if the cache contains no tokens.
+  ///
+  /// This is a convenience method that checks if `len() == 0`.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_empty(&self) -> bool {
     self.len() == 0
   }
 
-  /// Returns the number of cached tokens.
+  /// Returns the number of tokens currently stored in the cache.
+  ///
+  /// This count includes all cached tokens from front to back.
   fn len(&self) -> usize;
 
-  /// Returns the remaining capacity of the cache.
+  /// Returns the number of additional tokens that can be cached.
+  ///
+  /// For unbounded caches (like `Vec`), this might return a large number.
+  /// For fixed-size caches, this returns the number of free slots.
+  /// For `BlackHole`, this always returns 0.
   fn remaining(&self) -> usize;
 
-  /// Rewinds to the given checkpoint.
+  /// Rewinds the cache to a previously saved checkpoint.
+  ///
+  /// This operation restores the cache state to match the checkpoint, typically
+  /// by clearing any tokens that were added after the checkpoint was created.
+  /// This is used for parser backtracking.
   fn rewind(&mut self, checkpoint: &Checkpoint<'a, '_, T>);
 
-  /// Caches one token.
+  /// Attempts to add a token to the back of the cache.
   ///
-  /// If the cache is full, returns the token back, otherwise returns a reference to the token.
+  /// If successful, returns `Ok` with a reference to the cached token.
+  /// If the cache is full, returns `Err` with the token so the caller can handle it
+  /// (e.g., by processing it immediately without caching).
+  ///
+  /// # Example
+  ///
+  /// ```ignore
+  /// match cache.push_back(token) {
+  ///     Ok(cached_ref) => {
+  ///         // Token was cached successfully
+  ///     }
+  ///     Err(token) => {
+  ///         // Cache is full, handle token directly
+  ///     }
+  /// }
+  /// ```
   fn push_back(
     &mut self,
     tok: CachedToken<'a, T>,
   ) -> Result<&CachedToken<'a, T>, CachedToken<'a, T>>;
 
-  /// Pops one cached token.
+  /// Removes and returns the token at the front of the cache.
+  ///
+  /// Returns `None` if the cache is empty. This is the primary way to consume
+  /// cached tokens.
   #[allow(clippy::type_complexity)]
   fn pop_front(&mut self) -> Option<CachedToken<'a, T>>;
 
-  /// Pops one cached token from back.
+  /// Removes and returns the token at the back of the cache.
+  ///
+  /// Returns `None` if the cache is empty. This is less commonly used than
+  /// `pop_front` but can be useful for certain cache management operations.
   #[allow(clippy::type_complexity)]
   fn pop_back(&mut self) -> Option<CachedToken<'a, T>>;
 
-  /// Clears the cache.
+  /// Removes all tokens from the cache.
+  ///
+  /// After calling this method, `len()` returns 0 and `is_empty()` returns `true`.
   fn clear(&mut self);
 
-  /// Pops one cached token.
+  /// Conditionally removes and returns the front token if it matches a predicate.
+  ///
+  /// Peeks at the first token in the cache and checks if it satisfies the predicate.
+  /// If it does, removes and returns it. Otherwise, returns `None` without modifying
+  /// the cache.
+  ///
+  /// # Example
+  ///
+  /// ```ignore
+  /// // Pop token only if it's a specific type
+  /// if let Some(token) = cache.pop_front_if(|t| matches!(t.token().data, Lexed::Token(_))) {
+  ///     // Process valid token
+  /// }
+  /// ```
   #[allow(clippy::type_complexity)]
   fn pop_front_if<F>(&mut self, mut predicate: F) -> Option<CachedToken<'a, T>>
   where
@@ -856,7 +1157,13 @@ pub trait Cache<'a, T: Token<'a>> {
     None
   }
 
-  /// Peeks one cached token without removing it.
+  /// Peeks at the first cached token without removing it.
+  ///
+  /// Returns `Some(MaybeRef)` with either a reference to the cached token or
+  /// an owned token (if cache implementation requires). Returns `None` if the
+  /// cache is empty.
+  ///
+  /// This is a convenience wrapper around `peek` for looking at just one token.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn peek_one<'c>(&self) -> Option<MaybeRef<'_, CachedToken<'a, T>>>
   where
@@ -872,24 +1179,48 @@ pub trait Cache<'a, T: Token<'a>> {
     buf.into_iter().next().map(|m| unsafe { m.assume_init() })
   }
 
-  /// Try to peeks cached tokens without removing them.
+  /// Peeks at multiple cached tokens without removing them.
   ///
-  /// The provided buffer will be filled with the peeked tokens, and the returned slice will contain only the initialized tokens.
+  /// Fills the provided buffer with references to cached tokens (or owned tokens if
+  /// necessary). The returned slice contains only the successfully initialized tokens,
+  /// which may be fewer than requested if the cache doesn't have enough tokens.
+  ///
+  /// # Parameters
+  ///
+  /// - `buf`: A buffer of uninitialized `MaybeRef` entries to fill with peeked tokens
+  ///
+  /// # Returns
+  ///
+  /// A mutable slice containing initialized token references. The slice length indicates
+  /// how many tokens were actually available.
   ///
   /// # Safety
-  /// - The implementor must ensure that the returned slice only contains initialized tokens.
-  /// - The implementor must ensure all cached tokens should be filled into the provided buffer if the buffer is large enough.
+  ///
+  /// Implementations must guarantee that:
+  /// - The returned slice contains only properly initialized tokens
+  /// - All cached tokens are filled into the buffer if the buffer is large enough
+  /// - The slice bounds are correct and don't include uninitialized memory
+  ///
+  /// Callers must ensure the returned slice is not used beyond its lifetime.
   #[allow(clippy::mut_from_ref)]
   unsafe fn peek(
     &self,
     buf: &mut [MaybeUninit<MaybeRef<'_, CachedToken<'a, T>>>],
   ) -> &mut [MaybeRef<'_, CachedToken<'a, T>>];
 
-  /// Pushes a batch of tokens into the cache.
+  /// Pushes multiple tokens into the cache at once.
   ///
-  /// # Note
+  /// Attempts to cache all tokens from the iterator. If the cache becomes full,
+  /// returns an iterator over the tokens that could not be cached.
   ///
-  /// If the cache is full, returns an iterator over the tokens that not be cached.
+  /// # Example
+  ///
+  /// ```ignore
+  /// let overflow = cache.push_many(token_iter);
+  /// for token in overflow {
+  ///     // Handle tokens that didn't fit in cache
+  /// }
+  /// ```
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn push_many<'p>(
     &'p mut self,
@@ -898,13 +1229,22 @@ pub trait Cache<'a, T: Token<'a>> {
     toks.filter_map(move |tok| self.push_back(tok).err())
   }
 
-  /// Returns the first cached token.
+  /// Returns a reference to the first (oldest) cached token.
+  ///
+  /// Returns `None` if the cache is empty. This does not remove the token.
   fn first(&self) -> Option<&CachedToken<'a, T>>;
 
-  /// Returns the last cached token.
+  /// Returns a reference to the last (newest) cached token.
+  ///
+  /// Returns `None` if the cache is empty. This does not remove the token.
   fn last(&self) -> Option<&CachedToken<'a, T>>;
 
-  /// Returns the span of the cached tokens, from the start of the first to the end of the last.
+  /// Returns the combined span covering all cached tokens.
+  ///
+  /// If the cache has tokens, returns a span from the start of the first token
+  /// to the end of the last token. Returns `None` if the cache is empty.
+  ///
+  /// This is useful for error reporting or understanding the range of lookahead.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn span(&self) -> Option<Span> {
     match (self.first(), self.last()) {
@@ -917,19 +1257,29 @@ pub trait Cache<'a, T: Token<'a>> {
   }
 
   /// Returns the span of the first cached token.
+  ///
+  /// Returns `None` if the cache is empty. This is often used to determine
+  /// where the next consumed token will come from.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn span_first(&self) -> Option<Span> {
     self.first().map(|t| t.token().span())
   }
 
   /// Returns the span of the last cached token.
+  ///
+  /// Returns `None` if the cache is empty. This can be used to determine
+  /// where the cache's lookahead ends.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn span_last(&self) -> Option<Span> {
     self.last().map(|t| t.token().span())
   }
 }
 
-/// A block hole will eat all the stuff.
+/// A black hole cache that discards all tokens.
+///
+/// `BlackHole` implements the [`Cache`] trait but doesn't actually store any tokens.
+/// All tokens pushed to it are immediately discarded. This is useful when you want to
+/// process tokens in a streaming fashion without maintaining a lookahead buffer.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct BlackHole;
 
