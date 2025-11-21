@@ -323,6 +323,8 @@ where
       // Otherwise, let's skip the input
       false => {
         let mut lexer = self.lexer();
+        let mut end = self.cursor;
+        let mut state = self.state.clone();
 
         while let Some(lexed) = Lexed::<T>::lex_spanned(&mut lexer) {
           // if the token matches, we cache it and return it
@@ -331,11 +333,17 @@ where
               lexed,
               lexer.extras.clone(),
             );
+            self.set_cursor(end);
+            self.state = state;
+
             return match self.cache.push_back(ct) {
               Ok(tok) => Some(MaybeRef::Ref(tok)),
               Err(ct) => Some(MaybeRef::Owned(ct)),
             }
           }
+
+          end = lexer.span().end;
+          state = lexer.extras.clone();
         }
 
         // No matched token found, we just update the cursor and state
@@ -363,6 +371,86 @@ where
   /// Returns the number of skipped error tokens.
   pub fn skip_until_valid(&mut self) -> Option<MaybeRef<'_, CachedToken<'a, T>>> {
     self.skip_until(|t| matches!(t.data, Lexed::Token(_)))
+  }
+
+  /// a
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn skip_until_with_emitter<F, E>(&mut self, mut pred: F, mut emitter: E) -> Result<Option<MaybeRef<'_, CachedToken<'a, T>>>, E::Error>
+  where
+    E: Emitter<'a, T>,
+    F: FnMut(Spanned<&T>, &mut E) -> bool,
+  {
+    // pop from cache if not matching
+    while let Some(tok) = self.cache.pop_front_if(|t| {
+      let span = t.token().span();
+      match t.token().data() {
+        Lexed::Token(tok) => !pred(Spanned::new(span, tok), &mut emitter),
+        Lexed::Error(_) => true,
+      }
+    }) {
+      let span = tok.token().span();
+      self.set_cursor(span.end());
+      self.state = tok.state;
+      if let Lexed::Error(e) = tok.token.into_data() {
+        emitter.emit_token_error(Spanned::new(span, e))?;
+      }
+    }
+
+    // as the matched token will not be consumed, we just peek it
+    match !self.cache.is_empty() {
+      // If the matched token is in cache, return it
+      true => Ok(self.cache.peek_one()),
+      // Otherwise, let's skip the input
+      false => {
+        let mut lexer = self.lexer();
+
+        let mut end = self.cursor;
+        let mut state = self.state.clone();
+
+        while let Some(Spanned { span, data: tok }) = Lexed::<T>::lex_spanned(&mut lexer) {
+          match tok {
+            Lexed::Error(err) => {
+              match emitter.emit_token_error(Spanned::new(span, err)) {
+                Ok(_) => {
+                  end = lexer.span().end;
+                  state = lexer.extras.clone();
+                },
+                Err(e) => {
+                  self.set_cursor(lexer.span().end);
+                  self.state = lexer.extras;
+                  return Err(e)
+                },
+              }
+            }
+            Lexed::Token(tok) => {
+              let tok = Spanned::new(span, tok);
+              // if the token matches, we cache it and return it
+              if pred(tok.as_ref(), &mut emitter) {
+                let ct = CachedToken::new(
+                  tok.map_data(Lexed::Token),
+                  lexer.extras,
+                );
+                self.set_cursor(end);
+                self.state = state;
+                return Ok(match self.cache.push_back(ct) {
+                  Ok(tok) => Some(MaybeRef::Ref(tok)),
+                  Err(ct) => Some(MaybeRef::Owned(ct)),
+                })
+              }
+
+              end = lexer.span().end;
+              state = lexer.extras.clone();
+            },
+          }
+        }
+
+        // No matched token found, we just update the cursor and state
+        self.set_cursor(lexer.span().end);
+        self.state = lexer.extras;
+
+        Ok(None)
+      },
+    }
   }
 
   /// Peeks the next token without advancing the cursor.
@@ -459,7 +547,6 @@ where
   pub fn next_valid_with<E>(
     &mut self,
     mut emitter: E,
-    f: impl Fn(<T::Logos as Logos<'a>>::Error) -> E::Error,
   ) -> Result<Option<Spanned<T>>, E::Error>
   where
     E: Emitter<'a, T>,
@@ -473,7 +560,7 @@ where
       match lexed {
         Lexed::Token(t) => return Ok(Some(Spanned::new(span, t))),
         Lexed::Error(e) => {
-          emitter.emit(Spanned::new(span, f(e)))?;
+          emitter.emit_token_error(Spanned::new(span, e))?;
           continue;
         }
       }
@@ -490,7 +577,7 @@ where
       match lexed {
         Lexed::Token(t) => return Ok(Some(Spanned::new(span, t))),
         Lexed::Error(e) => {
-          emitter.emit(Spanned::new(span, f(e)))?;
+          emitter.emit_token_error(Spanned::new(span, e))?;
           continue;
         }
       }
@@ -499,14 +586,14 @@ where
     Ok(None)
   }
 
-  /// Advances the cursor and returns the next valid token, emit non-fatal errors, fatal errors are returned and stop the process.
-  pub fn next_valid<E>(&mut self, emitter: E) -> Result<Option<Spanned<T>>, E::Error>
-  where
-    E: Emitter<'a, T>,
-    E::Error: From<<T::Logos as Logos<'a>>::Error>,
-  {
-    self.next_valid_with(emitter, From::from)
-  }
+  // /// Advances the cursor and returns the next valid token, emit non-fatal errors, fatal errors are returned and stop the process.
+  // pub fn next_valid<E>(&mut self, emitter: E) -> Result<Option<Spanned<T>>, E::Error>
+  // where
+  //   E: Emitter<'a, T>,
+  //   E::Error: From<<T::Logos as Logos<'a>>::Error>,
+  // {
+  //   self.next_valid_with(emitter)
+  // }
 
   /// Advances the cursor and returns the next token.
   #[allow(clippy::should_implement_trait)]
@@ -617,8 +704,11 @@ pub trait Emitter<'a, T: Token<'a>> {
   /// The error type emitted.
   type Error;
 
+  /// Emits a non-fatal token error, if this error is a fatal error, then returns the error back.
+  fn emit_token_error(&mut self, err: Spanned<<T::Logos as Logos<'a>>::Error>) -> Result<(), Self::Error>;
+
   /// Emits a non-fatal error, if this error is a fatal error, then returns the error back.
-  fn emit(&mut self, err: Spanned<Self::Error>) -> Result<(), Self::Error>;
+  fn emit_error(&mut self, err: Spanned<Self::Error>) -> Result<(), Self::Error>;
 }
 
 impl<'a, T, U> Emitter<'a, T> for &mut U
@@ -629,8 +719,13 @@ where
   type Error = U::Error;
 
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn emit(&mut self, err: Spanned<Self::Error>) -> Result<(), Self::Error> {
-    (**self).emit(err)
+  fn emit_error(&mut self, err: Spanned<Self::Error>) -> Result<(), Self::Error> {
+    (**self).emit_error(err)
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn emit_token_error(&mut self, err: Spanned<<T::Logos as Logos<'a>>::Error>) -> Result<(), Self::Error> {
+    (**self).emit_token_error(err)
   }
 }
 
@@ -806,7 +901,11 @@ pub trait Cache<'a, T: Token<'a>> {
   }
 }
 
-impl<'a, T> Cache<'a, T> for ()
+/// A block hole will eat all the stuff.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct BlackHole;
+
+impl<'a, T> Cache<'a, T> for BlackHole
 where
   T: Token<'a>,
 {
@@ -865,3 +964,21 @@ where
     None
   }
 }
+
+impl<'a, T> Emitter<'a, T> for BlackHole
+where
+  T: Token<'a>,
+{
+  type Error = core::convert::Infallible;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn emit_token_error(&mut self, _err: Spanned<<T::Logos as Logos<'a>>::Error>) -> Result<(), Self::Error> {
+    Ok(())
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn emit_error(&mut self, _err: Spanned<Self::Error>) -> Result<(), Self::Error> {
+    Ok(())
+  }
+}
+
