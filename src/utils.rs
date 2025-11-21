@@ -821,12 +821,12 @@ impl<D> Spanned<D> {
   }
 
   /// Returns a mutable reference to the span and data.
-  /// 
+  ///
   /// ## Example
-  /// 
+  ///
   /// ```rust
   /// use logosky::utils::{Span, Spanned};
-  /// 
+  ///
   /// let mut spanned = Spanned::new(Span::new(5, 10), String::from("hello"));
   /// let borrowed: Spanned<&mut String> = spanned.as_mut();
   /// borrowed.data.push_str(" world");

@@ -215,15 +215,32 @@ impl<'a, T: Token<'a>, C> Tokenizer<'a, T, C> {
   fn lexer(&self) -> logos::Lexer<'a, T::Logos>
   where
     <T::Logos as Logos<'a>>::Extras: Clone,
+    C: Cache<'a, T>,
   {
     let mut lexer = logos::Lexer::<T::Logos>::with_extras(self.input, self.state.clone());
-    lexer.bump(self.cursor);
+    lexer.bump(
+      self
+        .cache
+        .span_last()
+        .map(|s| s.end())
+        .unwrap_or(self.cursor),
+    );
     lexer
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn set_cursor(&mut self, new: usize) {
     self.cursor = new.min(self.input.len());
+  }
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn set_cursor_to_latest(&mut self, new: usize)
+  where
+    C: Cache<'a, T>,
+  {
+    self.cursor = new
+      .max(self.cache.span_first().map(|s| s.start()).unwrap_or(new))
+      .min(self.input.len());
   }
 }
 
@@ -239,13 +256,13 @@ where
   pub fn consume_one(&mut self) -> Option<Spanned<Lexed<'a, T>>> {
     let tok = self.cache.pop_front()?;
     let (tok, extras): (Spanned<Lexed<'a, T>>, _) = tok.into_components();
-    self.set_cursor(tok.span().end());
+    self.set_cursor_to_latest(tok.span().end());
     self.state = extras;
     Some(tok)
   }
 
   /// Consumes tokens from cache until the predicate returns `true`, the cursor is advanced to the end of the last consumed token.
-  /// 
+  ///
   /// Returns the last consumed token.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn consume_until<F>(&mut self, mut f: F) -> Option<Spanned<Lexed<'a, T>>>
@@ -254,8 +271,8 @@ where
   {
     let mut last = None;
     // pop from cache if not matching
-    while let Some(tok) = self.cache.pop_front_if(|t| !f(t))  { 
-      self.set_cursor(tok.token().span().end());
+    while let Some(tok) = self.cache.pop_front_if(|t| !f(t)) {
+      self.set_cursor_to_latest(tok.token().span().end());
       let (tok, state) = tok.into_components();
       self.state = state;
       last = Some(tok);
@@ -265,7 +282,7 @@ where
   }
 
   /// Consumes tokens from cache while the predicate returns `true`, the cursor is advanced to the end of the last consumed token.
-  /// 
+  ///
   /// Returns the last consumed token.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn consume_while<F>(&mut self, mut f: F) -> Option<Spanned<Lexed<'a, T>>>
@@ -276,14 +293,14 @@ where
   }
 
   /// Consumes all cached tokens, the cursor is advanced to the end of the last cached token.
-  /// 
+  ///
   /// Returns the last consumed token.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn consume_all(&mut self) -> Option<Spanned<Lexed<'a, T>>> {
     let last = self.cache.pop_back()?;
     self.cache.clear();
     let (tok, extras): (Spanned<Lexed<'a, T>>, _) = last.into_components();
-    self.set_cursor(tok.span().end());
+    self.set_cursor_to_latest(tok.span().end());
     self.state = extras;
     Some(tok)
   }
@@ -294,7 +311,7 @@ where
     if let Some(cached_token) = self.cache.pop_front() {
       let (spanned_lexed, extras) = cached_token.into_components();
       let (span, _lexed) = spanned_lexed.into_components();
-      self.set_cursor(span.end());
+      self.set_cursor_to_latest(span.end());
       self.state = extras;
       true
     } else {
@@ -303,7 +320,7 @@ where
   }
 
   /// Skips tokens until a valid token is found or the end of input is reached.
-  /// 
+  ///
   /// Returns the first valid token found, but without consuming it.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn skip_until<F>(&mut self, mut pred: F) -> Option<MaybeRef<'_, CachedToken<'a, T>>>
@@ -311,8 +328,8 @@ where
     F: FnMut(&Spanned<Lexed<'a, T>>) -> bool,
   {
     // pop from cache if not matching
-    while let Some(tok) = self.cache.pop_front_if(|t| !pred(t.token()))  { 
-      self.set_cursor(tok.token().span().end());
+    while let Some(tok) = self.cache.pop_front_if(|t| !pred(t.token())) {
+      self.set_cursor_to_latest(tok.token().span().end());
       self.state = tok.state;
     }
 
@@ -329,17 +346,14 @@ where
         while let Some(lexed) = Lexed::<T>::lex_spanned(&mut lexer) {
           // if the token matches, we cache it and return it
           if pred(&lexed) {
-            let ct = CachedToken::new(
-              lexed,
-              lexer.extras.clone(),
-            );
-            self.set_cursor(end);
+            let ct = CachedToken::new(lexed, lexer.extras.clone());
+            self.set_cursor_to_latest(end);
             self.state = state;
 
             return match self.cache.push_back(ct) {
               Ok(tok) => Some(MaybeRef::Ref(tok)),
               Err(ct) => Some(MaybeRef::Owned(ct)),
-            }
+            };
           }
 
           end = lexer.span().end;
@@ -347,16 +361,16 @@ where
         }
 
         // No matched token found, we just update the cursor and state
-        self.set_cursor(lexer.span().end);
+        self.set_cursor_to_latest(lexer.span().end);
         self.state = lexer.extras;
 
         None
-      },
+      }
     }
   }
 
   /// Skips tokens while the predicate returns `true`.
-  /// 
+  ///
   /// Returns the first token that does not match the predicate, but without consuming it.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn skip_while<F>(&mut self, mut pred: F) -> Option<MaybeRef<'_, CachedToken<'a, T>>>
@@ -368,14 +382,18 @@ where
 
   /// Skips error tokens until a valid token is found or the end of input is reached.
   ///
-  /// Returns the number of skipped error tokens.
+  /// Returns the first valid token found, but without consuming it.
   pub fn skip_until_valid(&mut self) -> Option<MaybeRef<'_, CachedToken<'a, T>>> {
     self.skip_until(|t| matches!(t.data, Lexed::Token(_)))
   }
 
   /// a
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn skip_until_with_emitter<F, E>(&mut self, mut pred: F, mut emitter: E) -> Result<Option<MaybeRef<'_, CachedToken<'a, T>>>, E::Error>
+  pub fn skip_until_with_emitter<F, E>(
+    &mut self,
+    mut pred: F,
+    mut emitter: E,
+  ) -> Result<Option<MaybeRef<'_, CachedToken<'a, T>>>, E::Error>
   where
     E: Emitter<'a, T>,
     F: FnMut(Spanned<&T>, &mut E) -> bool,
@@ -389,7 +407,7 @@ where
       }
     }) {
       let span = tok.token().span();
-      self.set_cursor(span.end());
+      self.set_cursor_to_latest(span.end());
       self.state = tok.state;
       if let Lexed::Error(e) = tok.token.into_data() {
         emitter.emit_token_error(Spanned::new(span, e))?;
@@ -409,47 +427,42 @@ where
 
         while let Some(Spanned { span, data: tok }) = Lexed::<T>::lex_spanned(&mut lexer) {
           match tok {
-            Lexed::Error(err) => {
-              match emitter.emit_token_error(Spanned::new(span, err)) {
-                Ok(_) => {
-                  end = lexer.span().end;
-                  state = lexer.extras.clone();
-                },
-                Err(e) => {
-                  self.set_cursor(lexer.span().end);
-                  self.state = lexer.extras;
-                  return Err(e)
-                },
+            Lexed::Error(err) => match emitter.emit_token_error(Spanned::new(span, err)) {
+              Ok(_) => {
+                end = lexer.span().end;
+                state = lexer.extras.clone();
               }
-            }
+              Err(e) => {
+                self.set_cursor_to_latest(lexer.span().end);
+                self.state = lexer.extras;
+                return Err(e);
+              }
+            },
             Lexed::Token(tok) => {
               let tok = Spanned::new(span, tok);
               // if the token matches, we cache it and return it
               if pred(tok.as_ref(), &mut emitter) {
-                let ct = CachedToken::new(
-                  tok.map_data(Lexed::Token),
-                  lexer.extras,
-                );
-                self.set_cursor(end);
+                let ct = CachedToken::new(tok.map_data(Lexed::Token), lexer.extras);
+                self.set_cursor_to_latest(end);
                 self.state = state;
                 return Ok(match self.cache.push_back(ct) {
                   Ok(tok) => Some(MaybeRef::Ref(tok)),
                   Err(ct) => Some(MaybeRef::Owned(ct)),
-                })
+                });
               }
 
               end = lexer.span().end;
               state = lexer.extras.clone();
-            },
+            }
           }
         }
 
         // No matched token found, we just update the cursor and state
-        self.set_cursor(lexer.span().end);
+        self.set_cursor_to_latest(lexer.span().end);
         self.state = lexer.extras;
 
         Ok(None)
-      },
+      }
     }
   }
 
@@ -481,10 +494,13 @@ where
   // }
 
   /// Try to peeks tokens to fill the provided buffer, if not enough tokens are cached, lex more tokens to fill the buffer.
-  /// 
+  ///
   /// The returned slice will contain only the initialized tokens.
   #[inline]
-  pub fn peek(&mut self, buf: &mut [MaybeUninit<MaybeRef<'_, CachedToken<'a, T>>>]) -> &mut [MaybeRef<'_, CachedToken<'a, T>>] {
+  pub fn peek(
+    &mut self,
+    buf: &mut [MaybeUninit<MaybeRef<'_, CachedToken<'a, T>>>],
+  ) -> &mut [MaybeRef<'_, CachedToken<'a, T>>] {
     let buf_len = buf.len();
     let mut in_cache = self.cache.len();
     let mut want = buf_len.saturating_sub(in_cache);
@@ -509,7 +525,7 @@ where
           }
           Err(ct) => {
             buf[buf_len - want].write(MaybeRef::Owned(ct));
-          },
+          }
         }
         want -= 1;
       } else {
@@ -518,7 +534,10 @@ where
     }
 
     let output = unsafe { self.cache.peek(&mut buf[..in_cache]) };
-    debug_assert!(output.len() == in_cache, "Cache peek returned unexpected number of tokens");
+    debug_assert!(
+      output.len() == in_cache,
+      "Cache peek returned unexpected number of tokens"
+    );
     output
   }
 
@@ -531,7 +550,13 @@ where
   /// Returns the current cursor of the tokenizer.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub fn cursor(&self) -> Cursor<'a, '_, T> {
-    Cursor::new(self.cursor)
+    Cursor::new(
+      self
+        .cache
+        .span_first()
+        .map(|s| s.start())
+        .unwrap_or(self.cursor),
+    )
   }
 
   /// Jumps to the given checkpoint.
@@ -544,10 +569,7 @@ where
   }
 
   /// Advances the cursor and returns the next valid token, emit non-fatal errors, fatal errors are returned and stop the process.
-  pub fn next_valid_with<E>(
-    &mut self,
-    mut emitter: E,
-  ) -> Result<Option<Spanned<T>>, E::Error>
+  pub fn next_valid_with<E>(&mut self, mut emitter: E) -> Result<Option<Spanned<T>>, E::Error>
   where
     E: Emitter<'a, T>,
   {
@@ -555,7 +577,7 @@ where
     while let Some(cached_token) = self.cache.pop_front() {
       let (spanned_lexed, extras) = cached_token.into_components();
       let (span, lexed) = spanned_lexed.into_components();
-      self.set_cursor(span.end());
+      self.set_cursor_to_latest(span.end());
       self.state = extras;
       match lexed {
         Lexed::Token(t) => return Ok(Some(Spanned::new(span, t))),
@@ -571,7 +593,7 @@ where
 
     while let Some(lexed) = Lexed::lex_spanned(&mut lexer) {
       let (span, lexed) = lexed.into_components();
-      self.set_cursor(lexer.span().end);
+      self.set_cursor_to_latest(lexer.span().end);
       self.state = lexer.extras.clone();
 
       match lexed {
@@ -601,16 +623,14 @@ where
     if let Some(cached_token) = self.cache.pop_front() {
       let (spanned_lexed, extras) = cached_token.into_components();
       let (span, lexed) = spanned_lexed.into_components();
-      self.set_cursor(span.end());
+      self.set_cursor_to_latest(span.end());
       self.state = extras;
       return Some(Spanned::new(span, lexed));
     }
 
-    let state = self.state.clone();
-    let mut lexer = logos::Lexer::<T::Logos>::with_extras(self.input, state);
-    lexer.bump(self.cursor);
+    let mut lexer = self.lexer();
     Lexed::lex_spanned(&mut lexer).inspect(|_| {
-      self.set_cursor(lexer.span().end);
+      self.set_cursor_to_latest(lexer.span().end);
       self.state = lexer.extras.clone();
     })
   }
@@ -705,7 +725,10 @@ pub trait Emitter<'a, T: Token<'a>> {
   type Error;
 
   /// Emits a non-fatal token error, if this error is a fatal error, then returns the error back.
-  fn emit_token_error(&mut self, err: Spanned<<T::Logos as Logos<'a>>::Error>) -> Result<(), Self::Error>;
+  fn emit_token_error(
+    &mut self,
+    err: Spanned<<T::Logos as Logos<'a>>::Error>,
+  ) -> Result<(), Self::Error>;
 
   /// Emits a non-fatal error, if this error is a fatal error, then returns the error back.
   fn emit_error(&mut self, err: Spanned<Self::Error>) -> Result<(), Self::Error>;
@@ -724,7 +747,10 @@ where
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn emit_token_error(&mut self, err: Spanned<<T::Logos as Logos<'a>>::Error>) -> Result<(), Self::Error> {
+  fn emit_token_error(
+    &mut self,
+    err: Spanned<<T::Logos as Logos<'a>>::Error>,
+  ) -> Result<(), Self::Error> {
     (**self).emit_token_error(err)
   }
 }
@@ -752,7 +778,7 @@ impl<'a, T: Token<'a>> CachedToken<'a, T> {
   /// Creates a new cached token.
   #[cfg_attr(not(tarpaulin), inline(always))]
   const fn new(token: Spanned<Lexed<'a, T>>, state: <T::Logos as Logos<'a>>::Extras) -> Self {
-    Self { token, state, }
+    Self { token, state }
   }
 
   /// Returns a reference to the token.
@@ -849,7 +875,7 @@ pub trait Cache<'a, T: Token<'a>> {
   /// Try to peeks cached tokens without removing them.
   ///
   /// The provided buffer will be filled with the peeked tokens, and the returned slice will contain only the initialized tokens.
-  /// 
+  ///
   /// # Safety
   /// - The implementor must ensure that the returned slice only contains initialized tokens.
   /// - The implementor must ensure all cached tokens should be filled into the provided buffer if the buffer is large enough.
@@ -868,8 +894,7 @@ pub trait Cache<'a, T: Token<'a>> {
   fn push_many<'p>(
     &'p mut self,
     toks: impl Iterator<Item = CachedToken<'a, T>> + 'p,
-  ) -> impl Iterator<Item = CachedToken<'a, T>> + 'p
-  {
+  ) -> impl Iterator<Item = CachedToken<'a, T>> + 'p {
     toks.filter_map(move |tok| self.push_back(tok).err())
   }
 
@@ -883,7 +908,10 @@ pub trait Cache<'a, T: Token<'a>> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn span(&self) -> Option<Span> {
     match (self.first(), self.last()) {
-      (Some(first), Some(last)) => Some(Span::new(first.token().span().start(), last.token().span().end())),
+      (Some(first), Some(last)) => Some(Span::new(
+        first.token().span().start(),
+        last.token().span().end(),
+      )),
       _ => None,
     }
   }
@@ -972,7 +1000,10 @@ where
   type Error = core::convert::Infallible;
 
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn emit_token_error(&mut self, _err: Spanned<<T::Logos as Logos<'a>>::Error>) -> Result<(), Self::Error> {
+  fn emit_token_error(
+    &mut self,
+    _err: Spanned<<T::Logos as Logos<'a>>::Error>,
+  ) -> Result<(), Self::Error> {
     Ok(())
   }
 
@@ -981,4 +1012,3 @@ where
     Ok(())
   }
 }
-
