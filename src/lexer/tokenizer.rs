@@ -206,6 +206,18 @@ impl<'a, T: Token<'a>, C> Tokenizer<'a, T, C> {
     self.input
   }
 
+  /// Returns a reference to the current lexer state (extras)
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn state(&self) -> &<T::Logos as Logos<'a>>::Extras {
+    &self.state
+  }
+
+  /// Manually sets the lexer state (for context-sensitive lexing)
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn set_state(&mut self, state: <T::Logos as Logos<'a>>::Extras) {
+    self.state = state;
+  }
+
   /// Returns an iterator over the tokens of the lexer.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn iter(&mut self) -> iter::Iter<'a, '_, T, C> {
@@ -411,6 +423,8 @@ where
   pub fn span(&self, range: Range<&Cursor<'a, '_, T, C>>) -> Span {
     Span::new(range.start.cursor, range.end.cursor)
   }
+
+
 
   /// Consumes one token from the peeked tokens and returns the consumed token if any, the cursor is advanced.
   #[cfg_attr(not(tarpaulin), inline(always))]
