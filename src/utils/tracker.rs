@@ -514,6 +514,11 @@ impl Limiter {
 
 impl State for Limiter {
   type Error = LimitExceeded;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn check(&self) -> Result<(), Self::Error> {
+    <Self as Tracker>::check(self)
+  }
 }
 
 impl RecursionTracker for Limiter {

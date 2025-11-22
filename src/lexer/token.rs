@@ -1,10 +1,6 @@
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
-use logos::{Lexer, Source};
 
 use crate::utils::{Spanned, cmp::Equivalent};
-
-#[cfg(feature = "chumsky")]
-use crate::Tokenizer;
 
 pub use logos::Logos;
 
@@ -97,7 +93,7 @@ pub enum Lexed<'a, T: Token<'a>> {
   ///
   /// The error type is determined by the Logos lexer's error type. It typically
   /// contains information about what went wrong and where in the input it occurred.
-  Error(<T::Logos as Logos<'a>>::Error),
+  Error(T::Error),
 }
 
 impl<'a, T> Clone for Lexed<'a, T>
@@ -116,30 +112,36 @@ where
 impl<'a, T> Copy for Lexed<'a, T>
 where
   T: Token<'a> + Copy,
-  <T::Logos as Logos<'a>>::Error: Copy,
+  T::Error: Copy,
 {
 }
 
 impl<'a, T: Token<'a>> Lexed<'a, T> {
   /// Lexes the next token from the given lexer, returning `None` if the input is exhausted.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn lex(lexer: &mut Lexer<'a, T::Logos>) -> Option<Self> {
-    lexer.next().map(|res| res.map(|tok| T::from(tok)).into())
+  pub fn lex<L>(lexer: &mut L) -> Option<Self>
+  where
+    L: super::Lexer<'a, T>,
+  {
+    lexer.lex().map(|res| res.into())
   }
 
   /// Lexes the next token from the given lexer, returning `None` if the input is exhausted.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn lex_spanned(lexer: &mut Lexer<'a, T::Logos>) -> Option<Spanned<Self>> {
+  pub fn lex_spanned<L>(lexer: &mut L) -> Option<Spanned<Self>>
+  where
+    L: super::Lexer<'a, T>,
+  {
     lexer
-      .next()
-      .map(|res| Spanned::new(lexer.span().into(), res.map(|tok| T::from(tok)).into()))
+      .lex()
+      .map(|res| Spanned::new(lexer.span(), res.into()))
   }
 }
 
 impl<'a, T: 'a> core::fmt::Display for Lexed<'a, T>
 where
   T: Token<'a> + core::fmt::Display,
-  <T::Logos as Logos<'a>>::Error: core::fmt::Display,
+  T::Error: core::fmt::Display,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -150,9 +152,9 @@ where
   }
 }
 
-impl<'a, T: Token<'a>> From<Result<T, <T::Logos as Logos<'a>>::Error>> for Lexed<'a, T> {
+impl<'a, T: Token<'a>> From<Result<T, T::Error>> for Lexed<'a, T> {
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn from(value: Result<T, <T::Logos as Logos<'a>>::Error>) -> Self {
+  fn from(value: Result<T, T::Error>) -> Self {
     match value {
       Ok(tok) => Self::Token(tok),
       Err(err) => Self::Error(err),
@@ -160,7 +162,7 @@ impl<'a, T: Token<'a>> From<Result<T, <T::Logos as Logos<'a>>::Error>> for Lexed
   }
 }
 
-impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, <T::Logos as Logos<'a>>::Error> {
+impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, T::Error> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn from(value: Lexed<'a, T>) -> Self {
     match value {
@@ -311,14 +313,9 @@ impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, <T::Logos as Logos<'a>>:
 ///     }
 /// }
 /// ```
-pub trait Token<'a>: Clone + core::fmt::Debug + From<Self::Logos> + 'a {
-  /// The character type used by the lexer.
-  ///
-  /// - Use `char` for text-based lexers processing UTF-8 strings
-  /// - Use `u8` for byte-based lexers processing binary data or non-UTF-8 input
-  ///
-  /// This type must match the character type used by the Logos lexer's source.
-  type Char: Copy + core::fmt::Debug + PartialEq + Eq + core::hash::Hash;
+pub trait Token<'a>: Clone + core::fmt::Debug + 'a {
+  /// The source type of the lexer.
+  type Source: super::Source + ?Sized;
 
   /// The token kind discriminant used to categorize tokens.
   ///
@@ -334,11 +331,8 @@ pub trait Token<'a>: Clone + core::fmt::Debug + From<Self::Logos> + 'a {
   /// - Must be `Hash` for use in hash-based collections
   type Kind: Copy + core::fmt::Debug + PartialEq + Eq + core::hash::Hash;
 
-  /// The Logos enum that this token type wraps.
-  ///
-  /// This is the raw output from the Logos lexer. The `From<Self::Logos>` trait
-  /// implementation converts from this type to the structured `Token` type.
-  type Logos: Logos<'a> + Clone;
+  /// The error type of this token.
+  type Error: Clone + core::fmt::Debug;
 
   /// Returns the kind (category) of this token.
   ///
@@ -1237,20 +1231,18 @@ pub trait IdentifierToken<'a>: Token<'a> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn matches_identifier(&self, name: &str) -> bool
   where
-    str: Equivalent<<<Self::Logos as Logos<'a>>::Source as Source>::Slice<'a>>,
+    str: Equivalent<<Self::Source as super::Source>::Slice<'a>>,
   {
     self.identifier().is_some_and(|id| name.equivalent(id))
   }
 
   /// Returns the identifier source, if this token is an identifier.
-  fn identifier(&self) -> Option<&<<Self::Logos as Logos<'a>>::Source as Source>::Slice<'a>> {
+  fn identifier(&self) -> Option<&<Self::Source as super::Source>::Slice<'a>> {
     None
   }
 
   /// Attempts to get the identifier source, returning the `Err(Self)` if this token is not an identifier.
-  fn try_into_identifier(
-    self,
-  ) -> Result<<<Self::Logos as Logos<'a>>::Source as Source>::Slice<'a>, Self>
+  fn try_into_identifier(self) -> Result<<Self::Source as super::Source>::Slice<'a>, Self>
   where
     Self: Sized;
 }
@@ -1919,35 +1911,35 @@ pub trait Require<O> {
     Self: Sized;
 }
 
-/// The token extension trait.
-pub trait TokenExt<'a>: Token<'a> {
-  /// Returns a lexer for the token type from the given input.
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  #[cfg(feature = "chumsky")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
-  fn lexer(input: &'a <Self::Logos as Logos<'a>>::Source) -> Tokenizer<'a, Self>
-  where
-    <Self::Logos as Logos<'a>>::Extras: Default,
-  {
-    Tokenizer::new(input)
-  }
+// /// The token extension trait.
+// pub trait TokenExt<'a>: Token<'a> {
+//   /// Returns a lexer for the token type from the given input.
+//   #[cfg_attr(not(tarpaulin), inline(always))]
+//   #[cfg(feature = "chumsky")]
+//   #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
+//   fn lexer(input: &'a Self::Source) -> Tokenizer<'a, Self>
+//   where
+//     Self::Extras: Default,
+//   {
+//     Tokenizer::new(input)
+//   }
 
-  /// Returns a lexer for the token type from the given input.
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  #[cfg(feature = "chumsky")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
-  fn lexer_with_state(
-    input: &'a <Self::Logos as Logos<'a>>::Source,
-    state: <Self::Logos as Logos<'a>>::Extras,
-  ) -> Tokenizer<'a, Self> {
-    Tokenizer::with_state(input, state)
-  }
+//   /// Returns a lexer for the token type from the given input.
+//   #[cfg_attr(not(tarpaulin), inline(always))]
+//   #[cfg(feature = "chumsky")]
+//   #[cfg_attr(docsrs, doc(cfg(feature = "chumsky")))]
+//   fn lexer_with_state(
+//     input: &'a <Self::Logos as Logos<'a>>::Source,
+//     state: <Self::Logos as Logos<'a>>::Extras,
+//   ) -> Tokenizer<'a, Self> {
+//     Tokenizer::with_state(input, state)
+//   }
 
-  /// Lexes the next token from the given lexer, returning `None` if the input is exhausted.
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn lex(lexer: &mut Lexer<'a, Self::Logos>) -> Option<Lexed<'a, Self>> {
-    Lexed::lex(lexer)
-  }
-}
+//   /// Lexes the next token from the given lexer, returning `None` if the input is exhausted.
+//   #[cfg_attr(not(tarpaulin), inline(always))]
+//   fn lex(lexer: &mut Lexer<'a, Self::Logos>) -> Option<Lexed<'a, Self>> {
+//     Lexed::lex(lexer)
+//   }
+// }
 
-impl<'a, T> TokenExt<'a> for T where T: Token<'a> {}
+// impl<'a, T> TokenExt<'a> for T where T: Token<'a> {}

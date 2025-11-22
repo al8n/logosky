@@ -271,6 +271,11 @@ impl RecursionLimiter {
 
 impl State for RecursionLimiter {
   type Error = RecursionLimitExceeded;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn check(&self) -> Result<(), Self::Error> {
+    <Self as RecursionTracker>::check(self)
+  }
 }
 
 /// A recursion tracker trait.

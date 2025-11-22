@@ -2,22 +2,23 @@ use super::*;
 
 /// An iterator over the tokens produced by a [`Tokenizer`].
 #[derive(derive_more::From, derive_more::Into)]
-pub struct IntoIter<'a, T: Token<'a>, C> {
-  stream: Tokenizer<'a, T, C>,
+pub struct IntoIter<'a, T: Token<'a>, L: Lexer<'a, T>, C> {
+  stream: Tokenizer<'a, T, L, C>,
 }
 
-impl<'a, T, C> IntoIter<'a, T, C>
+impl<'a, T, L, C> IntoIter<'a, T, L, C>
 where
   T: Token<'a>,
+  L: Lexer<'a, T>,
 {
-  pub(super) const fn new(stream: Tokenizer<'a, T, C>) -> Self {
+  pub(super) const fn new(stream: Tokenizer<'a, T, L, C>) -> Self {
     Self { stream }
   }
 }
 
-impl<'a, T: Token<'a>, C> Clone for IntoIter<'a, T, C>
+impl<'a, T: Token<'a>, L: Lexer<'a, T>, C> Clone for IntoIter<'a, T, L, C>
 where
-  <T::Logos as Logos<'a>>::Extras: Clone,
+  L::State: Clone,
   C: Clone,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -28,11 +29,12 @@ where
   }
 }
 
-impl<'a, T, C> core::fmt::Debug for IntoIter<'a, T, C>
+impl<'a, T, L, C> core::fmt::Debug for IntoIter<'a, T, L, C>
 where
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Source: core::fmt::Debug,
-  <T::Logos as Logos<'a>>::Extras: core::fmt::Debug,
+  T::Source: core::fmt::Debug,
+  L: Lexer<'a, T>,
+  L::State: core::fmt::Debug,
   C: core::fmt::Debug,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -41,14 +43,15 @@ where
   }
 }
 
-impl<'a, T, C> IntoIterator for Tokenizer<'a, T, C>
+impl<'a, T, L, C> IntoIterator for Tokenizer<'a, T, L, C>
 where
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Extras: Clone,
-  C: Cache<'a, T>,
+  L: Lexer<'a, T>,
+  L::State: Clone,
+  C: Cache<'a, T, L>,
 {
   type Item = Spanned<Lexed<'a, T>>;
-  type IntoIter = IntoIter<'a, T, C>;
+  type IntoIter = IntoIter<'a, T, L, C>;
 
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn into_iter(self) -> Self::IntoIter {
@@ -56,11 +59,12 @@ where
   }
 }
 
-impl<'a, T, C> Iterator for IntoIter<'a, T, C>
+impl<'a, T, L, C> Iterator for IntoIter<'a, T, L, C>
 where
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Extras: Clone,
-  C: Cache<'a, T>,
+  L: Lexer<'a, T>,
+  L::State: Clone,
+  C: Cache<'a, T, L>,
 {
   type Item = Spanned<Lexed<'a, T>>;
 
@@ -72,28 +76,30 @@ where
 
 /// An iterator over the tokens produced by a [`Tokenizer`].
 #[derive(derive_more::From, derive_more::Into)]
-pub struct Iter<'a, 'b, T: Token<'a>, C> {
-  stream: &'b mut Tokenizer<'a, T, C>,
+pub struct Iter<'a, 'b, T: Token<'a>, L: Lexer<'a, T>, C> {
+  stream: &'b mut Tokenizer<'a, T, L, C>,
 }
 
-impl<'a, 'b, T, C> Iter<'a, 'b, T, C>
+impl<'a, 'b, T, L, C> Iter<'a, 'b, T, L, C>
 where
   T: Token<'a>,
+  L: Lexer<'a, T>,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub(super) const fn new(stream: &'b mut Tokenizer<'a, T, C>) -> Self {
+  pub(super) const fn new(stream: &'b mut Tokenizer<'a, T, L, C>) -> Self {
     Self { stream }
   }
 }
 
-impl<'a, 'b, T, C> IntoIterator for &'b mut Tokenizer<'a, T, C>
+impl<'a, 'b, T, L, C> IntoIterator for &'b mut Tokenizer<'a, T, L, C>
 where
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Extras: Clone,
-  C: Cache<'a, T>,
+  L: Lexer<'a, T>,
+  L::State: Clone,
+  C: Cache<'a, T, L>,
 {
   type Item = Spanned<Lexed<'a, T>>;
-  type IntoIter = Iter<'a, 'b, T, C>;
+  type IntoIter = Iter<'a, 'b, T, L, C>;
 
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn into_iter(self) -> Self::IntoIter {
@@ -101,11 +107,12 @@ where
   }
 }
 
-impl<'a, T, C> Iterator for Iter<'a, '_, T, C>
+impl<'a, T, L, C> Iterator for Iter<'a, '_, T, L, C>
 where
   T: Token<'a>,
-  <T::Logos as Logos<'a>>::Extras: Clone,
-  C: Cache<'a, T>,
+  L: Lexer<'a, T>,
+  L::State: Clone,
+  C: Cache<'a, T, L>,
 {
   type Item = Spanned<Lexed<'a, T>>;
 

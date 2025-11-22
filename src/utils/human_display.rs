@@ -1,7 +1,5 @@
 use core::fmt;
 
-use crate::source::CustomSource;
-
 use super::PositionedChar;
 
 /// A trait for displaying values in a human-readable format.
@@ -133,13 +131,6 @@ impl DisplayHuman for () {
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn fmt(&self, _: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     Ok(())
-  }
-}
-
-impl<T: DisplayHuman + ?Sized> DisplayHuman for CustomSource<T> {
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    self.as_inner().fmt(f)
   }
 }
 

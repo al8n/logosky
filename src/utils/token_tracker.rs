@@ -337,6 +337,11 @@ impl TokenLimiter {
 
 impl State for TokenLimiter {
   type Error = TokenLimitExceeded;
+
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn check(&self) -> Result<(), Self::Error> {
+    <Self as TokenTracker>::check(self)
+  }
 }
 
 /// A token tracker trait.
