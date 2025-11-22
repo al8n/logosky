@@ -1,11 +1,15 @@
+pub use cache::*;
+pub use checkpoint::Checkpoint;
+pub use cursor::Cursor;
+pub use emitter::Emitter;
 pub use source::Source;
 pub use token::{
   DelimiterToken, IdentifierToken, KeywordToken, Lexed, LitToken, Logos, OperatorToken,
   PunctuatorToken, Require, Token, TriviaToken,
 };
-pub use tokenizer::*;
+pub use token_stream::TokenStream;
 
-use crate::utils::Span;
+use crate::utils::{Span, Spanned};
 
 /// The token related structures and traits
 pub mod token;
@@ -13,7 +17,12 @@ pub mod token;
 /// The source related structures and traits
 pub mod source;
 
-mod tokenizer;
+mod cache;
+mod checkpoint;
+mod cursor;
+mod emitter;
+mod logos;
+mod token_stream;
 
 /// A trait for lexers
 pub trait Lexer<'source, T> {
@@ -41,6 +50,9 @@ pub trait Lexer<'source, T> {
   /// Returns a reference to the current state of the lexer.
   fn state(&self) -> &Self::State;
 
+  /// Returns a mutable reference to the current state of the lexer.
+  fn state_mut(&mut self) -> &mut Self::State;
+
   /// Consumes the lexer and returns the current state.
   fn into_state(self) -> Self::State;
 
@@ -64,81 +76,6 @@ pub trait Lexer<'source, T> {
   /// Panics if adding `n` to current offset would place the `Lexer` beyond the last byte,
   /// or in the middle of an UTF-8 code point (does not apply when lexing raw `&[u8]`).
   fn bump(&mut self, n: usize);
-}
-
-impl<'source, T, L> Lexer<'source, T> for logos::Lexer<'source, L>
-where
-  T: From<L> + Token<'source, Source = L::Source>,
-  T::Error: From<L::Error> + From<<L::Extras as State>::Error>,
-  L: logos::Logos<'source>,
-  L::Extras: State,
-  L::Source: Source,
-{
-  type State = L::Extras;
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn new(src: &'source T::Source) -> Self
-  where
-    Self::State: Default,
-  {
-    logos::Lexer::new(src)
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn with_state(src: &'source T::Source, state: Self::State) -> Self {
-    logos::Lexer::with_extras(src, state)
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn state(&self) -> &Self::State {
-    &self.extras
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn check(&self) -> Result<(), T::Error>
-  where
-    T: Token<'source>,
-  {
-    self.extras.check().map_err(Into::into)
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn into_state(self) -> Self::State {
-    self.extras
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn source(&self) -> &'source T::Source
-  where
-    T: Token<'source>,
-  {
-    self.source()
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn span(&self) -> Span {
-    self.span().into()
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn lex(&mut self) -> Option<Result<T, T::Error>>
-  where
-    T: Token<'source>,
-  {
-    match self.next() {
-      Some(Ok(tok)) => match <Self as Lexer<'_, T>>::check(self) {
-        Ok(()) => Some(Ok(T::from(tok))),
-        Err(err) => Some(Err(err)),
-      },
-      Some(Err(err)) => Some(Err(err.into())),
-      None => None,
-    }
-  }
-
-  #[cfg_attr(not(tarpaulin), inline(always))]
-  fn bump(&mut self, n: usize) {
-    self.bump(n);
-  }
 }
 
 /// A trait for types that can be lexed from the input.
@@ -202,3 +139,62 @@ impl State for () {
     Ok(())
   }
 }
+
+/// A cached token with its associated extras.
+pub struct CachedToken<'a, T: Token<'a>, L: Lexer<'a, T>> {
+  token: Spanned<Lexed<'a, T>>,
+  state: L::State,
+}
+
+impl<'a, T: Token<'a>, L: Lexer<'a, T>> Clone for CachedToken<'a, T, L>
+where
+  L::State: Clone,
+{
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn clone(&self) -> Self {
+    Self {
+      token: self.token.clone(),
+      state: self.state.clone(),
+    }
+  }
+}
+
+impl<'a, T: Token<'a>, L: Lexer<'a, T>> CachedToken<'a, T, L> {
+  /// Creates a new cached token.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  const fn new(token: Spanned<Lexed<'a, T>>, state: L::State) -> Self {
+    Self { token, state }
+  }
+
+  /// Returns a reference to the token.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn token(&self) -> &Spanned<Lexed<'a, T>> {
+    &self.token
+  }
+
+  /// Consumes the cached token and returns the lexed token.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn into_token(self) -> Spanned<Lexed<'a, T>> {
+    self.token
+  }
+
+  /// Returns a reference to the state.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn state(&self) -> &L::State {
+    &self.state
+  }
+
+  /// Consumes the cached token and returns the extras.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn into_components(self) -> (Spanned<Lexed<'a, T>>, L::State) {
+    (self.token, self.state)
+  }
+}
+
+/// A black hole cache that discards all tokens.
+///
+/// `BlackHole` implements the [`Cache`] trait but doesn't actually store any tokens.
+/// All tokens pushed to it are immediately discarded. This is useful when you want to
+/// process tokens in a streaming fashion without maintaining a lookahead buffer.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct BlackHole;

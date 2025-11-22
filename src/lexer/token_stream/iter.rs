@@ -1,9 +1,9 @@
 use super::*;
 
-/// An iterator over the tokens produced by a [`Tokenizer`].
+/// An iterator over the tokens produced by a [`TokenStream`].
 #[derive(derive_more::From, derive_more::Into)]
 pub struct IntoIter<'a, T: Token<'a>, L: Lexer<'a, T>, C> {
-  stream: Tokenizer<'a, T, L, C>,
+  stream: TokenStream<'a, T, L, C>,
 }
 
 impl<'a, T, L, C> IntoIter<'a, T, L, C>
@@ -11,7 +11,7 @@ where
   T: Token<'a>,
   L: Lexer<'a, T>,
 {
-  pub(super) const fn new(stream: Tokenizer<'a, T, L, C>) -> Self {
+  pub(super) const fn new(stream: TokenStream<'a, T, L, C>) -> Self {
     Self { stream }
   }
 }
@@ -43,7 +43,7 @@ where
   }
 }
 
-impl<'a, T, L, C> IntoIterator for Tokenizer<'a, T, L, C>
+impl<'a, T, L, C> IntoIterator for TokenStream<'a, T, L, C>
 where
   T: Token<'a>,
   L: Lexer<'a, T>,
@@ -70,14 +70,14 @@ where
 
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn next(&mut self) -> Option<Self::Item> {
-    Tokenizer::next(&mut self.stream)
+    TokenStream::next(&mut self.stream)
   }
 }
 
-/// An iterator over the tokens produced by a [`Tokenizer`].
+/// An iterator over the tokens produced by a [`TokenStream`].
 #[derive(derive_more::From, derive_more::Into)]
 pub struct Iter<'a, 'b, T: Token<'a>, L: Lexer<'a, T>, C> {
-  stream: &'b mut Tokenizer<'a, T, L, C>,
+  stream: &'b mut TokenStream<'a, T, L, C>,
 }
 
 impl<'a, 'b, T, L, C> Iter<'a, 'b, T, L, C>
@@ -86,12 +86,12 @@ where
   L: Lexer<'a, T>,
 {
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub(super) const fn new(stream: &'b mut Tokenizer<'a, T, L, C>) -> Self {
+  pub(super) const fn new(stream: &'b mut TokenStream<'a, T, L, C>) -> Self {
     Self { stream }
   }
 }
 
-impl<'a, 'b, T, L, C> IntoIterator for &'b mut Tokenizer<'a, T, L, C>
+impl<'a, 'b, T, L, C> IntoIterator for &'b mut TokenStream<'a, T, L, C>
 where
   T: Token<'a>,
   L: Lexer<'a, T>,
@@ -118,6 +118,6 @@ where
 
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn next(&mut self) -> Option<Self::Item> {
-    Tokenizer::next(self.stream)
+    TokenStream::next(self.stream)
   }
 }
