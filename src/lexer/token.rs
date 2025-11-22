@@ -314,9 +314,6 @@ impl<'a, T: Token<'a>> From<Lexed<'a, T>> for Result<T, T::Error> {
 /// }
 /// ```
 pub trait Token<'a>: Clone + core::fmt::Debug + 'a {
-  /// The source type of the lexer.
-  type Source: super::Source + ?Sized;
-
   /// The token kind discriminant used to categorize tokens.
   ///
   /// This is typically an enum that represents the semantic category of each token
@@ -1218,7 +1215,7 @@ pub trait LitToken<'a>: Token<'a> {
 ///     }
 /// }
 /// ```
-pub trait IdentifierToken<'a>: Token<'a> {
+pub trait IdentifierToken<'a, S>: Token<'a> {
   /// Returns `true` when the token is an identifier (user-defined name).
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn is_identifier(&self) -> bool {
@@ -1229,20 +1226,20 @@ pub trait IdentifierToken<'a>: Token<'a> {
   ///
   /// The default implementation defers to [`identifier`](IdentifierToken::identifier).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn matches_identifier(&self, name: &str) -> bool
+  fn matches_identifier<O>(&self, name: &O) -> bool
   where
-    str: Equivalent<<Self::Source as super::Source>::Slice<'a>>,
+    O: Equivalent<S>,
   {
     self.identifier().is_some_and(|id| name.equivalent(id))
   }
 
   /// Returns the identifier source, if this token is an identifier.
-  fn identifier(&self) -> Option<&<Self::Source as super::Source>::Slice<'a>> {
+  fn identifier(&self) -> Option<&S> {
     None
   }
 
   /// Attempts to get the identifier source, returning the `Err(Self)` if this token is not an identifier.
-  fn try_into_identifier(self) -> Result<<Self::Source as super::Source>::Slice<'a>, Self>
+  fn try_into_identifier(self) -> Result<S, Self>
   where
     Self: Sized;
 }

@@ -4,16 +4,18 @@ use super::{Lexer, Source, State, Token};
 
 impl<'source, T, L> Lexer<'source, T> for logos::Lexer<'source, L>
 where
-  T: From<L> + Token<'source, Source = L::Source>,
+  T: From<L> + Token<'source>,
   T::Error: From<L::Error> + From<<L::Extras as State>::Error>,
   L: logos::Logos<'source>,
   L::Extras: State,
   L::Source: Source,
 {
   type State = L::Extras;
+  type Source = L::Source;
+  type Cursor = usize;
 
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn new(src: &'source T::Source) -> Self
+  fn new(src: &'source Self::Source) -> Self
   where
     Self::State: Default,
   {
@@ -21,7 +23,7 @@ where
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn with_state(src: &'source T::Source, state: Self::State) -> Self {
+  fn with_state(src: &'source Self::Source, state: Self::State) -> Self {
     logos::Lexer::with_extras(src, state)
   }
 
@@ -49,7 +51,7 @@ where
   }
 
   #[cfg_attr(not(tarpaulin), inline(always))]
-  fn source(&self) -> &'source T::Source
+  fn source(&self) -> &'source Self::Source
   where
     T: Token<'source>,
   {

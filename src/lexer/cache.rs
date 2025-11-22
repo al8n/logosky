@@ -103,7 +103,7 @@ pub trait Cache<'a, T: Token<'a>, L: Lexer<'a, T>> {
   /// This operation restores the cache state to match the checkpoint, typically
   /// by clearing any tokens that were added after the checkpoint was created.
   /// This is used for parser backtracking.
-  fn rewind(&mut self, checkpoint: &Checkpoint<'a, '_, T, L, Self>)
+  fn rewind(&mut self, checkpoint: &Checkpoint<'a, '_, T, L>)
   where
     Self: Sized;
 

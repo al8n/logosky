@@ -23,16 +23,16 @@ use super::{Cursor, Lexer, Token};
 ///     tokenizer.go(checkpoint); // Restore to saved state
 /// }
 /// ```
-pub struct Checkpoint<'a, 's, T: Token<'a>, L: Lexer<'a, T>, C> {
-  cursor: Cursor<'a, 's, T, L, C>,
+pub struct Checkpoint<'a, 'closure, T: Token<'a>, L: Lexer<'a, T>> {
+  cursor: Cursor<'a, 'closure, T, L>,
   pub(crate) state: L::State,
-  _m: PhantomData<fn(&'s ()) -> &'s ()>,
+  _m: PhantomData<fn(&'closure ()) -> &'closure ()>,
 }
 
-impl<'a, 's, T: Token<'a>, L: Lexer<'a, T>, C> Checkpoint<'a, 's, T, L, C> {
+impl<'a, 'closure, T: Token<'a>, L: Lexer<'a, T>> Checkpoint<'a, 'closure, T, L> {
   /// Creates a new checkpoint.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub(super) const fn new(cursor: Cursor<'a, 's, T, L, C>, state: L::State) -> Self {
+  pub(super) const fn new(cursor: Cursor<'a, 'closure, T, L>, state: L::State) -> Self {
     Self {
       cursor,
       state,
@@ -42,8 +42,8 @@ impl<'a, 's, T: Token<'a>, L: Lexer<'a, T>, C> Checkpoint<'a, 's, T, L, C> {
 
   /// Returns the cursor of the checkpoint.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn cursor(&self) -> Cursor<'a, 's, T, L, C> {
-    self.cursor
+  pub const fn cursor(&self) -> &Cursor<'a, 'closure, T, L> {
+    &self.cursor
   }
 
   /// Returns the state of the checkpoint.
@@ -52,3 +52,4 @@ impl<'a, 's, T: Token<'a>, L: Lexer<'a, T>, C> Checkpoint<'a, 's, T, L, C> {
     &self.state
   }
 }
+

@@ -7,7 +7,8 @@ pub use token::{
   DelimiterToken, IdentifierToken, KeywordToken, Lexed, LitToken, Logos, OperatorToken,
   PunctuatorToken, Require, Token, TriviaToken,
 };
-pub use token_stream::TokenStream;
+pub use input::Input;
+pub use input_ref::InputRef;
 
 use crate::utils::{Span, Spanned};
 
@@ -22,21 +23,26 @@ mod checkpoint;
 mod cursor;
 mod emitter;
 mod logos;
-mod token_stream;
+mod input;
+mod input_ref;
 
 /// A trait for lexers
 pub trait Lexer<'source, T> {
   /// The state of the lexer.
   type State: State;
+  /// The source type of the lexer.
+  type Source: super::Source + ?Sized;
+  /// The cursor type of the lexer.
+  type Cursor;
 
   /// Lexes the input source and returns a tokenizer.
-  fn new(src: &'source T::Source) -> Self
+  fn new(src: &'source Self::Source) -> Self
   where
     Self::State: Default,
     T: Token<'source>;
 
   /// Lexes the input source with the given initial state and returns a tokenizer.
-  fn with_state(src: &'source T::Source, state: Self::State) -> Self
+  fn with_state(src: &'source Self::Source, state: Self::State) -> Self
   where
     T: Token<'source>;
 
@@ -57,12 +63,18 @@ pub trait Lexer<'source, T> {
   fn into_state(self) -> Self::State;
 
   /// Returns a reference to the source being lexed.
-  fn source(&self) -> &'source T::Source
+  fn source(&self) -> &'source Self::Source
   where
     T: Token<'source>;
 
   /// Get the range for the current token in `Source`.
   fn span(&self) -> Span;
+
+  /// Returns the slice of the current token in the source.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn slice(&self) -> Option<<Self::Source as Source>::Slice<'source>> where T: Token<'source> {
+    self.source().slice(self.span().into())
+  }
 
   /// Lexes the next token from the input source.
   fn lex(&mut self) -> Option<Result<T, T::Error>>
